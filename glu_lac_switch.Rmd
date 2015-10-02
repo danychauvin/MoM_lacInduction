@@ -1,0 +1,551 @@
+---
+title: "Architecture of synthetic promoters"
+author: Thomas Julou
+output: pdf_document
+---
+
+```{r variables, include=FALSE}
+dt <- 3             # frame intervall (min)
+dh <- 0.065         # pixel size (µm)
+vertical_cutoff <- 4 / dh   # after it touched this coordinate a cell is discarded
+
+proj_path <- "/import/bc2/home/nimwegen/julou/Documents/Biozentrum/Projects/MoM_Switch"
+scripts_path <- "/import/bc2/home/nimwegen/julou/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
+data2preproc <- function(.d) sub('/data/', '/preproc/', .d) # store cache file in preproc subdir
+```
+
+
+
+
+```{r settings}
+# 
+library(knitr)
+opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE) # , include=FALSE
+
+# set working environment
+invisible(sapply(
+  list.files(scripts_path, pattern="\\.[Rr]$", full.names=TRUE, ignore.case=TRUE), 
+  source, .GlobalEnv))
+setwd(proj_path)
+
+library(parallel)
+numCores <- min(64, detectCores()) # do not use more than 64 cores
+```
+
+
+
+
+```{r}
+# AUTOFLUORESCENCE ESTIMATION ####
+mg_files <- list.files("./data/MG1655_glu_lac", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+
+# load perl scripts output to dataframes
+# NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
+l_data <- list(cells=list(), frames=list())
+for (file in mg_files) {
+  .dat <- NULL
+  .dat <- try( load_timm_data(file, scripts_path, .verbose=TRUE, .data2preproc=data2preproc) ) #, .force=TRUE
+  if (!is.null(.dat))
+    l_data <- mapply(function(.x1, .x2) c(.x1, list(.x2)), 
+                     l_data, .dat, SIMPLIFY = FALSE)
+}
+
+mg_data <- lapply(l_data, function(.var_df) do.call(rbind, .var_df) )
+mg_cells <- mg_data$cells
+
+mg_frames <- group_by(mg_data$frames, date, pos, gl, id) %>%
+  mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
+  # remove daughters of cells that touched the exit
+  ungroup %>% group_by(date, pos, gl) %>%
+  mutate(discard_top=which_to_progeny(discard_top, cid)) %>%
+  mutate(b_rank=mean(total_cell_in_lane - cell_num_in_lane)) %>%
+  #   filter(discard_top==FALSE) %>%
+  mutate(frame=time_sec / dt / 60,
+         vertical_center=(vertical_bottom + vertical_top)/2,
+         cell=interaction(date, pos, gl, id, drop=TRUE))
+
+
+ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14), aes(group=interaction(date, pos, gl, id))) + 
+#   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(switch_ts, cond=='lactose')) +
+  geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-(dh*vertical_center-height_micrometer/2), ymax=-(dh*vertical_center+height_micrometer/2), fill=fluo_amplitude/height_micrometer)) +
+  geom_path(aes(dt*frame, -dh*vertical_center)) +
+#   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(switch_ts, cond=='lactose')) +
+  labs(x="time (min)", y="position (µm)", "GFP concentration")
+
+# # sample cell trace
+# ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14, cell==nth(cell, 64))) + 
+#   geom_path(aes(height_micrometer, fluo_amplitude, group=cell), size=1, alpha=.2) + 
+#   geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax'), method='lm', formula=y~x-1,
+#               data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+#   geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', fullrange=TRUE, se=FALSE, col='gray50',
+#                             data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+#   geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax+b'), method='lm',
+#                             data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+#   xlim(0,6) + ylim(0, 3000)
+
+ggplot(data=filter(mg_frames, !discard_top)) + 
+  geom_point(aes(height_micrometer, fluo_amplitude), size=1, alpha=.2, position='jitter') + 
+  geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax'), method='lm', formula=y~x-1,
+              data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+  geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', fullrange=TRUE, se=FALSE, col='gray50',
+                            data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+  geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax+b'), method='lm',
+                            data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+  xlim(0,6) + ylim(0, 3000)
+
+autofluo_mod <- lm(fluo_amplitude~height_micrometer, data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))
+
+ggplot(filter(mg_frames, pos==0,  gl==14)) +
+  geom_path(aes(time_sec, height_micrometer, col=interaction(date, pos, gl, id)), alpha=.6) +
+  scale_colour_periodic_brewer() +
+  facet_grid(pos~.)
+
+
+
+```
+
+
+```{r parallel}
+l_data <- mclapply(mg_files, 
+                function(.f) try( load_timm_data(.f, scripts_path, .verbose=TRUE, .data2preproc=data2preproc)), #, .force=TRUE
+                mc.cores=numCores)
+
+mg_cells <- l_data %>% 
+  lapply(function(.l) .l$cells) %>% 
+  do.call(rbind, .)
+
+mg_frames <- l_data %>% 
+  lapply(function(.l) .l$frames) %>% 
+  do.call(rbind, .) %>%
+  # remove frames after touching the exit
+  group_by(date, pos, gl, id) %>%
+  mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
+  # remove daughters of cells that touched the exit
+  ungroup %>% group_by(date, pos, gl) %>%
+  mutate(discard_top=which_to_progeny(discard_top, cid)) %>%
+  mutate(b_rank=mean(total_cell_in_lane - cell_num_in_lane)) %>%
+  #   filter(discard_top==FALSE) %>%
+  mutate(frame=time_sec / dt / 60,
+         vertical_center=(vertical_bottom + vertical_top)/2,
+         cell=interaction(date, pos, gl, id, drop=TRUE))
+```
+
+
+```{r}
+# GLU LAC SWITCH ####
+switch_ts <- data.frame(t_start=c(0, 360, 600, 840, 1080, 1320), 
+                        t_end=c(360, 600, 840, 1080, 1320, 1560), 
+                        cond=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'))
+swi_files <- list.files("./data/glu_lac_switch", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+glc_files <- list.files("./data/glucose", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+lac_files <- list.files("./data/lactose", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+# swi_files_all <- swi_files
+# swi_files <- swi_files[1]
+
+# load perl scripts output to dataframes
+# NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
+# l_data <- list(cells=list(), frames=list())
+# for (file in c(glc_files, lac_files, swi_files)) {
+#   .dat <- NULL
+#   .dat <- try( load_timm_data(file, scripts_path, .verbose=TRUE, .data2preproc=data2preproc) ) #, .force=TRUE
+#   if (!is.null(.dat))
+#     l_data <- mapply(function(.x1, .x2) c(.x1, list(.x2)), 
+#                      l_data, .dat, SIMPLIFY = FALSE)
+# }
+
+
+library(parallel)
+numCores <- min(64, detectCores()) # do not use more than 64 cores
+l_data <- mclapply(c(glc_files, lac_files, swi_files), 
+                function(.f) try( load_timm_data(.f, scripts_path, .verbose=TRUE, .data2preproc=data2preproc)), #, .force=TRUE
+                mc.cores=numCores)
+
+l_data %>% 
+  lapply(function(.l) .l$cells) %>% 
+  do.call(rbind, .)
+
+
+
+swi_data <- lapply(l_data, function(.var_df) do.call(rbind, .var_df) )
+swi_cells <- swi_data$cells
+
+swi_frames <- group_by(swi_data$frames, date, pos, gl, id) %>%
+  mutate(discard_top=(function(.h) {
+    .t <- which(.h<hmin_cutoff)
+    if (length(.t) == 0) {
+      return(rep(FALSE, length(.h)))
+    } else {
+      return(c(rep(FALSE, .t[1]),
+               rep(TRUE, length(.h)-.t[1])))
+    }
+  })(hmin)) %>%
+  #   mutate(discard_top=FALSE) %>%
+  mutate(b_rank=mean(tot_rank-rank)) %>%
+  ungroup %>%
+#   filter(discard_top==FALSE) %>%
+  mutate(hcenter=(hmin+hmax)/2,
+         cell=interaction(date, pos, gl, id, drop=TRUE))
+
+# compute connections to parent
+swi_frames_divs <- group_by(swi_frames, date, pos, gl) %>%
+  do( (function(.df1){
+    # first loop on all growth lanes
+    .df1 <- mutate(.df1, cell=interaction(date, pos, gl, id, drop=TRUE))
+    group_by(.df1, id) %>%
+      do( (function(.df1, .df2){
+        # then loop on all cells
+        if (unique(.df2$parent_id) < 0) return(data.frame())
+        .dfp <- filter(.df1, 
+                       cell==factor(interaction(unique(.df2$date), unique(.df2$pos), unique(.df2$gl), unique(.df2$parent_id)), 
+                                    levels=levels(.df1$cell)))
+        .out <- rbind(filter(.df2, frame==min(frame)),
+                      filter(.dfp, frame==max(frame)))
+        .out <- mutate(.out, id_ini=id, id=unique(.df2$id))
+        return(.out)
+      })(.df1, .) )
+  })(.) )
+
+triad_avgw <- 3
+swi_triads <- group_by(swi_frames, date, pos, gl) %>%
+  do( (function(.df1){
+    # first loop on all growth lanes
+    filter(.df1, end_type=="div") %>%
+      group_by(id) %>%
+       do( (function(.df1, .dfp){
+          # then loop on all cells
+#          browser()
+         if (dim(.dfp)[1] < triad_avgw) return(data.frame())
+         .dfcb <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='BOTTOM')
+         if (dim(.dfcb)[1] < triad_avgw) return(data.frame())
+         .dfct <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='TOP')
+         if (dim(.dfct)[1] < triad_avgw) return(data.frame())
+         
+         .dfp <- filter(.dfp, row_number() > dim(.dfp)[1] - triad_avgw) %>%
+           select(end, height, fluo_signal) %>%
+           summarise_each(funs(mean))
+         
+         .dfcb <- filter(.dfcb, row_number() <= triad_avgw) %>%
+           select(id, daughter_type, height, fluo_signal) %>%
+           summarise_each(funs(mean))
+         .dfcb <- setNames(.dfcb, paste("b", names(.dfcb), sep="."))
+         .dfct <- filter(.dfct, row_number() <= triad_avgw) %>%
+           select(id, daughter_type, height, fluo_signal) %>%
+           summarise_each(funs(mean))
+         .dfct <- setNames(.dfct, paste("t", names(.dfct), sep="."))
+         
+         .out <- bind_cols(.dfp, .dfcb, .dfct)
+         return(.out)
+       })(.df1, .) )
+  })(.) )
+swi_triads <- mutate(swi_triads, medium=sapply(end, function(.t) switch_ts$cond[min(which(c(switch_ts$t_start, Inf) > .t*dt))-1]) )
+qplot(fluo_signal , b.fluo_signal + t.fluo_signal, col=medium, data=swi_triads, geom="blank") +
+  geom_abline() +
+  geom_point(alpha=0.2) + 
+  facet_grid(medium~.)
+
+# pdf('plots/nu_switch.pdf', width=6, height=4.5)
+L_nu <- function(.nu, y_t, y_b) {
+  if (.nu<0) return(NA)
+  mean(lgamma(.nu*y_t + .nu*y_b + 1) - lgamma(.nu*y_t + 1) - lgamma(.nu*y_b + 1) - .nu*(y_b+y_t)*log(2))
+  #   mean((y_t+y_b) * digamma(.nu*y_t + .nu*y_b + 1) - y_t * digamma(.nu*y_t + 1) - y_b * digamma(.nu*y_b + 1) - (y_b + y_t)*log(2))
+}
+write.table(select(nu_triads, fluo_signal, b.fluo_signal, t.fluo_signal), "nu_triads.txt", row.names=FALSE)
+
+tmp <- data.frame(nu=seq(0, 100, 0.1)) %>%
+  mutate(L=(Vectorize(L_nu, ".nu"))(nu, y_t=nu_triads$t.fluo_signal, y_b=nu_triads$b.fluo_signal))
+qplot(nu, L, data=tmp, geom="line")
+
+optim(30, L_nu, y_t=nu_triads$t.fluo_signal, y_b=nu_triads$b.fluo_signal, control=list(fnscale=-1))
+
+
+nu_triads <- filter(swi_triads, (end>640/dt & end<800/dt) | (end>1120/dt & end<1280/dt)) %>%
+  ungroup %>%
+  mutate(nu=(b.fluo_signal - t.fluo_signal)^2 / fluo_signal,
+#          nu2=(b.fluo_signal - t.fluo_signal)^2 / (b.fluo_signal + t.fluo_signal),
+         fluo_bin=cut2(fluo_signal, cuts=seq(0, 1e5, 5e3), oneval=FALSE),
+         fluo_bin2=Hmisc::cut2(fluo_signal, g=7, oneval=FALSE))
+nu_star <- mean(nu_triads$nu)
+nu_err <- nu_star / sqrt(dim(nu_triads)[1])
+qplot(fluo_signal, b.fluo_signal + t.fluo_signal, data=nu_triads, geom="blank") +
+  geom_abline() +
+  geom_point(col="red", alpha=0.2)
+qplot(fluo_signal, (b.fluo_signal + t.fluo_signal)/fluo_signal, data=nu_triads, geom="blank") +
+  geom_hline(yintercept=1) +
+  geom_point(col="red", alpha=0.2)
+# qplot(fluo_signal, nu, data=filter(nu_triads), alpha=I(0.2))
+
+nu_binned <- group_by(nu_triads, fluo_bin2) %>%
+  summarise(n=n(), nu_star=mean(nu), nu_err=nu_star/sqrt(n))
+#             nu2_star=mean(nu2), nu2_err=nu2_star/sqrt(n))
+qplot(fluo_bin2, nu_star, data=nu_binned, geom="bar", stat="identity", fill=I("gray40")) +
+  geom_errorbar(aes(ymin=nu_star-nu_err, ymax=nu_star+nu_err), width=0.2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Plot overall experiment
+pls <- group_by(swi_frames, date, pos, gl) %>%
+  do(pll=(function(.df){
+    .df_div <- filter(swi_frames_divs, date==unique(.df$date), pos==unique(.df$pos), gl==unique(.df$gl))
+    list(
+      hf = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8, !discard_top)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, dh*height, col=factor(id), group=interaction(date, pos, gl, id)), alpha=.85) +
+        facet_grid(b_rank~.) +
+        scale_y_log10(breaks=c(2, 4, 8)) +
+        scale_colour_periodic_brewer() +
+        labs(x="time (min)", y="height (µm)") +
+        guides(col="none"),
+      
+      h = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8, !discard_top)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, dh*height, col=-b_rank, group=interaction(date, pos, gl, id)), alpha=.85) +
+        geom_path(aes(dt*frame, dh*height, group=interaction(date, pos, gl, id)), data=.df_div, linetype="dotted") +
+        scale_y_log10(breaks=c(2, 4, 8)) +
+        labs(x="time (min)", y="height (µm)", col="position rank"),
+      
+      ftf = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8, !discard_top)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal, col=factor(id), group=interaction(date, pos, gl, id)), alpha=.85) +
+        facet_grid(b_rank~.) +
+        scale_colour_periodic_brewer() +
+        labs(x="time (min)", y="total GFP") +
+        guides(col="none"),
+      
+      ft = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8, !discard_top)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal, col=-b_rank, group=interaction(date, pos, gl, id)), alpha=.85) +
+        geom_path(aes(dt*frame, fluo_signal, group=interaction(date, pos, gl, id)), data=.df_div, linetype="dotted") +
+        labs(x="time (min)", y="total GFP", col="position rank"),
+      
+      fcf = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8, !discard_top)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal/height, col=factor(id), group=interaction(date, pos, gl, id)), alpha=.85) +
+        facet_grid(b_rank~.) +
+        scale_colour_periodic_brewer() +
+        labs(x="time (min)", y="GFP concentration") +
+        guides(col="none"),
+      
+      fc = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8, !discard_top)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal/height, col=-b_rank, group=interaction(date, pos, gl, id)), alpha=.85) +
+        geom_path(aes(dt*frame, fluo_signal/height, group=interaction(date, pos, gl, id)), data=.df_div, linetype="dotted") +
+        labs(x="time (min)", y="GFP concentration", col="position rank")
+      
+    )
+  })(.))
+
+pdf('plots/switch_path_height.pdf', width=12, height= 6)
+for (i in 1:dim(pls)[1])
+  plot(pls[[i, 'pll']] [['hf']] + 
+         labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
+dev.off()
+
+pdf('plots/switch_path_fluotot.pdf', width=12, height=6)
+for (i in 1:dim(pls)[1])
+  plot(pls[[i, 'pll']] [['ftf']] + 
+         labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
+dev.off()
+
+
+
+# Kymograph plots
+
+# ggplot(data=swi_frames, aes(group=interaction(date, pos, gl, id))) + 
+#   #   geom_ribbon(aes(frame, ymin=-hmin, ymax=-hmax, fill=factor(id)), alpha=.15) +
+#   geom_ribbon(aes(frame, ymin=-(hcenter-height/2), ymax=-(hcenter+height/2), fill=factor(id)), alpha=.3) +
+#   geom_path(aes(frame, -hcenter, col=factor(id)), alpha=.5) +
+#   scale_colour_periodic_brewer() +
+#   scale_fill_periodic_brewer() +
+#   guides(col="none", fill="none")
+
+plk <- group_by(swi_frames, date, pos, gl) %>%
+  do(pl=(function(.df){
+    #     browser()
+    .df_div <- filter(swi_frames_divs, date==unique(.df$date), pos==unique(.df$pos), gl==unique(.df$gl))
+    ggplot(data=.df, aes(group=interaction(date, pos, gl, id))) + 
+      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(switch_ts, cond=='lactose')) +
+      geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-dh*(hcenter-height/2), ymax=-dh*(hcenter+height/2), fill=fluo_signal/height)) +
+      geom_path(aes(dt*frame, -dh*hcenter)) +
+      geom_path(aes(dt*frame, -dh*hcenter), data=.df_div, linetype="dotted") +
+      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(switch_ts, cond=='lactose')) +
+      scale_fill_gradient2(low="gray50", high="green", midpoint=200) + 
+      labs(x="time (min)", y="position (µm)", "GFP concentration")
+  })(.))
+
+pdf('plots/switch_kymo_fluoconc.pdf', width=12, height=6)
+for (i in 1:dim(pls)[1])
+  plot(plk[[i, 'pl']] + 
+         labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
+dev.off()
+
+
+
+
+# GLUCOSE ####
+
+# load perl scripts output to dataframes
+# NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
+glu_files <- list.files("./data/glucose", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+l_data <- list(cells=list(), frames=list())
+for (file in glu_files) {
+  .dat <- load_timm_data(file, .verbose=TRUE, .data2preproc=data2preproc)#, .force=TRUE)
+  if (!is.null(.dat))
+    l_data <- mapply(function(.x1, .x2) c(.x1, list(.x2)), 
+                     l_data, .dat, SIMPLIFY = FALSE)
+}
+
+glu_data <- lapply(l_data, function(.var_df) do.call(rbind, .var_df) )
+glu_cells <- glu_data$cells
+
+#####
+
+ggplot(filter(glu_cells, start>0 & end_type=='div')) +
+  geom_point(aes(dt*end, dt*(end-start)))
+  
+ggplot(filter(glu_cells, start>0 & end_type=='div')) +
+  geom_point(aes(dt*end, slope)) +
+  geom_smooth(aes(dt*end, slope), data=filter(glu_cells, start>0 & end_type=='div' & slope>.01 & slope<.04)) +
+  xlim(0, 500) + ylim(0, 0.05)
+
+ggplot(filter(glu_cells, start>0 & end_type=='div')) +
+  geom_point(aes(dt*end, slope, group=interaction(pos, gl)), alpha=.3) +
+  geom_smooth(aes(dt*end, slope, col=interaction(pos, gl)), se=F, span=1, data=filter(glu_cells, start>0 & end_type=='div' & slope>.01 & slope<.04)) +
+  xlim(0, 1000) + ylim(0, 0.05) +
+  scale_colour_periodic_brewer()
+
+
+
+
+
+glu_frames <- group_by(glu_data$frames, date, pos, gl, id) %>%
+  mutate(discard_top=(function(.h) {
+    .t <- which(.h<hmin_cutoff)
+    if (length(.t) == 0) {
+      return(rep(FALSE, length(.h)))
+    } else {
+      return(c(rep(FALSE, .t[1]),
+               rep(TRUE, length(.h)-.t[1])))
+    }
+  })(hmin)) %>%
+#   mutate(discard_top=FALSE) %>%
+  mutate(b_rank=mean(tot_rank-rank)) %>%
+  ungroup %>%
+  filter(discard_top==FALSE) %>%
+  mutate(hcenter=(hmin+hmax)/2,
+         cell=interaction(date, pos, gl, id, drop=TRUE))
+
+# compute connections to parent
+glu_frames_divs <- group_by(glu_frames, date, pos, gl) %>%
+  do( (function(.df1){
+    # first loop on all growth lanes
+    .df1 <- mutate(.df1, cell=interaction(date, pos, gl, id, drop=TRUE))
+    group_by(.df1, id) %>%
+      do( (function(.df1, .df2){
+        # then loop on all cells
+        if (unique(.df2$parent_id) < 0) return(data.frame())
+        .dfp <- filter(.df1, 
+                       cell==factor(interaction(unique(.df2$date), unique(.df2$pos), unique(.df2$gl), unique(.df2$parent_id)), 
+                                    levels=levels(.df1$cell)))
+        .out <- rbind(filter(.df2, frame==min(frame)),
+                      filter(.dfp, frame==max(frame)))
+        .out <- mutate(.out, id_ini=id, id=unique(.df2$id))
+        return(.out)
+      })(.df1, .) )
+  })(.) )
+
+
+# Plot overall experiment
+pls <- group_by(swi_frames, date, pos, gl) %>%
+  do(pll=(function(.df){
+    .df_div <- filter(swi_frames_divs, date==unique(.df$date), pos==unique(.df$pos), gl==unique(.df$gl))
+    list(
+      hf = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, dh*height, col=factor(id), group=interaction(date, pos, gl, id)), alpha=.85) +
+        facet_grid(b_rank~.) +
+        scale_y_log10(breaks=c(2, 4, 8)) +
+        scale_colour_periodic_brewer() +
+        labs(x="time (min)", y="height (µm)") +
+        guides(col="none"),
+      
+      h = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, dh*height, col=-b_rank, group=interaction(date, pos, gl, id)), alpha=.85) +
+        geom_path(aes(dt*frame, dh*height, group=interaction(date, pos, gl, id)), data=.df_div, linetype="dotted") +
+        scale_y_log10(breaks=c(2, 4, 8)) +
+        labs(x="time (min)", y="height (µm)", col="position rank"),
+      
+      ftf = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal, col=factor(id), group=interaction(date, pos, gl, id)), alpha=.85) +
+        facet_grid(b_rank~.) +
+        scale_colour_periodic_brewer() +
+        labs(x="time (min)", y="total GFP") +
+        guides(col="none"),
+
+      ft = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal, col=-b_rank, group=interaction(date, pos, gl, id)), alpha=.85) +
+        geom_path(aes(dt*frame, fluo_signal, group=interaction(date, pos, gl, id)), data=.df_div, linetype="dotted") +
+        labs(x="time (min)", y="total GFP", col="position rank"),
+      
+      fcf = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal/height, col=factor(id), group=interaction(date, pos, gl, id)), alpha=.85) +
+        facet_grid(b_rank~.) +
+        scale_colour_periodic_brewer() +
+        labs(x="time (min)", y="GFP concentration") +
+        guides(col="none"),
+      
+      fc = ggplot(data=mutate(.df, b_rank=-round(b_rank)) %>% filter(b_rank>-8)) + 
+        geom_rect(aes(xmin=t_start, xmax=t_end, ymin=0, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(switch_ts, cond=='lactose')) +
+        geom_path(aes(dt*frame, fluo_signal/height, col=-b_rank, group=interaction(date, pos, gl, id)), alpha=.85) +
+        geom_path(aes(dt*frame, fluo_signal/height, group=interaction(date, pos, gl, id)), data=.df_div, linetype="dotted") +
+        labs(x="time (min)", y="GFP concentration", col="position rank")
+      
+    )
+  })(.))
+
+pdf('switch_path_height.pdf', width=12, height=6)
+for (i in 1:dim(pls)[1])
+  plot(pls[[i, 'pll']] [['hf']] + 
+         labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
+dev.off()
+
+pdf('switch_path_fluotot.pdf', width=12, height=6)
+for (i in 1:dim(pls)[1])
+  plot(pls[[i, 'pll']] [['ftf']] + 
+         labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
+dev.off()
+
+
+# Chimograph plots
+ggplot(data=swi_frames, aes(group=interaction(date, pos, gl, id))) + 
+#   geom_ribbon(aes(frame, ymin=-hmin, ymax=-hmax, fill=factor(id)), alpha=.15) +
+  geom_ribbon(aes(frame, ymin=-(hcenter-height/2), ymax=-(hcenter+height/2), fill=factor(id)), alpha=.3) +
+  geom_path(aes(frame, -hcenter, col=factor(id)), alpha=.5) +
+  scale_colour_periodic_brewer() +
+  scale_fill_periodic_brewer() +
+  guides(col="none", fill="none")
+
+pls <- group_by(swi_frames, date, pos, gl) %>%
+  do(pl=(function(.df){
+#     browser()
+    .df_div <- filter(swi_frames_divs, date==unique(.df$date), pos==unique(.df$pos), gl==unique(.df$gl))
+    ggplot(data=.df, aes(group=interaction(date, pos, gl, id))) + 
+      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(switch_ts, cond=='lactose')) +
+      geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-dh*(hcenter-height/2), ymax=-dh*(hcenter+height/2), fill=fluo_signal/height)) +
+      geom_path(aes(dt*frame, -dh*hcenter)) +
+      geom_path(aes(dt*frame, -dh*hcenter), data=.df_div, linetype="dotted") +
+      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(switch_ts, cond=='lactose')) +
+      scale_fill_gradient2(low="gray50", high="green", midpoint=200) + 
+      labs(x="time (min)", y="position (µm)", "GFP concentration")
+    })(.))
+
+pdf('switch_chimo_fluoconc.pdf', width=12, height=6)
+for (i in 1:dim(pls)[1])
+  plot(pls[[i, 'pl']] + 
+         labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
+dev.off()
+
+
+```
