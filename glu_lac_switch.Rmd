@@ -219,10 +219,6 @@ ggplot(data=filter(mg_frames, !discard_top)) +
   geom_point(aes(height_micrometer, fluo_amplitude), size=1, alpha=.2, position=position_jitter(width=1e-2)) + 
   geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax'), method='lm', formula=y~x-1,
               data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
-  geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', fullrange=TRUE, se=FALSE, col='gray50',
-                            data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
-  geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax+b'), method='lm',
-                            data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) #+
   # xlim(0,6) + ylim(0, 3000)
 
 ggplot(data=filter(mg_frames, !discard_top), aes(height_micrometer, fluo_amplitude)) + 
@@ -233,21 +229,9 @@ ggplot(data=filter(mg_frames, !discard_top), aes(height_micrometer, fluo_amplitu
   xlim(0,6) + ylim(0, 3000)
 ggsave('plots/mg_autofluo_length.pdf', width=5, height=3)
 
-ggplot(data=filter(mg_frames, !discard_top), aes(log(height_micrometer), log(fluo_amplitude))) + 
-  geom_point(size=1, alpha=.2, position=position_jitter(width=1e-2)) + 
-  geom_smooth(method='lm', col='red', fullrange=TRUE,
-              data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))
-
-ggplot(data=filter(mg_frames, !discard_top), aes(height_micrometer, fluo_amplitude)) + 
-  geom_point(size=1, alpha=.2, position=position_jitter(width=1e-2)) + 
-  geom_smooth(method='lm', col='red', formula=y~x-1, fullrange=TRUE,
-              data=filter(mg_frames, !discard_top, fluo_amplitude>2500, height_micrometer<4))
-
-autofluo_mod <- lm(fluo_amplitude~height_micrometer-1, data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))
-
 ```
 
-After discarding filamentous cells (since outliers would be overweighted?!), we can use a simple linear model to predict autofluorescence for cells of a given length. Let's check visually that fluctuations for a given cell span approximately the same range (rather than having some cells systematically high or low).
+Let's check visually that fluctuations for a given cell correlate with its length (rather than having some cells systematically high or low). Then, we look at cells with high autofluorescence values: we checked manually for some of these that they exhibit a hot pixel (contributing the size-independent "autofluorescence").
 
 ```{r}
 # sample cell trace
@@ -255,26 +239,74 @@ ns <- 6
 ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14) %>% 
          filter(cell %in% unique(cell)[sample(1:40, ns)])) + 
   geom_path(aes(height_micrometer, fluo_amplitude, col=cell), alpha=.5) + 
-  geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', fullrange=TRUE, se=FALSE, col='gray50',
-                            data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
-  xlim(0,6) + ylim(0, 3000)
+  geom_abline(slope=mean_autofluo$slope0) +
+  xlim(1,4) + ylim(0, 3000)
 
 
 autofl_outliers_cell <- filter(mg_frames, !discard_top, fluo_amplitude>2500, height_micrometer<4) %>%
   ungroup %>% .[['cell']] %>% unique
 ggplot(data=filter(mg_frames, !discard_top, cell %in% autofl_outliers_cell)) + 
   geom_path(aes(height_micrometer, fluo_amplitude, col=cell), alpha=.5) + 
-  geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', fullrange=TRUE, se=FALSE, col='gray50',
-                            data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
-  xlim(0,6) + ylim(0, 3000)
+  geom_abline(slope=mean_autofluo$slope0) +
+  xlim(1,4) + ylim(0, 3000)
 
 ```
+
+
+We estimate the slope of each cell that is not filamenting (between 1.7 and 3.4µm) and that is observed over 5 frames or more.
+These slopes display a strong negative correlation with the intercepts. Cells with non-zero intercepts might correspond to cells with hot/dead pixels. Overall, the default intercept is not zero (does this correspond to the sum of non-zero values of pixels in the dark?).
+
+```{r}
+nframes_autofluo <- 5
+mg_autofluo <- filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4) %>%
+  group_by(date, pos, gl, id) %>%
+  mutate(npoints=n()) %>% filter(npoints>=nframes_autofluo) %>%
+  do(mod0=lm(fluo_amplitude~height_micrometer-1, data=.), mod=lm(fluo_amplitude~height_micrometer, data=.)) %>%
+  mutate(intercept=coef(mod)[1], slope=coef(mod)[2], slope.sd=summary(mod)$coeff[2, 2], 
+         slope0=coef(mod0)[1], slope0.sd=summary(mod0)$coeff[1, 2],
+         r2=summary(mod)$r.squared, r2_0=summary(mod0)$r.squared)
+
+ggplot(mg_autofluo, aes(intercept, slope)) +
+  geom_errorbar(aes(ymin=slope-slope.sd, ymax=slope+slope.sd), alpha=0.2) +
+  geom_point(alpha=0.2) +
+  geom_vline(xintercept=c(-500, 900), col='red')
+
+qplot(intercept, data=mg_autofluo) +
+  geom_vline(xintercept=c(-500, 900), col='red')
+
+```
+
+Overall the fit is much better for a model constrained through the origin?! This yields a narrower distribution of slopes. We use this model and estimate the average slope (using errors) to predict the autofluorescence at a given cell length.
+
+```{r}
+ggplot(filter(mg_autofluo, between(intercept, -500, 900))) +
+  stat_ecdf(aes(r2_0, col='Y=aX')) +
+  stat_ecdf(aes(r2, col='Y=aX+b')) +
+  labs(x='r2', y='cumulative', col='model')
+
+mean_autofluo <- mg_autofluo %>% ungroup %>%
+  summarise(slope0=sqrt( sum(slope0^2/slope0.sd^2) / sum(1/slope0.sd^2) ), 
+            slope0.sd=1 / sqrt(sum(1/slope0.sd^2)))
+
+ggplot(filter(mg_autofluo, between(intercept, -500, 900))) +
+  geom_stephist(aes(slope0, col='Y=aX')) +
+  geom_stephist(aes(slope, col='Y=aX+b')) +
+  geom_vline(aes(xintercept=slope0, col='Y=aX'), data=mean_autofluo, lty='dashed') +
+  labs(x='slope (DN/µm)', col='model')
+
+autofluo_predict <- function(.h) .h * mean_autofluo$slope0
+myframes <- myframes %>%
+    mutate(fluogfp_amplitude = fluo_amplitude - autofluo_predict(height_micrometer))
+
+```
+
 
 The autofluorescence concentration is noticeably impacted by the extracellular conditions. For instance, it increases dramatically when the environment is switched to lactose. Are the intial and post-switch decreases due to bleaching?
 
 ```{r}
 ggplot(data=filter(mg_frames, !discard_top) %>% head(1e4), aes(time_sec, fluo_amplitude/height_micrometer)) + 
   geom_rect(aes(x=1, y=1, xmin=12*3600, xmax=24*3600, ymin=-Inf, ymax=Inf, fill='lactose'), alpha=.1, data=data.frame()) + # draws one rectangle per data line
+  geom_hline(yintercept=mean_autofluo$slope0, lty='dashed') +
   geom_point(alpha=.2, size=1) +
   geom_smooth(method='loess', span=.05, se=FALSE) +
   scale_x_hours() +
@@ -298,116 +330,110 @@ When no FPs are produced (glucose): $\frac{dU}{dt} = -(\beta + \delta) U$ \
 
 When no FPs are produced, the total fluorescence decreases rapidly (though the total number of FPs is expected to be constant). This is a direct observation of photobleaching and protein degradation and we can estimate $\beta + \delta$ as the decay rate of U. We also use this regime to estimate the conversion factor between camera units and FP units. In this case, the partitioning can be better estimated by extrapolating the mother and daughters fluorescence at division between the 2 adjacent time points (based on the exponential decay model).
 
-When FPs are produced, $U_{(t)} = \alpha/\gamma + U_{(t-dt)} exp(-\gamma dt)$
-
-At best, we also would like to estimate the total number of FPs present in the cell $P = U + B$ (instead of the unbleached fraction) in order to measure the instantaneous promoter activity. Since we know the initial condition $B_0 = 0$ and provided that we can estimate $\beta$ and $\delta$, we can compute $B_t$ for all cells at all time by traversing the tree starting from the founder cells. \
-**Can we find a trick to estimate $\beta$ and $\delta$ using data from a unique illumination condition?**
-
-$\frac{dP}{dt} = -\delta P$ \
-$\frac{dU}{dt} = -(\beta + \delta) U$ \
-$\frac{dB}{dt} = \beta U - \delta B$
-
-in particular $B + \frac{dB}{dt} = \beta U + (1 - \delta) B$ hence $B_t = \beta U_{t-dt} + (1-\delta) B_{t-dt}$ (incorrect).
+When FPs are produced, $U(t+dt) = U(t) - (\beta + \delta) dt U(t) + \alpha(t) dt (\beta + \delta) dt$. \
+$\alpha = (U(t+dt) - U(t) + (\beta + \delta) dt U(t)) / (\beta + \delta) dt^2$
+Hence knowing the bleaching and degradation rate, one can estimate the instantaneous production rate \alpha(t)
+NB: means that average production rate over the cell cycle not taking bleaching and degradation into account are correct up to a constant.
 
 
 ### Estimation
 
-At first we focus on estimating $\beta + \delta$ and aim at extrapolating the mother and daughters fluorescence at division between the 2 adjacent time points.
+We focus on estimating $\beta + \delta$ and aim at extrapolating the mother and daughters fluorescence at division between the 2 adjacent time points.
+
+Let's first look at fluorescence decay for cells in a given lane. The slopes are steeper for more fluorescent cells, which suggests proportional decay (as expected). This is nicely confirmed by constant slope in log scale.
 
 ```{r}
-
 ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
                      between_or(time_sec, 
                                 (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
                                 (filter(switch_ts, cond=='glucose')$t_end-30)*60) ) %>% 
          mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
          group_by(date, pos, gl, id) %>% 
-         mutate(time_sec_ini=first(time_sec), gfp_amplitude_ini=first(gfp_amplitude)), 
-       aes(time_sec - time_sec_ini, gfp_amplitude, col=cell)) +
+         mutate(time_sec_ini=first(time_sec)), 
+       aes(time_sec - time_sec_ini, fluogfp_amplitude, col=cell)) +
   geom_path(alpha=0.6) +
   expand_limits(y=0) +
   scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(0.5)  + scale_y_log10()
-
-ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
-                     between_or(time_sec, 
-                                (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
-                                (filter(switch_ts, cond=='glucose')$t_end-30)*60) ) %>% 
-         mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
-         group_by(date, pos, gl, id) %>% mutate(time_sec_ini=first(time_sec), gfp_amplitude_ini=first(gfp_amplitude)), 
-       aes(time_sec - time_sec_ini, log(gfp_amplitude) -log(gfp_amplitude_ini) , group=cell, col=gfp_amplitude_ini)) +
-  geom_path(alpha=0.6) +
-  scale_x_hours(0.5) 
-
-
-em_fit <- function(x,y){
-  x <- as.numeric(x)
-  y <- as.numeric(y)
-  a <- ((sum(x^2*y) * sum(y*log(y))) - (sum(x*y) * sum(x*y*log(y)))) / 
-    ((sum(y) * sum(x^2*y)) - sum(x*y)^2)
-  b <- ((sum(y) * sum(x*y*log(y))) - (sum(x*y) * sum(y*log(y)))) /
-    ((sum(y) * sum(x^2*y)) - sum(x*y)^2)
-  xfitted <- x
-  yfitted <- exp(a+b*x)
-  residuals <- yfitted - y
-  SStot <- sum((y-mean(y))^2)
-  SSerr <- sum((y-yfitted)^2)
-  rsquared <- 1 - (SSerr/SStot)
+  scale_x_hours(0.5)
   
-  return <- list(a=a,b=b,x=x,y=y,xfitted=xfitted,yfitted=yfitted,residuals=residuals,SStot=SStot,SSerr=SSerr,rsquared=rsquared)
-}
+last_plot() +
+  scale_y_log10()
 
-bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='switch', time_sec>(2+4)*3600, # end_type=='div',
+bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
+                         fluogfp_amplitude > autofluo_predict(height_micrometer),
+                         time_sec>(2+4)*3600, # end_type=='div',
                          between_or(time_sec, 
                                     (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
                                     (filter(switch_ts, cond=='glucose')$t_end-30)*60) ) %>% 
   group_by(date, pos, gl, id) %>% 
-  mutate(npoints=sum(gfp_amplitude>0)) %>%
+  mutate(npoints=sum(fluogfp_amplitude>0)) %>%
   filter(npoints>10) %>%
-  do(npoints=first(.$npoints), time_sec_ini=first(.$time_sec), gfp_amplitude_ini=first(.$gfp_amplitude),
-     mod_lin=lm(gfp_amplitude~time_sec, data=.), mod_llog=lm(log(gfp_amplitude)~time_sec, data=.), mod_exp=em_fit(.$time_sec, .$gfp_amplitude)) %>%
-  mutate(npoints=unlist(npoints), time_sec_ini=unlist(time_sec_ini), gfp_amplitude_ini=unlist(gfp_amplitude_ini),
+  do(npoints=first(.$npoints), time_sec_ini=first(.$time_sec), fluogfp_amplitude_ini=first(.$fluogfp_amplitude),
+     mod_lin=lm(fluogfp_amplitude~time_sec, data=.), mod_exp=lm(log(fluogfp_amplitude)~time_sec, data=.)) %>%
+  mutate(npoints=unlist(npoints), time_sec_ini=unlist(time_sec_ini),
+         fluogfp_amplitude_ini=unlist(fluogfp_amplitude_ini),
          slope=summary(mod_lin)$coeff[2], r2=summary(mod_lin)$r.squared,
-         llog_slope=summary(mod_llog)$coeff[2], llog_r2=summary(mod_llog)$r.squared,
-         exp_slope=mod_exp[['b']], exp_r2=mod_exp[['rsquared']]) %>%
+         exp_slope=summary(mod_exp)$coeff[2], exp_r2=summary(mod_exp)$r.squared,
+         exp_slope.sd=summary(mod_exp)$coeff[2, 2]) %>%
   mutate(cell=paste(date, pos, gl, id, sep='.'))
 
+```
 
-qplot(time_sec_ini, r2, data=bleaching_fits)
+We fit the decay (accounting for the cell autofluorescence) for each cell observed on 10 frames or more and with GFP fluorescence greater than the predicted autofluorescence. Surprinsingly, exponential fits do not have higher r2 than linear fits. However, the distribution of slopes is narrower with the exponential model.
 
-qplot(npoints, r2, data=bleaching_fits)
-
-ggplot(data = bleaching_fits) +
-  geom_point(aes(r2, exp_r2)) +
-  geom_abline()
-
+```{r}
 ggplot(data = bleaching_fits) +
   stat_ecdf(aes(r2, col='lin')) +
-  stat_ecdf(aes(exp_r2, col='exp'))
+  stat_ecdf(aes(exp_r2, col='exp')) +
+  labs(col='model', y='cumulative')
 
 .bw <- .1
 ggplot(data = filter(bleaching_fits, r2>.8)) +
   geom_stephist(aes(slope/mean(slope), col='lin'), binwidth=.bw) +
   geom_stephist(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'), binwidth=.bw)
 
+```
+
+This can be explained by the fact that each cell spans a relatively narrow range of fluorescence (where linear and exponential decay are comparable) during its cell cycle. Hence the quality of the fit is dominated by experimental errors rather than by the overall shape. Moreover the broader distribution of slopes with the linear model can be explained by the fact that the slope scales with the total fluorescence in the linear model while the decay rate doesn't.
+
+```{r}
+qplot(fluogfp_amplitude_ini, slope, data=bleaching_fits) + 
+  geom_smooth(method='lm')
+qplot(fluogfp_amplitude_ini, exp_slope, data=bleaching_fits) +
+  geom_smooth(method='lm')
+
+```
+
+We compute the average decay by taking the slope errors into account:
+
+```{r}
+bleaching_rate <- bleaching_fits %>%
+  ungroup %>%
+  summarise(mean=-sqrt( sum(exp_slope^2/exp_slope.sd^2) / sum(1/exp_slope.sd^2) ), 
+            sd=1 / sqrt(sum(1/exp_slope.sd^2)))
+
 ggplot(data = bleaching_fits) +
-  geom_histogram(aes(exp_slope)) + 
-  xlim(-2e-4, 1e-4)
+  geom_histogram(aes(exp_slope), fill='gray35') +
+  geom_vline(xintercept=bleaching_rate$mean) +
+  labs(x='bleaching + decay rate (/s)')
 
-bleaching_rate <- mean(bleaching_fits$exp_slope, na.rm=T)
 
+bleaching_predict <- function(.h) .h * mean_autofluo$slope0
 ```
 
 
 
 ## GFP conversion factor estimation
 
-account for autofluo
-discard bottom cell
+For each division event (where mother and both daughters are observed for 10 frames or more; discarding bottom cell), we estimate the fluorescence and size at division. On one hand, we do it by average ing the last and first 3 frames around division; on the other hand, we do it by fitting the previously characterized exponential decay for the fluorescence and a free exponential growth for the size to the last and first 10 frames around division.
+
+Reassuringly, while the daughters sum is systematically lower than their mother (due to bleaching + degradation) with the average estimation, the sum is closer to the mother value with the fit. In the following we assume these are equal and use the sum to compute the bias since this is less subject to measurement errors. Regarding the size estimation, the fit underestimate size at birth as already established by Erik.
 
 ```{r}
 
-ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', time_sec>(2+4)*3600, 
+ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', 
+                     cell_num_in_lane < total_cell_in_lane,
+                     time_sec>(2+4)*3600, 
                      between_or(time_sec, 
                                 (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
                                 (filter(switch_ts, cond=='glucose')$t_end-30)*60)) %>% 
@@ -420,16 +446,17 @@ ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch'
   geom_path(alpha=0.6) +
   expand_limits(y=0) +
   scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(0.5) 
+  scale_x_hours(2) 
 
 
 triad_avgw <- 3
 triad_fitw <- 10
-swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch', time_sec>(2+4)*3600, 
+swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
+                     cell_num_in_lane < total_cell_in_lane,
+                     time_sec>(2+4)*3600, 
                      between_or(time_sec, 
                                 (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
                                 (filter(switch_ts, cond=='glucose')$t_end-30)*60)) %>%
-  mutate(fluogfp_amplitude = fluo_amplitude-predict(autofluo_mod, .)) %>%
   group_by(date, pos, gl) %>%
   do( (function(.df1){
     # first loop on all growth lanes
@@ -437,34 +464,34 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
       group_by(id) %>%
        do( (function(.df1, .dfp){
           # then loop on all cells
-         if (dim(.dfp)[1] < max(triad_avgw, triad_fitw)) return(data.frame())
+         if (sum(.dfp$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
          .dfcb <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='BOTTOM')
-         if (dim(.dfcb)[1] < max(triad_avgw, triad_fitw)) return(data.frame())
+         if (sum(.dfcb$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
          .dfct <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='TOP')
-         if (dim(.dfct)[1] < max(triad_avgw, triad_fitw)) return(data.frame())
+         if (sum(.dfct$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
          # browser()
   
-         fluo_modp <- em_fit(.dfp$time_sec, .dfp$fluogfp_amplitude)
-         height_modp <- em_fit(.dfp$time_sec, .dfp$height_micrometer)
-         fluo_modcb <- em_fit(.dfcb$time_sec, .dfcb$fluogfp_amplitude)
-         height_modcb <- em_fit(.dfcb$time_sec, .dfcb$height_micrometer)
-         fluo_modct <- em_fit(.dfct$time_sec, .dfct$fluogfp_amplitude)
-         height_modct <- em_fit(.dfct$time_sec, .dfct$height_micrometer)
-         
+         fluo_intercept_p <- coef(lm(I( log(fluogfp_amplitude) - bleaching_rate$mean * time_sec ) ~ 1, data=.dfp))
+         fluo_intercept_cb <- coef(lm(I( log(fluogfp_amplitude) - bleaching_rate$mean * time_sec ) ~ 1, data=.dfcb))
+         fluo_intercept_ct <- coef(lm(I( log(fluogfp_amplitude) - bleaching_rate$mean * time_sec ) ~ 1, data=.dfct))
+         height_modp <- lm(log(height_micrometer)~time_sec, data=.dfp) %>% coef
+         height_modcb <- lm(log(height_micrometer)~time_sec, data=.dfcb) %>% coef
+         height_modct <- lm(log(height_micrometer)~time_sec, data=.dfct) %>% coef
+
          bind_cols(
            filter(.dfp, row_number() > dim(.dfp)[1] - triad_avgw) %>%
              select(end_time, height_avg=height_micrometer, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
              bind_cols(data.frame(div_time=unique(.dfp$end_time)+dt/2*60) %>% 
-                         mutate(fluo_fit = exp(fluo_modp$a + div_time * fluo_modp$b),
-                                height_fit = exp(height_modp$a + div_time * height_modp$b))),
+                         mutate(fluo_fit = exp(fluo_intercept_p + div_time * bleaching_rate$mean),
+                                height_fit = exp(height_modp[1] + div_time * height_modp[2]))),
            
            filter(.dfcb, row_number() <= triad_avgw) %>%
              select(id, height_avg=height_micrometer, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
              bind_cols(data.frame(div_time=unique(.dfp$end_time)+dt/2*60) %>% 
-                         mutate(fluo_fit = exp(fluo_modcb$a + div_time * fluo_modcb$b),
-                                height_fit = exp(height_modcb$a + div_time * height_modcb$b)) %>%
+                         mutate(fluo_fit = exp(fluo_intercept_cb + div_time * bleaching_rate$mean),
+                                height_fit = exp(height_modcb[1] + div_time * height_modcb[2])) %>%
                          select(-div_time)) %>%
              setNames(., paste("b", names(.), sep=".")),
            
@@ -472,8 +499,8 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
              select(id, height_avg=height_micrometer, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
              bind_cols(data.frame(div_time=unique(.dfp$end_time)+dt/2*60) %>% 
-                         mutate(fluo_fit = exp(fluo_modct$a + div_time * fluo_modct$b),
-                                height_fit = exp(height_modct$a + div_time * height_modct$b)) %>%
+                         mutate(fluo_fit = exp(fluo_intercept_ct + div_time * bleaching_rate$mean),
+                                height_fit = exp(height_modct[1] + div_time * height_modct[2])) %>%
                          select(-div_time)) %>%
              setNames(., paste("t", names(.), sep="."))
          )
@@ -493,23 +520,11 @@ ggplot(swi_triads) +
   geom_abline() +
   labs(col='estimation')
 
-swi_triads <- swi_triads %>%
-  mutate(nu=(b.fluo_fit - t.fluo_fit)^2 / fluo_fit,
-#          nu2=(b.fluo_signal - t.fluo_signal)^2 / (b.fluo_signal + t.fluo_signal),
-         fluo_bin=cut2(fluo_fit, cuts=seq(0, 1e5, 5e3), oneval=FALSE),
-         fluo_bin2=Hmisc::cut2(fluo_fit, g=7, oneval=FALSE))
-nu_star <- mean(swi_triads$nu, na.rm=TRUE) # DN per FP
+```
 
 
-qplot(b.height_avg / (b.height_avg + t.height_avg) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
-  geom_abline() +
-  geom_smooth(method='lm', se=FALSE) + 
-  geom_point(alpha=0.2) + 
-  # ylim(0.4, 0.6) +
-  labs(x='size bias toward bottom daughter', y='fluorescence bias toward bottom daughter') 
-ggsave('plots/asc_nutriads_size.pdf', width=4, height=3)
-
-qplot(b.fluo_fit + t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
+```{r}
+qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
   geom_hline(yintercept=0.5, lty='dashed') + 
   stat_density2d(fill='blue', col='transparent', alpha=.05, geom='polygon', binwidth=1e-4) +
   geom_point(alpha=0.5, size=1) + 
@@ -520,15 +535,37 @@ qplot(b.fluo_fit + t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_
 #                       filter(swi_triads, between(fluo_fit, .fl-1e3, .fl+1e3)) %>% mutate(bias=b.fluo_fit / (b.fluo_fit + t.fluo_fit)) %>% .[['bias']] %>% mean),
 #                     s=sapply(fluo, function(.fl) 
 #                       filter(swi_triads, between(fluo_fit, .fl-1e3, .fl+1e3)) %>% mutate(bias=b.fluo_fit / (b.fluo_fit + t.fluo_fit)) %>% .[['bias']] %>% sd)) ) +
-  labs(x='mother fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
+  labs(x='total fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
 ggsave('plots/asc_nutriads_fluotot.pdf', width=4, height=3)
 
-qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit+t.fluo_fit), data=swi_triads, geom="blank") +
-  geom_hline(yintercept=0.5, lty='dashed') + 
-  stat_density2d(fill='blue', col='transparent', alpha=.05, geom='polygon', binwidth=1e-4) +
-  geom_point(alpha=0.5, size=1) + 
-  labs(x='total fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
+qplot(b.height_avg / (b.height_avg + t.height_avg) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
+  geom_abline() +
+  geom_smooth(method='lm', se=FALSE) + 
+  geom_point(alpha=0.2) + 
+  # ylim(0.4, 0.6) +
+  labs(x='size bias toward bottom daughter', y='fluorescence bias toward bottom daughter') 
+ggsave('plots/asc_nutriads_size.pdf', width=4, height=3)
 
+mod <- lm(I(b.fluo_fit / (b.fluo_fit + t.fluo_fit)) ~ I(b.height_avg / (b.height_avg + t.height_avg)), data=swi_triads)
+summary(mod)$r.squared
+
+```
+
+For each triad, we can compute a conversion factor (cf Rosenfeld method 1).
+
+```{r}
+swi_triads <- swi_triads %>%
+  mutate(nu=(b.fluo_fit - t.fluo_fit)^2 / ((b.fluo_fit + t.fluo_fit)),
+         fluo_bin=cut2(fluo_fit, cuts=seq(0, 1e5, 5e3), oneval=FALSE)) # fluo_bin2=Hmisc::cut2(fluo_fit, g=7, oneval=FALSE)
+nu_star <- mean(swi_triads$nu, na.rm=TRUE) # DN per FP
+nu_err <- nu_star / sqrt(dim(swi_triads)[1])
+
+```
+
+or use Erik's method accounting for fluctuations in size.
+
+```{r}
+# write.csv(swi_triads %>% data.frame, file='nu_triads_bleachcorrected.csv')
 
 partitioning_loglik <- function(.lambda, .v, .x, .y) {
   if (length(.x) != length(.y)) stop('.x and .y must have the same length')
@@ -538,61 +575,33 @@ partitioning_loglik <- function(.lambda, .v, .x, .y) {
 partitioning_loglik_wrapper <- function(.pars, .x, .y)
   partitioning_loglik(.pars[1], .pars[2], .x, .y)
 
-partitioning_loglik(.25, .006, swi_triads$b.fluo_fit, swi_triads$t.fluo_fit)
-partitioning_opt <- optim(c(1, 1e-4), partitioning_loglik_wrapper, .x=swi_triads$b.fluo_fit, .y=swi_triads$t.fluo_fit,
+partitioning_opt <- optim(c(.1, 1e-4), partitioning_loglik_wrapper, .x=swi_triads$b.fluo_fit, .y=swi_triads$t.fluo_fit,
       control = list(fnscale = -1))
-
-fp_per_dn <- partitioning_opt$par[1]
-
-
-
-
-nu_err <- nu_star / sqrt(dim(nu_triads)[1])
-qplot(fluo_signal, b.fluo_signal + t.fluo_signal, data=nu_triads, geom="blank") +
-  geom_abline() +
-  geom_point(col="red", alpha=0.2)
-qplot(fluo_signal, (b.fluo_signal + t.fluo_signal)/fluo_signal, data=nu_triads, geom="blank") +
-  geom_hline(yintercept=1) +
-  geom_point(col="red", alpha=0.2)
-# qplot(fluo_signal, nu, data=filter(nu_triads), alpha=I(0.2))
-
-nu_binned <- group_by(nu_triads, fluo_bin2) %>%
-  summarise(n=n(), nu_star=mean(nu), nu_err=nu_star/sqrt(n))
-#             nu2_star=mean(nu2), nu2_err=nu2_star/sqrt(n))
-qplot(fluo_bin2, nu_star, data=nu_binned, geom="bar", stat="identity", fill=I("gray40")) +
-  geom_errorbar(aes(ymin=nu_star-nu_err, ymax=nu_star+nu_err), width=0.2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
+if (partitioning_opt$convergence == 0) { fp_per_dn <- partitioning_opt$par[1]} else { rm('fp_per_dn') }
 
 ```
 
-
-```{r}
-
-
-fp_per_dn <- 0.249 # from erik's write up
-```
+This yields a conversion factor FP/DN at `r format(fp_per_dn, digits=2)`. The sd of the volume bias is infered to be `r sqrt(partitioning_opt$par[2]) %>% format(digits=2)` while it is measured at `r (swi_triads$b.height_fit / (swi_triads$b.height_fit+swi_triads$t.height_fit)) %>% sd %>% format(digits=2)`.
 
 
-
-So the autofluorescence linear model indicates that xxx conversion to equivalent gfp.
-
-Let's check how the fluorescence measurement convert to number of gfp molecules.
+We can now look at how the fluorescence measurement convert to number of gfp molecules.
 
 ```{r}
 
 myframes <- myframes %>%
   # convert to gfp units (after subtracting autofluorescence)
-  mutate(., gfp_nb = (fluo_amplitude-predict(autofluo_mod, .)) * fp_per_dn)
+  mutate(., gfp_nb = fluogfp_amplitude * fp_per_dn)
 
 ggplot(data=myframes %>% filter(condition=='glucose') %>% head(1e5),
        aes(fluo_amplitude, gfp_nb)) +
   geom_point(alpha=0.1) 
 
-ggplot(data=myframes %>% filter(condition=='lactose') %>% head(1e5),
+ggplot(data=myframes %>% filter(condition=='lactose', height_micrometer<3) %>% head(1e5),
        aes(fluo_amplitude, gfp_nb)) +
   geom_point(alpha=0.1) 
 
+qplot(gfp_nb, data=myframes %>% filter(condition=='lactose', height_micrometer<3), binwidth=50)
+qplot(height_micrometer, gfp_nb, data=myframes %>% filter(condition=='lactose', height_micrometer<3), alpha=I(.01))
 ```
 
 
@@ -703,6 +712,9 @@ ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div'),
 
 
 ## Fluo in lactose
+
+look for decreasing stretches in lactose + check correl with growth rate
+
 
 ```{r}
 ggplot(filter(myframes, !discard_start, !discard_top, condition=='lactose', end_type=='div', parent_id>0) %>% head(2e3),
