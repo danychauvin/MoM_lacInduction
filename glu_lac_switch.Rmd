@@ -10,7 +10,8 @@ dh <- 0.065         # pixel size (µm)
 vertical_cutoff <- 4 / dh   # after it touched this coordinate a cell is discarded
 
 proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
-scripts_path <- "~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
+scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
+                  "~/Documents/Biozentrum/Projects/vngWetLabR/ggplot")
 data2preproc <- function(.d) sub('/data/', '/preproc/', .d) # store cache file in preproc subdir
 
 date_cond <- c("20150616"="glucose", "20150617"="glucose", "20150630"="lactose", "20150703"="switch", "20150708"="switch")
@@ -39,7 +40,7 @@ mg_files <- list.files("./data/MG1655_glu_lac", ".*\\d+\\.csv", recursive=TRUE, 
 # load perl scripts output to dataframes (using parallel lapply)
 # NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
 l_data <- mclapply(mg_files, 
-                function(.f) try( load_timm_data(.f, scripts_path, .verbose=TRUE, .data2preproc=data2preproc)), #, .force=TRUE
+                function(.f) try( load_timm_data(.f, scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE)),
                 mc.cores=numCores)
 
 mg_cells <- l_data %>% 
@@ -64,6 +65,7 @@ mg_frames <- l_data %>%
 
 ```
 
+
 ```{r load_ASC662_data}
 switch_ts <- data.frame(t_start=c(0, 360, 600, 840, 1080, 1320), 
                         t_end=c(360, 600, 840, 1080, 1320, 1560), 
@@ -77,7 +79,7 @@ swi_files <- list.files("./data/glu_lac_switch", ".*\\d+\\.csv", recursive=TRUE,
 # load perl scripts output to dataframes (using parallel lapply)
 # NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
 l_data <- mclapply(c(glc_files, lac_files, swi_files), 
-                function(.f) try( load_timm_data(.f, scripts_path, .verbose=TRUE, .data2preproc=data2preproc)), #, .force=TRUE
+                function(.f) try( load_timm_data(.f, scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE)),
                 mc.cores=numCores)
 
 mycells <- l_data %>% 
@@ -107,7 +109,6 @@ myframes <- l_data %>%
          vertical_center=(vertical_bottom + vertical_top)/2,
          cell=paste(date, pos, gl, id, sep='.'))
 
-
 ```
 
 
@@ -120,6 +121,7 @@ ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14), aes(group=interact
 #   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(switch_ts, cond=='lactose')) +
   labs(x="time (min)", y="position (µm)", "GFP concentration")
 ```
+
 
 
 # Curation stats
@@ -218,7 +220,7 @@ Let's look at how autofluorescence (measured as the fluorescence of MG1655 cells
 ggplot(data=filter(mg_frames, !discard_top)) + 
   geom_point(aes(height_micrometer, fluo_amplitude), size=1, alpha=.2, position=position_jitter(width=1e-2)) + 
   geom_smooth(aes(height_micrometer, fluo_amplitude, col='y=ax'), method='lm', formula=y~x-1,
-              data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4)) +
+              data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))# +
   # xlim(0,6) + ylim(0, 3000)
 
 ggplot(data=filter(mg_frames, !discard_top), aes(height_micrometer, fluo_amplitude)) + 
@@ -226,7 +228,7 @@ ggplot(data=filter(mg_frames, !discard_top), aes(height_micrometer, fluo_amplitu
   geom_smooth(method='lm', col='red', formula=y~x-1, fullrange=TRUE,
               data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))+
   labs(x='cell length (µm)', y='total fluorescence (AU)') +
-  xlim(0,6) + ylim(0, 3000)
+  xlim(0,5) + ylim(0, 3000)
 ggsave('plots/mg_autofluo_length.pdf', width=5, height=3)
 
 ```
@@ -238,16 +240,20 @@ Let's check visually that fluctuations for a given cell correlate with its lengt
 ns <- 6
 ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14) %>% 
          filter(cell %in% unique(cell)[sample(1:40, ns)])) + 
+  # geom_abline(slope=mean_autofluo$slope0) +
+  geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', col='black', formula=y~x-1, fullrange=TRUE,
+              data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))+
   geom_path(aes(height_micrometer, fluo_amplitude, col=cell), alpha=.5) + 
-  geom_abline(slope=mean_autofluo$slope0) +
   xlim(1,4) + ylim(0, 3000)
 
 
 autofl_outliers_cell <- filter(mg_frames, !discard_top, fluo_amplitude>2500, height_micrometer<4) %>%
   ungroup %>% .[['cell']] %>% unique
 ggplot(data=filter(mg_frames, !discard_top, cell %in% autofl_outliers_cell)) + 
+  # geom_abline(slope=mean_autofluo$slope0) +
+  geom_smooth(aes(height_micrometer, fluo_amplitude), method='lm', col='black', formula=y~x-1, fullrange=TRUE,
+              data=filter(mg_frames, !discard_top, height_micrometer>1.7, height_micrometer<3.4))+
   geom_path(aes(height_micrometer, fluo_amplitude, col=cell), alpha=.5) + 
-  geom_abline(slope=mean_autofluo$slope0) +
   xlim(1,4) + ylim(0, 3000)
 
 ```
@@ -344,6 +350,7 @@ Let's first look at fluorescence decay for cells in a given lane. The slopes are
 
 ```{r}
 ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
+                     # fluogfp_amplitude > autofluo_predict(height_micrometer),
                      between_or(time_sec, 
                                 (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
                                 (filter(switch_ts, cond=='glucose')$t_end-30)*60) ) %>% 
@@ -437,12 +444,12 @@ ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch'
                      between_or(time_sec, 
                                 (filter(switch_ts, cond=='glucose')$t_start+30)*60, 
                                 (filter(switch_ts, cond=='glucose')$t_end-30)*60)) %>% 
-         mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
+         mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 10)) %>%
          group_by(date, pos, gl, id) %>% 
-         mutate(npoints=sum(gfp_amplitude>0)) %>%
+         mutate(npoints=sum(fluogfp_amplitude>0)) %>%
          filter(npoints>10) %>%
-         mutate(time_sec_ini=first(time_sec), gfp_amplitude_ini=first(gfp_amplitude)), 
-       aes(time_sec, gfp_amplitude, col=cell)) +
+         mutate(time_sec_ini=first(time_sec)), 
+       aes(time_sec, fluogfp_amplitude, col=cell)) +
   geom_path(alpha=0.6) +
   expand_limits(y=0) +
   scale_colour_periodic_brewer(guide='none') +
@@ -592,16 +599,16 @@ myframes <- myframes %>%
   # convert to gfp units (after subtracting autofluorescence)
   mutate(., gfp_nb = fluogfp_amplitude * fp_per_dn)
 
-ggplot(data=myframes %>% filter(condition=='glucose') %>% head(1e5),
+ggplot(data=myframes %>% filter(!discard_top, condition=='glucose') %>% head(1e5),
        aes(fluo_amplitude, gfp_nb)) +
   geom_point(alpha=0.1) 
 
-ggplot(data=myframes %>% filter(condition=='lactose', height_micrometer<3) %>% head(1e5),
+ggplot(data=myframes %>% filter(!discard_top, condition=='lactose', height_micrometer<3) %>% head(1e5),
        aes(fluo_amplitude, gfp_nb)) +
   geom_point(alpha=0.1) 
 
-qplot(gfp_nb, data=myframes %>% filter(condition=='lactose', height_micrometer<3), binwidth=50)
-qplot(height_micrometer, gfp_nb, data=myframes %>% filter(condition=='lactose', height_micrometer<3), alpha=I(.01))
+qplot(gfp_nb, data=myframes %>% filter(!discard_top, condition=='lactose', height_micrometer<3), binwidth=50)
+qplot(height_micrometer, gfp_nb, data=myframes %>% filter(!discard_top, condition=='lactose', height_micrometer<3), alpha=I(.01))
 ```
 
 
