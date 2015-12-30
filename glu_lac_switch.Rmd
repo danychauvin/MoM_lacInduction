@@ -6,8 +6,8 @@ output: html_document
 
 ```{r variables, include=FALSE}
 dt <- 3             # frame intervall (min)
-dh <- 0.065         # pixel size (µm)
-vertical_cutoff <- 4 / dh   # after it touched this coordinate a cell is discarded
+dl <- 0.065         # pixel size (µm)
+vertical_cutoff <- 4 / dl   # after it touched this coordinate a cell is discarded
 
 proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
 r_scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
@@ -44,25 +44,29 @@ l_data <- mclapply(mg_files,
                 function(.f) try( load_timm_data(.f, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE)),
                 mc.cores=numCores)
 
-mg_cells <- l_data %>% 
-  lapply(function(.l) .l$cells) %>% 
-  do.call(rbind, .) %>%
-  mutate(cell=paste(date, pos, gl, id, sep='.'))
+# mg_cells <- l_data %>% 
+#   lapply(function(.l) .l$cells) %>% 
+#   do.call(rbind, .) %>%
+#   mutate(cell=paste(date, pos, gl, id, sep='.'))
 
 mg_frames <- l_data %>% 
   lapply(function(.l) .l$frames) %>% 
   do.call(rbind, .) %>%
+  mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
+         discard_start=(time_sec < 2*3600) ) %>% 
+  group_by(date, pos, gl, id) %>%
   # remove frames after touching the exit
   group_by(date, pos, gl, id) %>%
   mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
-  mutate(b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
+  mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
+  mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
+  mutate(start_time=first(time_sec), end_time=last(time_sec),
+         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
   # remove daughters of cells that touched the exit
   ungroup %>% group_by(date, pos, gl) %>%
   mutate(discard_top=which_to_progeny(discard_top, cid)) %>%
   #   filter(discard_top==FALSE) %>%
-  mutate(length_um=height_micrometer,
-         frame=time_sec / dt / 60,
-         vertical_center=(vertical_bottom + vertical_top)/2,
+  mutate(vertical_center=(vertical_bottom + vertical_top)/2,
          cell=paste(date, pos, gl, id, sep='.'))
 
 ```
@@ -87,33 +91,35 @@ l_data <- mclapply(c(glc_files, lac_files, swi_files),
                 function(.f) try( load_timm_data(.f, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE)),
                 mc.cores=numCores)
 
-mycells <- l_data %>% 
-  lapply(function(.l) if('cells' %in% names(.l)) .l$cells) %>% 
-  do.call(rbind, .) %>%
-  mutate(condition=date_cond[as.character(date)]) %>%
-  mutate(discard_start= (start_time < 2*3600) )
+# mycells <- l_data %>% 
+#   lapply(function(.l) if('cells' %in% names(.l)) .l$cells) %>% 
+#   do.call(rbind, .) %>%
+#   mutate(condition=date_cond[as.character(date)]) %>%
+#   mutate(discard_start= (start_time < 2*3600) )
 
 myframes <- l_data %>% 
   mclapply(function(.l) {
     if ('frames' %in% names(.l)) {
       .l$frames %>%
+        mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
+               discard_start=(time_sec < 2*3600)) %>% 
         # remove frames after touching the exit
         group_by(id) %>%
-        mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
+        mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>% 
+        mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
+        mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
         # remove daughters of cells that touched the exit
         ungroup %>%
         mutate(discard_top=which_to_progeny(discard_top, cid))
       }
     }) %>% 
   do.call(rbind, .) %>%
-  mutate(condition=date_cond[as.character(date)],
-         discard_start=(time_sec < 2*3600) ) %>%
   group_by(date, pos, gl, id) %>%
-  mutate(b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
+  mutate(start_time=first(time_sec), end_time=last(time_sec),
+         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
   #   filter(discard_top==FALSE) %>%
   ungroup %>% 
-  mutate(length_um=height_micrometer,
-         frame=time_sec / dt / 60,
+  mutate(condition=date_cond[as.character(date)],
          vertical_center=(vertical_bottom + vertical_top)/2,
          cell=paste(date, pos, gl, id, sep='.'))
 
@@ -124,8 +130,8 @@ myframes <- l_data %>%
 ```{r}
 ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14), aes(group=interaction(date, pos, gl, id))) + 
 #   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(condition_ts, condition=='switch', medium=='lactose')) +
-  geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-(dh*vertical_center-length_um/2), ymax=-(dh*vertical_center+length_um/2), fill=fluo_amplitude/length_um)) +
-  geom_path(aes(dt*frame, -dh*vertical_center)) +
+  geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-(dl*vertical_center-length_um/2), ymax=-(dl*vertical_center+length_um/2), fill=fluo_amplitude/length_um)) +
+  geom_path(aes(dt*frame, -dl*vertical_center)) +
 #   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(condition_ts, condition=='switch', medium=='lactose')) +
   labs(x="time (min)", y="position (µm)", "GFP concentration")
 ```
@@ -357,11 +363,12 @@ We focus on estimating $\beta + \delta$ and aim at extrapolating the mother and 
 Let's first look at fluorescence decay for cells in a given lane. The slopes are steeper for more fluorescent cells, which suggests proportional decay (as expected). This is nicely confirmed by constant slope in log scale.
 
 ```{r}
+ts <- filter(condition_ts, condition=='switch', medium=='glucose')$t_start
+te <- filter(condition_ts, condition=='switch', medium=='glucose')$t_end
+
 ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
                      # fluogfp_amplitude > autofluo_predict(length_um),
-                     between_or(time_sec, 
-                                (filter(condition_ts, condition=='switch', medium=='glucose')$t_start+30)*60, 
-                                (filter(condition_ts, condition=='switch', medium=='glucose')$t_end-30)*60) ) %>% 
+                     between_or(time_sec, (ts+30)*60, (te-30)*60) ) %>% 
          mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
          group_by(date, pos, gl, id) %>% 
          mutate(time_sec_ini=first(time_sec)), 
@@ -374,8 +381,6 @@ ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch'
 last_plot() +
   scale_y_log10()
 
-ts <- filter(condition_ts, condition=='switch', medium=='glucose')$t_start
-te <- filter(condition_ts, condition=='switch', medium=='glucose')$t_end
 bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
                          time_sec>(2+4)*3600, # end_type=='div',
                          between_or(time_sec, (ts+30)*60, (te-30)*60) ) %>% 
@@ -486,14 +491,14 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
            mutate(time_from_birth = time_sec - (first(time_sec)-dt/2*60))
          if (sum(.dfct$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
 
-         height_modp <- fastLmPure(cbind(1, .dfp$time_to_div), log(.dfp$length_um))
-         .dfp <- mutate(.dfp, height_div = length_um / exp(height_modp$coefficients[2] * time_to_div),
+         length_modp <- fastLmPure(cbind(1, .dfp$time_to_div), log(.dfp$length_um))
+         .dfp <- mutate(.dfp, length_div = length_um / exp(length_modp$coefficients[2] * time_to_div),
                         fluogfp_div = fluogfp_amplitude / exp( bleaching_rate$mean * time_to_div))
-         height_modcb <- fastLmPure(cbind(1, .dfcb$time_from_birth), log(.dfcb$length_um))
-         .dfcb <- mutate(.dfcb, height_birth = length_um / exp(height_modcb$coefficients[2] * time_from_birth),
+         length_modcb <- fastLmPure(cbind(1, .dfcb$time_from_birth), log(.dfcb$length_um))
+         .dfcb <- mutate(.dfcb, length_birth = length_um / exp(length_modcb$coefficients[2] * time_from_birth),
                          fluogfp_birth = fluogfp_amplitude / exp( bleaching_rate$mean * time_from_birth))
-         height_modct <- fastLmPure(cbind(1, .dfct$time_from_birth), log(.dfct$length_um))
-         .dfct <- mutate(.dfct, height_birth = length_um / exp(height_modct$coefficients[2] * time_from_birth),
+         length_modct <- fastLmPure(cbind(1, .dfct$time_from_birth), log(.dfct$length_um))
+         .dfct <- mutate(.dfct, length_birth = length_um / exp(length_modct$coefficients[2] * time_from_birth),
                          fluogfp_birth = fluogfp_amplitude / exp( bleaching_rate$mean * time_from_birth))
          # browser()       
 # #          qplot(time_to_div, fluogfp_div, data=.dfp, col='div') + geom_point(aes(y=fluogfp_amplitude, col='raw'))
@@ -514,26 +519,26 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
          
          bind_cols(
            filter(.dfp, row_number() > dim(.dfp)[1] - triad_avgw) %>%
-             select(end_time, height_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
+             select(end_time, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
              bind_cols(data.frame(div_time=unique(.dfp$end_time)+dt/2*60, n_fit=dim(.dfp)[1]) %>%
                          mutate(fluo_fit=mean(.dfp$fluogfp_div), fluo_fit_sd=sd(.dfp$fluogfp_div)*sqrt((n_fit-1)/n_fit),
-                                height_fit=mean(.dfp$height_div), height_fit_sd=sd(.dfp$height_div)*sqrt((n_fit-1)/n_fit))),
+                                length_fit=mean(.dfp$length_div), length_fit_sd=sd(.dfp$length_div)*sqrt((n_fit-1)/n_fit))),
            
            filter(.dfcb, row_number() <= triad_avgw) %>%
-             select(id, height_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
+             select(id, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
              bind_cols(data.frame(n_fit=dim(.dfcb)[1]) %>%
                          mutate(fluo_fit=mean(.dfcb$fluogfp_birth), fluo_fit_sd=sd(.dfcb$fluogfp_birth)*sqrt((n_fit-1)/n_fit),
-                                height_fit=mean(.dfcb$height_birth), height_fit_sd=sd(.dfcb$height_birth)*sqrt((n_fit-1)/n_fit))) %>%
+                                length_fit=mean(.dfcb$length_birth), length_fit_sd=sd(.dfcb$length_birth)*sqrt((n_fit-1)/n_fit))) %>%
              setNames(., paste("b", names(.), sep=".")),
            
            filter(.dfct, row_number() <= triad_avgw) %>%
-             select(id, height_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
+             select(id, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
              bind_cols(data.frame(n_fit=dim(.dfct)[1]) %>%
                          mutate(fluo_fit=mean(.dfct$fluogfp_birth), fluo_fit_sd=sd(.dfct$fluogfp_birth)*sqrt((n_fit-1)/n_fit),
-                                height_fit=mean(.dfct$height_birth), height_fit_sd=sd(.dfct$height_birth)*sqrt((n_fit-1)/n_fit))) %>%
+                                length_fit=mean(.dfct$length_birth), length_fit_sd=sd(.dfct$length_birth)*sqrt((n_fit-1)/n_fit))) %>%
              setNames(., paste("t", names(.), sep="."))
          )
        })(.df1, .) )
@@ -550,8 +555,8 @@ ggplot(swi_triads) +
   labs(col='estimation')
 
 ggplot(swi_triads) +
-  geom_point(aes(height_avg, b.height_avg+t.height_avg, col='avg'), alpha=.5) +
-  geom_point(aes(height_fit, b.height_fit+t.height_fit, col='fit'), alpha=.5) + 
+  geom_point(aes(length_avg, b.length_avg+t.length_avg, col='avg'), alpha=.5) +
+  geom_point(aes(length_fit, b.length_fit+t.length_fit, col='fit'), alpha=.5) + 
   geom_abline() +
   labs(col='estimation')
 
@@ -573,7 +578,7 @@ qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_tr
   labs(x='total fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
 ggsave('plots/asc_nutriads_fluotot.pdf', width=4, height=3)
 
-qplot(b.height_fit / (b.height_fit + t.height_fit) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
+qplot(b.length_fit / (b.length_fit + t.length_fit) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
   geom_abline() +
   geom_smooth(method='lm', se=FALSE) + 
   geom_point(alpha=0.2) + 
@@ -581,7 +586,7 @@ qplot(b.height_fit / (b.height_fit + t.height_fit) , b.fluo_fit / (b.fluo_fit + 
   labs(x='size bias toward bottom daughter', y='fluorescence bias toward bottom daughter') 
 ggsave('plots/asc_nutriads_size.pdf', width=4, height=3)
 
-mod <- lm(I(b.fluo_fit / (b.fluo_fit + t.fluo_fit)) ~ I(b.height_avg / (b.height_avg + t.height_avg)), data=swi_triads)
+mod <- lm(I(b.fluo_fit / (b.fluo_fit + t.fluo_fit)) ~ I(b.length_avg / (b.length_avg + t.length_avg)), data=swi_triads)
 summary(mod)$r.squared
 
 ```
@@ -600,7 +605,7 @@ nu_err <- nu_star / sqrt(dim(swi_triads)[1])
 or use Erik's method accounting for fluctuations in size.
 
 ```{r}
-# write.csv(swi_triads %>% data.frame, file='nu_triads_20151105.csv')
+# write.csv(swi_triads %>% data.frame, file='nu_triads_20151230.csv')
 
 partitioning_loglik <- function(.lambda, .v, .x, .y) {
   if (length(.x) != length(.y)) stop('.x and .y must have the same length')
@@ -616,7 +621,7 @@ if (partitioning_opt$convergence == 0) { fp_per_dn <- partitioning_opt$par[1]} e
 
 ```
 
-This yields a conversion factor FP/DN at `r format(fp_per_dn, digits=2)`. The sd of the volume bias is infered to be `r sqrt(partitioning_opt$par[2]) %>% format(digits=2)` while it is measured at `r (swi_triads$b.height_fit / (swi_triads$b.height_fit+swi_triads$t.height_fit)) %>% sd %>% format(digits=2)`.
+This yields a conversion factor FP/DN at `r format(fp_per_dn, digits=2)`. The sd of the volume bias is infered to be `r sqrt(partitioning_opt$par[2]) %>% format(digits=2)` while it is measured at `r (swi_triads$b.length_fit / (swi_triads$b.length_fit+swi_triads$t.length_fit)) %>% sd %>% format(digits=2)`.
 
 
 We can now look at how the fluorescence measurement convert to number of gfp molecules.
@@ -645,7 +650,7 @@ qplot(length_um, gfp_nb, data=myframes %>% filter(!discard_top, condition=='lact
 ```{r}
 # Plot overall experiment
 pls <- myframes %>% 
-  filter((date=='20150617' & pos==5 & gl==14))%>% 
+  filter((date=='20150703' & pos==0 & gl==7))%>% 
 #   filter(condition=='switch') %>% 
   group_by(condition, date, pos, gl) %>%
   do(pll=(function(.df){
@@ -653,7 +658,7 @@ pls <- myframes %>%
     if (dim(filter(.df, !discard_top))[1] == 0) return(list())
     .cond <- unique(.df$condition)
     .fill <- brewer.pal(3, 'Set1')
-    .hmin <- min(filter(.df, !discard_top)$length_um)
+    .hmin <- max(1.2,  min(filter(.df, !discard_top)$length_um) )
     .hrange <- (max(filter(.df, !discard_top)$length_um)-.hmin) / 2
     .fmin <- min(filter(.df, !discard_top)$gfp_nb)
     .frange <- (max(filter(.df, !discard_top)$gfp_nb)-.fmin) / 2
@@ -712,11 +717,11 @@ pls <- myframes %>%
         # show divisions (lty='11' means densely dotted line)
         geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=length_um, yend=length_ump, col=factor(id)), alpha=.3, lty='11', data=.df_div) + 
         # show cell traces
-        geom_path(aes(time_sec - 2*3600, length_um, col=factor(id)), data=filter(.df, !discard_top)) +
+        geom_path(aes(time_sec - 2*3600, length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff)) +
         geom_text(aes(time_sec - 2*3600, length_um, col=factor(id), label=id), size=2, hjust=0, vjust=1,
-                  data=group_by(.df, id) %>% filter(!discard_top, row_number()==1) ) +
+                  data=filter(.df, !discard_top) %>% group_by(id) %>% filter(row_number()==1) ) +
         # show all traces in one panel
-        geom_path(aes(time_sec - 2*3600, length_um, col=factor(id)), data=filter(.df, !discard_top) %>% mutate(b_rank=-1)) +
+        geom_path(aes(time_sec - 2*3600, length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% mutate(b_rank=-1)) +
         # mask early frames (requires a dummy df!)
         geom_rect(aes(xmin=-Inf, xmax=0, ymin=0, ymax=Inf, group=1), fill='white', alpha=.6, col='transparent', data=data.frame(a=1)) +
         scale_colour_periodic_brewer(guide='none') + 
@@ -737,11 +742,11 @@ pls <- myframes %>%
         # show divisions (lty='11' means densely dotted line using hex notation)
         geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=gfp_nb, yend=gfp_nbp, col=factor(id)), alpha=.3, lty='11', data=.df_div) + 
         # show cell traces
-        geom_path(aes(time_sec - 2*3600, gfp_nb, col=factor(id)), data=filter(.df, !discard_top)) +
+        geom_path(aes(time_sec - 2*3600, gfp_nb, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff)) +
         geom_text(aes(time_sec - 2*3600, gfp_nb, col=factor(id), label=id), size=2, hjust=0, vjust=1,
-                  data=group_by(.df, id) %>% filter(!discard_top, row_number()==1) ) +
+                  data=filter(.df, !discard_top) %>% group_by(id) %>% filter(row_number()==1) ) +
         # show all traces in one panel
-        geom_path(aes(time_sec - 2*3600, gfp_nb, col=factor(id)), data=filter(.df, !discard_top) %>% mutate(b_rank=-1)) +
+        geom_path(aes(time_sec - 2*3600, gfp_nb, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% mutate(b_rank=-1)) +
         # mask early frames (requires a dummy df!)
         geom_rect(aes(xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, group=1), fill='white', alpha=.6, data=data.frame(a=1)) +
         scale_colour_periodic_brewer(guide='none') + 
@@ -761,11 +766,11 @@ pls <- myframes %>%
         # show divisions (lty='11' means densely dotted line using hex notation)
         geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=gfp_nb/length_um, yend=gfp_nbp/length_um, col=factor(id)), alpha=.3, lty='11', data=.df_div) + 
         # show cell traces
-        geom_path(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id)), data=filter(.df, !discard_top)) +
+        geom_path(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff)) +
         geom_text(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id), label=id), size=2, hjust=0, vjust=1,
-                  data=group_by(.df, id) %>% filter(!discard_top, row_number()==1) ) +
+                  data=filter(.df, !discard_top) %>% group_by(id) %>% filter(row_number()==1) ) +
         # show all traces in one panel
-        geom_path(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id)), data=filter(.df, !discard_top) %>% mutate(b_rank=-1)) +
+        geom_path(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% mutate(b_rank=-1)) +
         # mask early frames (requires a dummy df!)
         geom_rect(aes(xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, group=1), fill='white', alpha=.6, data=data.frame(a=1)) +
         scale_colour_periodic_brewer(guide='none') + 
@@ -821,9 +826,9 @@ plk <- group_by(swi_frames, date, pos, gl) %>%
     .df_div <- filter(swi_frames_divs, date==unique(.df$date), pos==unique(.df$pos), gl==unique(.df$gl))
     ggplot(data=.df, aes(group=interaction(date, pos, gl, id))) + 
       geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(condition_ts, condition=='switch', medium=='lactose')) +
-      geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-dh*(hcenter-height/2), ymax=-dh*(hcenter+height/2), fill=fluo_signal/height)) +
-      geom_path(aes(dt*frame, -dh*hcenter)) +
-      geom_path(aes(dt*frame, -dh*hcenter), data=.df_div, linetype="dotted") +
+      geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-dl*(hcenter-height/2), ymax=-dl*(hcenter+height/2), fill=fluo_signal/height)) +
+      geom_path(aes(dt*frame, -dl*hcenter)) +
+      geom_path(aes(dt*frame, -dl*hcenter), data=.df_div, linetype="dotted") +
       geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(condition_ts, condition=='switch', medium=='lactose')) +
       scale_fill_gradient2(low="gray50", high="green", midpoint=200) + 
       labs(x="time (min)", y="position (µm)", "GFP concentration")
@@ -912,13 +917,13 @@ ggsave('plots/asc_dt_divtime.pdf', width=6, height=3)
 Let's check that cells with long doubling time are not filamentous.
 
 ```{r}
-h_end <- select(mycells, date, pos, gl, id, time_sec=end_time) %>%
+l_end <- select(mycells, date, pos, gl, id, time_sec=end_time) %>%
          left_join(select(myframes, date, pos, gl, id, time_sec, length_um))
-mycells <- mutate(mycells, height_um_end = h_end$length_um)
+mycells <- mutate(mycells, length_um_end = l_end$length_um)
 
 
 ggplot(filter(mycells, !discard_start, end_time>5*3600, condition!='switch', end_type=='div'),
-       aes(height_um_end, log(2)/slope_size_vs_time / 60, col=condition)) +
+       aes(length_um_end, log(2)/slope_size_vs_time / 60, col=condition)) +
   geom_point(alpha=0.2) +
   # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
   stat_smooth(method='lm', size=1) +
@@ -994,7 +999,7 @@ ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_t
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
   scale_y_continuous(trans='log2') +
-  labs(y='height (µm)') +
+  labs(y='length (µm)') +
   expand_limits(x=0, y=0)
 
 ggsave('plots/asc_switch_length.pdf', width=8, height=3)
@@ -1306,107 +1311,3 @@ ggplot(qqplot(filter(myframes, condition=='lactose', !discard_start, !discard_to
 ```
 
 
-# Old
-
-```{r}
-
-# compute connections to parent
-swi_frames_divs <- group_by(swi_frames, date, pos, gl) %>%
-  do( (function(.df1){
-    # first loop on all growth lanes
-    .df1 <- mutate(.df1, cell=interaction(date, pos, gl, id, drop=TRUE))
-    group_by(.df1, id) %>%
-      do( (function(.df1, .df2){
-        # then loop on all cells
-        if (unique(.df2$parent_id) < 0) return(data.frame())
-        .dfp <- filter(.df1, 
-                       cell==factor(interaction(unique(.df2$date), unique(.df2$pos), unique(.df2$gl), unique(.df2$parent_id)), 
-                                    levels=levels(.df1$cell)))
-        .out <- rbind(filter(.df2, frame==min(frame)),
-                      filter(.dfp, frame==max(frame)))
-        .out <- mutate(.out, id_ini=id, id=unique(.df2$id))
-        return(.out)
-      })(.df1, .) )
-  })(.) )
-
-triad_avgw <- 3
-swi_triads <- group_by(swi_frames, date, pos, gl) %>%
-  do( (function(.df1){
-    # first loop on all growth lanes
-    filter(.df1, end_type=="div") %>%
-      group_by(id) %>%
-       do( (function(.df1, .dfp){
-          # then loop on all cells
-#          browser()
-         if (dim(.dfp)[1] < triad_avgw) return(data.frame())
-         .dfcb <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='BOTTOM')
-         if (dim(.dfcb)[1] < triad_avgw) return(data.frame())
-         .dfct <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='TOP')
-         if (dim(.dfct)[1] < triad_avgw) return(data.frame())
-         
-         .dfp <- filter(.dfp, row_number() > dim(.dfp)[1] - triad_avgw) %>%
-           select(end, height, fluo_signal) %>%
-           summarise_each(funs(mean))
-         
-         .dfcb <- filter(.dfcb, row_number() <= triad_avgw) %>%
-           select(id, daughter_type, height, fluo_signal) %>%
-           summarise_each(funs(mean))
-         .dfcb <- setNames(.dfcb, paste("b", names(.dfcb), sep="."))
-         .dfct <- filter(.dfct, row_number() <= triad_avgw) %>%
-           select(id, daughter_type, height, fluo_signal) %>%
-           summarise_each(funs(mean))
-         .dfct <- setNames(.dfct, paste("t", names(.dfct), sep="."))
-         
-         .out <- bind_cols(.dfp, .dfcb, .dfct)
-         return(.out)
-       })(.df1, .) )
-  })(.) )
-swi_triads <- mutate(swi_triads, medium=sapply(end, function(.t) switch_ts$cond[min(which(c(switch_ts$t_start, Inf) > .t*dt))-1]) )
-qplot(fluo_signal , b.fluo_signal + t.fluo_signal, col=medium, data=swi_triads, geom="blank") +
-  geom_abline() +
-  geom_point(alpha=0.2) + 
-  facet_grid(medium~.)
-
-# pdf('plots/nu_switch.pdf', width=6, height=4.5)
-L_nu <- function(.nu, y_t, y_b) {
-  if (.nu<0) return(NA)
-  mean(lgamma(.nu*y_t + .nu*y_b + 1) - lgamma(.nu*y_t + 1) - lgamma(.nu*y_b + 1) - .nu*(y_b+y_t)*log(2))
-  #   mean((y_t+y_b) * digamma(.nu*y_t + .nu*y_b + 1) - y_t * digamma(.nu*y_t + 1) - y_b * digamma(.nu*y_b + 1) - (y_b + y_t)*log(2))
-}
-write.table(select(nu_triads, fluo_signal, b.fluo_signal, t.fluo_signal), "nu_triads.txt", row.names=FALSE)
-
-tmp <- data.frame(nu=seq(0, 100, 0.1)) %>%
-  mutate(L=(Vectorize(L_nu, ".nu"))(nu, y_t=nu_triads$t.fluo_signal, y_b=nu_triads$b.fluo_signal))
-qplot(nu, L, data=tmp, geom="line")
-
-optim(30, L_nu, y_t=nu_triads$t.fluo_signal, y_b=nu_triads$b.fluo_signal, control=list(fnscale=-1))
-
-
-nu_triads <- filter(swi_triads, (end>640/dt & end<800/dt) | (end>1120/dt & end<1280/dt)) %>%
-  ungroup %>%
-  mutate(nu=(b.fluo_signal - t.fluo_signal)^2 / fluo_signal,
-#          nu2=(b.fluo_signal - t.fluo_signal)^2 / (b.fluo_signal + t.fluo_signal),
-         fluo_bin=cut2(fluo_signal, cuts=seq(0, 1e5, 5e3), oneval=FALSE),
-         fluo_bin2=Hmisc::cut2(fluo_signal, g=7, oneval=FALSE))
-nu_star <- mean(nu_triads$nu)
-nu_err <- nu_star / sqrt(dim(nu_triads)[1])
-qplot(fluo_signal, b.fluo_signal + t.fluo_signal, data=nu_triads, geom="blank") +
-  geom_abline() +
-  geom_point(col="red", alpha=0.2)
-qplot(fluo_signal, (b.fluo_signal + t.fluo_signal)/fluo_signal, data=nu_triads, geom="blank") +
-  geom_hline(yintercept=1) +
-  geom_point(col="red", alpha=0.2)
-# qplot(fluo_signal, nu, data=filter(nu_triads), alpha=I(0.2))
-
-nu_binned <- group_by(nu_triads, fluo_bin2) %>%
-  summarise(n=n(), nu_star=mean(nu), nu_err=nu_star/sqrt(n))
-#             nu2_star=mean(nu2), nu2_err=nu2_star/sqrt(n))
-qplot(fluo_bin2, nu_star, data=nu_binned, geom="bar", stat="identity", fill=I("gray40")) +
-  geom_errorbar(aes(ymin=nu_star-nu_err, ymax=nu_star+nu_err), width=0.2) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-
-
-
-```
