@@ -544,6 +544,7 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
        })(.df1, .) )
   })(.) )
 
+# write.csv(swi_triads %>% data.frame, file='nu_triads_20151230.csv')
 
 ggplot(swi_triads) +
   geom_point(aes(fluo_avg, b.fluo_avg+t.fluo_avg, col='avg'), alpha=.5) +
@@ -605,18 +606,34 @@ nu_err <- nu_star / sqrt(dim(swi_triads)[1])
 or use Erik's method accounting for fluctuations in size.
 
 ```{r}
-# write.csv(swi_triads %>% data.frame, file='nu_triads_20151230.csv')
-
-partitioning_loglik <- function(.lambda, .v, .x, .y) {
+partitioning_nosize_loglik <- function(.lambda, .v, .x, .y) {
   if (length(.x) != length(.y)) stop('.x and .y must have the same length')
   .a <- .v + 1 / (4*.lambda * (.x+.y))
   sum( - (.x/(.x+.y) -.5)^2 / .a - log(.a), na.rm=TRUE)
 }
-partitioning_loglik_wrapper <- function(.pars, .x, .y)
-  partitioning_loglik(.pars[1], .pars[2], .x, .y)
+partitioning_nosize_loglik_wrapper <- function(.pars, .x, .y)
+  partitioning_nosize_loglik(.pars[1], .pars[2], .x, .y)
 
-partitioning_opt <- optim(c(.1, 1e-4), partitioning_loglik_wrapper, .x=swi_triads$b.fluo_fit, .y=swi_triads$t.fluo_fit,
-      control = list(fnscale = -1))
+partitioning_opt <- with(swi_triads,
+                         optim(c(.1, 1e-4), partitioning_nosize_loglik_wrapper, control = list(fnscale = -1),
+                               .x=swi_triads$b.fluo_fit, .y=swi_triads$t.fluo_fit) )
+# if (partitioning_nosize_opt$convergence == 0) { fp_per_dn <- partitioning_nosize_opt$par[1]} else { rm('fp_per_dn') }
+
+```
+
+
+```{r}
+partitioning_loglik <- function(.lambda, .v, .x, .y, .r) {
+  if (length(.x) != length(.y) || length(.x) != length(.r)) stop('.x, .y and .r must have the same length')
+  .a <- .v + (.r * (1-.r)) / (.lambda * (.x+.y))
+  -sum( (.x/(.x+.y) - .r)^2 / .a + log(.a), na.rm=TRUE)
+}
+partitioning_loglik_wrapper <- function(.pars, .x, .y, .r)
+  partitioning_loglik(.pars[1], .pars[2], .x, .y, .r)
+
+partitioning_opt <- with(swi_triads,
+                                  optim(c(.1, 1e-4), partitioning_loglik_wrapper, control = list(fnscale = -1),
+                                   .x=b.fluo_fit, .y=t.fluo_fit, .r=b.length_fit/(b.length_fit+t.length_fit)) )
 if (partitioning_opt$convergence == 0) { fp_per_dn <- partitioning_opt$par[1]} else { rm('fp_per_dn') }
 
 ```
@@ -650,11 +667,11 @@ qplot(length_um, gfp_nb, data=myframes %>% filter(!discard_top, condition=='lact
 ```{r}
 # Plot overall experiment
 pls <- myframes %>% 
-  filter((date=='20150703' & pos==0 & gl==7))%>% 
+  # filter((date=='20150703' & pos==0 & gl==7))%>% 
 #   filter(condition=='switch') %>% 
   group_by(condition, date, pos, gl) %>%
   do(pll=(function(.df){
-    browser()
+    # browser()
     if (dim(filter(.df, !discard_top))[1] == 0) return(list())
     .cond <- unique(.df$condition)
     .fill <- brewer.pal(3, 'Set1')
@@ -783,7 +800,7 @@ pls <- myframes %>%
 
 
 pdf('plots/path_length.pdf', width=12, height=10)
-for (i in 53:dim(pls)[1]) {
+for (i in 1:dim(pls)[1]) {
   if ('l' %in% names(pls[[i, 'pll']]))
     plot(pls[[i, 'pll']] [['l']] + 
            labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
