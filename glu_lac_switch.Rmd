@@ -167,13 +167,19 @@ timm_data <- lapply(l_data, function(.df) {
 
 mygl <- myframes %>%
   # start from the total number of observations
-  group_by(date, pos, gl) %>%
+  group_by(condition, date, pos, gl) %>%
+  filter(!discard_top, !discard_start) %>% 
   summarise(n_obs=n()) %>%
   # add the number of dividing cells
-  left_join(select(mycells, date, pos, gl, id, parent_id, end_type, condition) %>%
-                         filter(end_type=='div', parent_id>=0) %>%
-                         group_by(condition, date, pos, gl) %>%
-                         summarise(n_div_cells=n()) ) %>%
+  left_join(myframes %>%
+              group_by(date, pos, gl, id) %>% 
+              filter(!discard_top, !any(discard_start), end_type=='div', row_number()==1) %>% 
+              group_by(date, pos, gl) %>% 
+              summarise(n_div_cells=n()) ) %>%
+  # add the number of frames
+  left_join(myframes %>%
+              group_by(date, pos, gl) %>% 
+              summarise(nframes=max(frame)) ) %>%
   # add curation times
   left_join(read.csv("./data/curation_times.csv", comment.char="#") %>%
               na.omit %>%
@@ -184,11 +190,11 @@ mygl <- myframes %>%
     timm_data %>% 
       filter(type != 'none') %>%
       group_by(date, pos, gl) %>%
-      summarise(nframes=length(unique(frame))),
+      summarise(n_cur_frames=length(unique(frame))),
     timm_data %>% 
       filter(type == 'none') %>%
       group_by(date, pos, gl) %>%
-      summarise(nframes=0)) )
+      summarise(n_cur_frames=0)) )
 
 
 kable(mygl %>%
@@ -203,14 +209,15 @@ kable(mygl %>%
 
 
 ```{r}
-qplot(time, data=mygl, xlab='curation time (min)')
+qplot(time/nframes*100, data=mygl, xlab='curation time (min; per 100 frames)', col=I('darkblue'), fill=I('darkblue'), alpha=I(.4))
+ggsave('plots/curation_times_hist.pdf', width=4, height=3)
 
-ggplot(data=mygl, aes(nframes, time)) +
+ggplot(data=mygl, aes(n_cur_frames/nframes*100, time/nframes*100)) +
   geom_smooth(method='lm', se=FALSE) +
   geom_point(position=position_jitter(width=.1)) +
   # geom_rug(sides='r', position=position_jitter(), size=5, alpha=.2) +
-  ylim(0, 20) +
-  labs(x='number of curated frames', y='curation time (min)')
+  # ylim(0, 20) +
+  labs(x='fraction of frames curated (%)', y='curation time (min; per 100 frames)')
 ggsave('plots/curation_times_frames.pdf', width=4, height=3)
 
 ggplot(data=filter(mygl, n_div_cells>40), aes(n_div_cells, time)) +
@@ -478,7 +485,7 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
   do( (function(.df1){
     # first loop on all growth lanes
     filter(.df1, end_type=="div") %>%
-      group_by(id) %>%
+      group_by(id, genealogy) %>%
       filter(mean(fluogfp_amplitude) > mean(autofluo_predict(length_um))) %>%
       do( (function(.df1, .dfp){
           # then loop on all cells
@@ -521,24 +528,25 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
            filter(.dfp, row_number() > dim(.dfp)[1] - triad_avgw) %>%
              select(end_time, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
-             bind_cols(data.frame(div_time=unique(.dfp$end_time)+dt/2*60, n_fit=dim(.dfp)[1]) %>%
-                         mutate(fluo_fit=mean(.dfp$fluogfp_div), fluo_fit_sd=sd(.dfp$fluogfp_div)*sqrt((n_fit-1)/n_fit),
-                                length_fit=mean(.dfp$length_div), length_fit_sd=sd(.dfp$length_div)*sqrt((n_fit-1)/n_fit))),
+             mutate(div_time=unique(.dfp$end_time)+dt/2*60, n_fit=dim(.dfp)[1],
+                    fluo_fit=mean(.dfp$fluogfp_div), fluo_fit_sd=sd(.dfp$fluogfp_div)*sqrt((n_fit-1)/n_fit),
+                    length_fit=mean(.dfp$length_div), length_fit_sd=sd(.dfp$length_div)*sqrt((n_fit-1)/n_fit)),
            
            filter(.dfcb, row_number() <= triad_avgw) %>%
-             select(id, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
+             group_by(id, genealogy) %>% select(length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
-             bind_cols(data.frame(n_fit=dim(.dfcb)[1]) %>%
-                         mutate(fluo_fit=mean(.dfcb$fluogfp_birth), fluo_fit_sd=sd(.dfcb$fluogfp_birth)*sqrt((n_fit-1)/n_fit),
-                                length_fit=mean(.dfcb$length_birth), length_fit_sd=sd(.dfcb$length_birth)*sqrt((n_fit-1)/n_fit))) %>%
+             # mutate(n_fit=dim(.dfcb)[1], pole=ifelse(str_detect(genealogy, "(?<=B)B$|(?<=T)T$"), "old", "new"),
+             mutate(n_fit=dim(.dfcb)[1], pole=ifelse(str_detect(genealogy, "B{2,}$|T{2,}$"), "old", "new"),
+                    fluo_fit=mean(.dfcb$fluogfp_birth), fluo_fit_sd=sd(.dfcb$fluogfp_birth)*sqrt((n_fit-1)/n_fit),
+                    length_fit=mean(.dfcb$length_birth), length_fit_sd=sd(.dfcb$length_birth)*sqrt((n_fit-1)/n_fit)) %>%
              setNames(., paste("b", names(.), sep=".")),
            
            filter(.dfct, row_number() <= triad_avgw) %>%
-             select(id, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
+             group_by(id, genealogy) %>% select(length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
-             bind_cols(data.frame(n_fit=dim(.dfct)[1]) %>%
-                         mutate(fluo_fit=mean(.dfct$fluogfp_birth), fluo_fit_sd=sd(.dfct$fluogfp_birth)*sqrt((n_fit-1)/n_fit),
-                                length_fit=mean(.dfct$length_birth), length_fit_sd=sd(.dfct$length_birth)*sqrt((n_fit-1)/n_fit))) %>%
+             mutate(n_fit=dim(.dfct)[1], pole=ifelse(str_detect(genealogy, "B{2,}$|T{2,}$"), "old", "new"),
+                    fluo_fit=mean(.dfct$fluogfp_birth), fluo_fit_sd=sd(.dfct$fluogfp_birth)*sqrt((n_fit-1)/n_fit),
+                    length_fit=mean(.dfct$length_birth), length_fit_sd=sd(.dfct$length_birth)*sqrt((n_fit-1)/n_fit)) %>%
              setNames(., paste("t", names(.), sep="."))
          )
        })(.df1, .) )
@@ -578,6 +586,26 @@ qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_tr
 #                       filter(swi_triads, between(fluo_fit, .fl-1e3, .fl+1e3)) %>% mutate(bias=b.fluo_fit / (b.fluo_fit + t.fluo_fit)) %>% .[['bias']] %>% sd)) ) +
   labs(x='total fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
 ggsave('plots/asc_nutriads_fluotot.pdf', width=4, height=3)
+
+
+ggplot(swi_triads %>% ungroup %>% 
+         filter(between(b.fluo_fit + t.fluo_fit, 5e3, 3e4)) %>% 
+         mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
+                lbias_bottom=b.length_fit / (b.length_fit + t.length_fit),
+                bias_bottom=fbias_bottom-lbias_bottom,
+                bias_random=ifelse(runif(dim(.)[1])<0.5, fbias_bottom-lbias_bottom, lbias_bottom-fbias_bottom),
+                bias_old=ifelse(b.pole=="old", fbias_bottom-lbias_bottom, lbias_bottom-fbias_bottom)) ) +
+  geom_hline(yintercept=0, lty='dashed') +
+#   stat_smooth(aes(b.fluo_fit+t.fluo_fit, bias_random, col="random"), method="lm") +
+#   geom_point(aes(b.fluo_fit+t.fluo_fit, bias_random, col="random"), alpha=.5) +
+  # geom_hline(aes(yintercept=mean(bias_random), col="random")) +
+  stat_smooth(aes(b.fluo_fit+t.fluo_fit, bias_bottom, col="bottom"), method="lm") +
+  geom_point(aes(b.fluo_fit+t.fluo_fit, bias_bottom, col="bottom"), alpha=.5) +
+  # geom_hline(aes(yintercept=mean(bias_bottom), col="bottom")) +
+  stat_smooth(aes(b.fluo_fit+t.fluo_fit, bias_old, col="old"), method="lm") +
+  geom_point(aes(b.fluo_fit+t.fluo_fit, bias_old, col="old"), alpha=.5) +
+  # geom_hline(aes(yintercept=mean(bias_old), col="old")) +
+  labs(y="bias", col="criteria")
 
 qplot(b.length_fit / (b.length_fit + t.length_fit) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
   geom_abline() +
