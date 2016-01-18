@@ -8,6 +8,7 @@ output: html_document
 dt <- 3             # frame intervall (min)
 dl <- 0.065         # pixel size (µm)
 vertical_cutoff <- 4 / dl   # after it touched this coordinate a cell is discarded
+use_eriks_params <- TRUE
 
 proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
 r_scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
@@ -16,6 +17,17 @@ perl_scripts_path <- "~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
 data2preproc <- function(.d) sub('/data/', '/preproc/', .d) # store cache file in preproc subdir
 
 date_cond <- c("20150616"="glucose", "20150617"="glucose", "20150624"="lactose", "20150630"="lactose", "20150703"="switch", "20150708"="switch")
+
+# # save environment (but `pls`)
+# myvars <- ls(all.names = TRUE)
+# save(list=myvars[which(myvars!='pls')], file=".RData", envir=.GlobalEnv)
+
+# # local paths
+# proj_path <- "~/Downloads/january/MoM_Switch"
+# r_scripts_path <- c("~/Downloads/january/vngWetLabR/mother_machine",
+#                   "~/Downloads/january/vngWetLabR/ggplot")
+# perl_scripts_path <- "~/Downloads/january/vngWetLabR/mother_machine"
+
 ```
 
 
@@ -32,6 +44,11 @@ setwd(proj_path)
 
 library(parallel)
 numCores <- min(30, detectCores()-1) # do not use more than 30 cores
+
+library(multidplyr)
+mycluster <- create_cluster(numCores)
+set_default_cluster(mycluster)
+
 ```
 
 
@@ -217,6 +234,7 @@ ggplot(data=mygl, aes(n_cur_frames/nframes*100, time/nframes*100)) +
   geom_point(position=position_jitter(width=.1)) +
   # geom_rug(sides='r', position=position_jitter(), size=5, alpha=.2) +
   # ylim(0, 20) +
+  expand_limits(y=0) +
   labs(x='fraction of frames curated (%)', y='curation time (min; per 100 frames)')
 ggsave('plots/curation_times_frames.pdf', width=4, height=3)
 
@@ -322,6 +340,8 @@ ggplot(filter(mg_autofluo, between(intercept, -500, 900))) +
   labs(x='slope (DN/µm)', col='model')
 
 autofluo_predict <- function(.h) .h * mean_autofluo$slope0
+if (use_eriks_params)
+  autofluo_predict <- function(.h) .h * 422.8
 myframes <- myframes %>%
     mutate(fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um))
 
@@ -373,20 +393,23 @@ Let's first look at fluorescence decay for cells in a given lane. The slopes are
 ts <- filter(condition_ts, condition=='switch', medium=='glucose')$t_start
 te <- filter(condition_ts, condition=='switch', medium=='glucose')$t_end
 
-ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
-                     # fluogfp_amplitude > autofluo_predict(length_um),
+p_decayGFP_lin <- ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
+                                       # fluogfp_amplitude > autofluo_predict(length_um),
                      between_or(time_sec, (ts+30)*60, (te-30)*60) ) %>% 
          mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
          group_by(date, pos, gl, id) %>% 
+         filter(n() > 3) %>% # display cells with more than 3 points only
          mutate(time_sec_ini=first(time_sec)), 
        aes(time_sec - time_sec_ini, fluogfp_amplitude, col=cell)) +
   geom_path(alpha=0.6) +
   expand_limits(y=0) +
   scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(0.5)
+  scale_x_hours(0.5, name='time after switch / birth (h)') +
+  labs(y='GFP level (AU)') +
+  theme_classic()
   
-last_plot() +
-  scale_y_log10()
+p_decayGFP_exp <- p_decayGFP_lin +
+  scale_y_continuous(trans='log10', breaks=c(5e3, 1e4, 2e4, 4e4))
 
 bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
                          time_sec>(2+4)*3600, # end_type=='div',
@@ -400,6 +423,7 @@ bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='swi
   mutate(npoints=unlist(npoints), time_sec_ini=unlist(time_sec_ini),
          fluogfp_amplitude_ini=unlist(fluogfp_amplitude_ini),
          slope=summary(mod_lin)$coeff[2], r2=summary(mod_lin)$r.squared,
+         slope.sd=summary(mod_lin)$coeff[2, 2],
          exp_slope=summary(mod_exp)$coeff[2], exp_r2=summary(mod_exp)$r.squared,
          exp_slope.sd=summary(mod_exp)$coeff[2, 2]) %>%
   ungroup %>%
@@ -410,26 +434,55 @@ bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='swi
 We fit the decay (accounting for the cell autofluorescence) for each cell observed on 10 frames or more and with GFP fluorescence greater than the predicted autofluorescence. Surprinsingly, exponential fits do not have higher r2 than linear fits. However, the distribution of slopes is narrower with the exponential model.
 
 ```{r}
-ggplot(data = bleaching_fits) +
-  stat_ecdf(aes(r2, col='lin')) +
-  stat_ecdf(aes(exp_r2, col='exp')) +
-  labs(col='model', y='cumulative')
+p_decayfit_r2_ecdf <- ggplot(data = bleaching_fits) +
+  stat_ecdf(aes(r2, col='linear')) +
+  stat_ecdf(aes(exp_r2, col='exponential')) +
+  xlim(0, 1) +
+  labs(col='fit', x='Pearson correlation decay fit', y='fraction cell cycles') +
+  theme_classic() + theme(legend.position=c(0.2, 0.85))
+ggsave('plots/article/decayfit_r2_ecdf.pdf', p_decayfit_r2_ecdf, width=4, height=3)
 
 .bw <- .1
 ggplot(data = filter(bleaching_fits, r2>.8)) +
   geom_stephist(aes(slope/mean(slope), col='lin'), binwidth=.bw) +
   geom_stephist(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'), binwidth=.bw)
 
+ggplot(data = filter(bleaching_fits, r2>.8)) +
+  stat_ecdf(aes(slope/mean(slope), col='lin')) +
+  stat_ecdf(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'))
+
+
+
 ```
 
 This can be explained by the fact that each cell spans a relatively narrow range of fluorescence (where linear and exponential decay are comparable) during its cell cycle. Hence the quality of the fit is dominated by experimental errors rather than by the overall shape. Moreover the broader distribution of slopes with the linear model can be explained by the fact that the slope scales with the total fluorescence in the linear model while the decay rate doesn't.
 
 ```{r}
-qplot(fluogfp_amplitude_ini, slope, data=bleaching_fits, alpha=I(.2)) + 
-  geom_smooth(method='lm')
-qplot(fluogfp_amplitude_ini, exp_slope, data=filter(bleaching_fits, exp_slope<1e-4), alpha=I(.2)) +
-  geom_errorbar(aes(ymin=exp_slope-exp_slope.sd/sqrt(npoints), ymax=exp_slope+exp_slope.sd/sqrt(npoints)), alpha=.2) +
-  geom_smooth(method='lm')
+p_decayfit_lin <- ggplot(bleaching_fits, aes(fluogfp_amplitude_ini, slope)) +
+    geom_errorbar(aes(ymin=slope-slope.sd/sqrt(npoints), ymax=slope+slope.sd/sqrt(npoints)), col=brewer_cols[1], alpha=.2, size=.2) +
+  geom_point(col=brewer_cols[1], alpha=.2, size=1) + 
+  geom_line(stat='smooth', method='lm', se=FALSE, col='black', alpha=.5) +
+  labs(x='GFP level at birth (AU)', y='decay slope (linear fit)') +
+  theme_classic()
+ggsave('plots/article/decayfit_lin.pdf', p_decayfit_lin, width=4, height=3)
+
+p_decayfit_exp <- ggplot(filter(bleaching_fits, exp_slope<1e-4), aes(fluogfp_amplitude_ini, exp_slope)) +
+    geom_errorbar(aes(ymin=exp_slope-exp_slope.sd/sqrt(npoints), ymax=exp_slope+exp_slope.sd/sqrt(npoints)), col=brewer_cols[2], alpha=.2, size=.2) +
+  geom_point(col=brewer_cols[2], alpha=.2, size=1) + 
+  stat_smooth(method='lm', se=FALSE, geom='line', col='black', alpha=.5) + # , aes(weight=(exp_slope.sd/sqrt(npoints))^(-2))
+  scale_y_continuous(labels = comma) +
+  labs(x='GFP level at birth (AU)', y='decay rate (exp. fit)') +
+  theme_classic()
+ggsave('plots/article/decayfit_exp.pdf', p_decayfit_exp, width=4, height=3)
+
+# library(gridExtra)
+# pdf('plots/article/decay_gfp.pdf', width=10, height=3)
+# grid.arrange(p_decayGFP_lin, p_decayGFP_exp, ncol=2)
+# dev.off()
+
+# pdf('plots/article/decay_fit.pdf', width=12, height=3)
+# grid.arrange(p_decayfit_r2_ecdf, p_decayfit_lin, p_decayfit_exp, ncol=3)
+# dev.off()
 
 ```
 
@@ -446,6 +499,13 @@ ggplot(data = bleaching_fits) +
   geom_vline(xintercept=bleaching_rate$mean) +
   labs(x='bleaching + decay rate (/s)')
 
+p_decayfit_exp2 <- p_decayfit_exp +
+  geom_hline(yintercept=bleaching_rate$mean, col=brewer_cols[2], lty='dashed')
+library(gridExtra)
+pdf('plots/article/decay_fit.pdf', width=12, height=3)
+grid.arrange(p_decayfit_r2_ecdf, p_decayfit_lin, p_decayfit_exp2, ncol=3)
+dev.off()
+
 ```
 
 
@@ -458,6 +518,7 @@ Reassuringly, while the daughters sum is systematically lower than their mother 
 
 ```{r}
 library(RcppArmadillo)
+library(ccaPP)
 
 ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', 
                      cell_num_in_lane < total_cell_in_lane,
@@ -575,9 +636,9 @@ ggplot(swi_triads) +
 ```{r}
 qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
   geom_hline(yintercept=0.5, lty='dashed') + 
-  stat_density2d(fill='blue', col='transparent', alpha=.05, geom='polygon', binwidth=1e-4) +
+  # stat_density2d(fill='blue', col='transparent', alpha=.05, geom='polygon') + # , binwidth=1e-4
   geom_point(alpha=0.5, size=1) + 
-  # ylim(0, 1) +
+  ylim(0.3, .7) +
 #   geom_pointrange(aes(x=fluo, y=m, ymin=m-s, ymax=m+s), 
 #                   data=data.frame(fluo=seq(5e3, 4e4, 1e3)) %>% mutate(
 #                     m=sapply(fluo, function(.fl) 
@@ -585,7 +646,7 @@ qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_tr
 #                     s=sapply(fluo, function(.fl) 
 #                       filter(swi_triads, between(fluo_fit, .fl-1e3, .fl+1e3)) %>% mutate(bias=b.fluo_fit / (b.fluo_fit + t.fluo_fit)) %>% .[['bias']] %>% sd)) ) +
   labs(x='total fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
-ggsave('plots/asc_nutriads_fluotot.pdf', width=4, height=3)
+ggsave('plots/asc_nutriads_fluotot.pdf', width=3.9, height=2.9)
 
 
 ggplot(swi_triads %>% ungroup %>% 
@@ -608,16 +669,34 @@ ggplot(swi_triads %>% ungroup %>%
   labs(y="bias", col="criteria")
 
 qplot(b.length_fit / (b.length_fit + t.length_fit) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
-  geom_abline() +
+  # geom_abline() +
+  geom_hline(yintercept=0.5, lty='dashed') + 
   geom_smooth(method='lm', se=FALSE) + 
-  geom_point(alpha=0.2) + 
+  geom_point(alpha=0.5, size=1) + 
   # ylim(0.4, 0.6) +
-  labs(x='size bias toward bottom daughter', y='fluorescence bias toward bottom daughter') 
-ggsave('plots/asc_nutriads_size.pdf', width=4, height=3)
+  labs(x='length bias toward bottom daughter', y='fluorescence bias toward bottom daughter') 
+ggsave('plots/asc_nutriads_length.pdf', width=3.9, height=2.9)
 
 mod <- lm(I(b.fluo_fit / (b.fluo_fit + t.fluo_fit)) ~ I(b.length_avg / (b.length_avg + t.length_avg)), data=swi_triads)
 summary(mod)$r.squared
 
+
+qplot(lbias_rnd, fbias_rnd-lbias_rnd, geom="blank", 
+      data=swi_triads %>% ungroup %>% 
+        mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
+               lbias_bottom=b.length_fit / (b.length_fit + t.length_fit),
+               rnd=runif(dim(.)[1])<0.5, lbias_rnd=ifelse(rnd, lbias_bottom, 1-lbias_bottom),
+               fbias_rnd=ifelse(rnd, fbias_bottom, 1-fbias_bottom) )) +
+  geom_abline() +
+  geom_smooth(method='lm', se=FALSE) + 
+  geom_point(alpha=0.2) + 
+  # ylim(0.4, 0.6) +
+  labs(x='volume bias', y='volume-corrected GFP bias') 
+ggsave('plots/asc_nutriads_lengthcor.pdf', width=3.9, height=2.9)
+
+with(data=swi_triads %>% mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
+                                lbias_bottom=b.length_fit / (b.length_fit + t.length_fit)),
+     corPearson(lbias_bottom, fbias_bottom-lbias_bottom) )
 ```
 
 For each triad, we can compute a conversion factor (cf Rosenfeld method 1).
@@ -633,7 +712,7 @@ nu_err <- nu_star / sqrt(dim(swi_triads)[1])
 
 or use Erik's method accounting for fluctuations in size.
 
-```{r}
+```{r eval=FALSE}
 partitioning_nosize_loglik <- function(.lambda, .v, .x, .y) {
   if (length(.x) != length(.y)) stop('.x and .y must have the same length')
   .a <- .v + 1 / (4*.lambda * (.x+.y))
@@ -642,7 +721,7 @@ partitioning_nosize_loglik <- function(.lambda, .v, .x, .y) {
 partitioning_nosize_loglik_wrapper <- function(.pars, .x, .y)
   partitioning_nosize_loglik(.pars[1], .pars[2], .x, .y)
 
-partitioning_opt <- with(swi_triads,
+partitioning_nosize_opt <- with(swi_triads,
                          optim(c(.1, 1e-4), partitioning_nosize_loglik_wrapper, control = list(fnscale = -1),
                                .x=swi_triads$b.fluo_fit, .y=swi_triads$t.fluo_fit) )
 # if (partitioning_nosize_opt$convergence == 0) { fp_per_dn <- partitioning_nosize_opt$par[1]} else { rm('fp_per_dn') }
@@ -662,8 +741,10 @@ partitioning_loglik_wrapper <- function(.pars, .x, .y, .r)
 partitioning_opt <- with(swi_triads,
                                   optim(c(.1, 1e-4), partitioning_loglik_wrapper, control = list(fnscale = -1),
                                    .x=b.fluo_fit, .y=t.fluo_fit, .r=b.length_fit/(b.length_fit+t.length_fit)) )
-if (partitioning_opt$convergence == 0) { fp_per_dn <- partitioning_opt$par[1]} else { rm('fp_per_dn') }
-
+fp_per_oligomers <- 4 # lacZ is tetrameric
+if (partitioning_opt$convergence == 0) { fp_per_dn <- partitioning_opt$par[1] * fp_per_oligomers} else { rm('fp_per_dn') }
+if (use_eriks_params)
+  fp_per_dn <- 0.0361 * fp_per_oligomers
 ```
 
 This yields a conversion factor FP/DN at `r format(fp_per_dn, digits=2)`. The sd of the volume bias is infered to be `r sqrt(partitioning_opt$par[2]) %>% format(digits=2)` while it is measured at `r (swi_triads$b.length_fit / (swi_triads$b.length_fit+swi_triads$t.length_fit)) %>% sd %>% format(digits=2)`.
@@ -694,6 +775,37 @@ qplot(length_um, gfp_nb, data=myframes %>% filter(!discard_top, condition=='lact
 
 ```{r}
 # Plot overall experiment
+compute_div_between_facets <- function(.df1, .df2){
+  # then loop on all cells
+  if (unique(.df2$parent_id) < 0) return(data.frame())
+  # browser()
+  .dfp <- filter(.df1, id==unique(.df2$parent_id))
+  
+  if (unique(.df2$b_rank) == unique(.dfp$b_rank)) {
+    .length_ump <- filter(.dfp, time_sec==max(time_sec))$length_um
+    .gfp_nbp <- filter(.dfp, time_sec==max(time_sec))$gfp_nb
+    .out <- filter(.df2, time_sec==min(time_sec)) %>% 
+      select(id, b_rank, time_sec, length_um, gfp_nb) %>% 
+      mutate(time_secp=time_sec-dt*60, length_ump=.length_ump, gfp_nbp=.gfp_nbp)
+  } 
+  if (unique(.df2$b_rank) > unique(.dfp$b_rank)) { 
+    .out <- bind_rows(
+      filter(.df2, time_sec==min(time_sec)) %>% 
+        select(id, b_rank, time_sec, length_um, gfp_nb) %>% 
+        mutate(time_secp=time_sec-dt*60/2, length_ump=0, gfp_nbp=-Inf),
+      filter(.dfp, time_sec==max(time_sec)) %>% 
+        select(id, b_rank, time_sec, length_um, gfp_nb) %>% 
+        mutate(id=unique(.df2$id), time_secp=time_sec+dt*60/2, length_ump=Inf, gfp_nbp=Inf) )
+    if(diff(.out$b_rank) < -1) {
+      .out <- rbind(.out,
+                    data.frame(id=unique(.df2$id), b_rank=(min(.out$b_rank)+1):(max(.out$b_rank)-1),
+                               time_sec=min(.df2$time_sec)-dt*60/2, time_secp=min(.df2$time_sec)-dt*60/2,
+                               length_um=0, length_ump=Inf, gfp_nb=-Inf, gfp_nbp=Inf))
+    }
+  }
+  return(.out)
+}
+
 pls <- myframes %>% 
   # filter((date=='20150703' & pos==0 & gl==7))%>% 
 #   filter(condition=='switch') %>% 
@@ -712,36 +824,7 @@ pls <- myframes %>%
     .df <- mutate(.df, b_rank=ifelse(b_rank>6, 6, b_rank)) 
     .df_div <- filter(.df, !discard_top) %>% 
       group_by(id) %>% 
-      do( (function(.df1, .df2){
-        # then loop on all cells
-        if (unique(.df2$parent_id) < 0) return(data.frame())
-        # browser()
-        .dfp <- filter(.df1, id==unique(.df2$parent_id))
-        
-        if (unique(.df2$b_rank) == unique(.dfp$b_rank)) {
-          .length_ump <- filter(.dfp, time_sec==max(time_sec))$length_um
-          .gfp_nbp <- filter(.dfp, time_sec==max(time_sec))$gfp_nb
-          .out <- filter(.df2, time_sec==min(time_sec)) %>% 
-            select(id, b_rank, time_sec, length_um, gfp_nb) %>% 
-            mutate(time_secp=time_sec-dt*60, length_ump=.length_ump, gfp_nbp=.gfp_nbp)
-        } 
-        if (unique(.df2$b_rank) > unique(.dfp$b_rank)) { 
-          .out <- bind_rows(
-            filter(.df2, time_sec==min(time_sec)) %>% 
-              select(id, b_rank, time_sec, length_um, gfp_nb) %>% 
-              mutate(time_secp=time_sec-dt*60/2, length_ump=0, gfp_nbp=-Inf),
-            filter(.dfp, time_sec==max(time_sec)) %>% 
-              select(id, b_rank, time_sec, length_um, gfp_nb) %>% 
-              mutate(id=unique(.df2$id), time_secp=time_sec+dt*60/2, length_ump=Inf, gfp_nbp=Inf) )
-          if(diff(.out$b_rank) < -1) {
-            .out <- rbind(.out,
-                          data.frame(id=unique(.df2$id), b_rank=(min(.out$b_rank)+1):(max(.out$b_rank)-1),
-                                     time_sec=min(.df2$time_sec)-dt*60/2, time_secp=min(.df2$time_sec)-dt*60/2,
-                                     length_um=0, length_ump=Inf, gfp_nb=-Inf, gfp_nbp=Inf))
-          }
-        }
-        return(.out)
-      })(.df, .) )
+      do(compute_div_between_facets(.df, .))
     
     custom_labels <- function (variable, value) {
       labels <- paste('rank:', value)
@@ -898,7 +981,53 @@ ggplot(filter(myframes, !discard_start, !discard_top, end_type=='div', start_tim
   geom_point(alpha=.1) +
   scale_x_hours() +
   facet_grid(condition~.)
-    geom_point(aes(time_sec, length_um), alpha=0.1)
+# geom_point(aes(time_sec, length_um), alpha=0.1)
+```
+
+```{r}
+mycluster %>% cluster_library("dplyr") %>% 
+  cluster_library("RcppArmadillo") %>% 
+  cluster_library("ccaPP")
+mycells <- filter(myframes, condition!='switch', !discard_top) %>%
+  # group_by(date, pos, gl, id, parent_id, genealogy) %>%
+  partition(condition, date, pos, gl, id, parent_id, genealogy) %>%
+  filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
+  filter(n()>4) %>% # at least 4 time points
+  do((function(.df) {
+    # browser()
+    
+    .mod_ll_t <- lm( log(length_um)~time_sec, .df)  # use fastLm() for predict
+    # .mod_ll_t <- fastLmPure( cbind(1, .df$time_sec), log(.df$length_um) )
+    .mod_lg_t <- fastLmPure( cbind(1, .df$time_sec), log(.df$gfp_nb) )
+    .mod_l_t <- fastLmPure( cbind(1, .df$time_sec), .df$length_um )
+    .mod_g_t <- fastLmPure( cbind(1, .df$time_sec), .df$gfp_nb )
+    .mod_g_l <- fastLmPure( cbind(1, .df$length_um), .df$gfp_nb )
+
+    .time_birth <- first(.df$time_sec)
+    .time_div <- last(.df$time_sec)
+    .logl <- predict(.mod_ll_t, se.fit=TRUE)
+    data.frame(npoints=.mod_ll_t$df.residual+1,
+               time_birth=.time_birth, time_div=.time_div, 
+               cell_num_from_top=mean(.df$cell_num_in_lane),
+               cell_num_from_bottom=mean(.df$total_cell_in_lane-.df$cell_num_in_lane), 
+               loglength_start=first(.logl$fit), loglength_startse=first(.logl$se.fit), 
+               loglength_end=last(.logl$fit), loglength_endse=last(.logl$se.fit), 
+               logl_time_slope=.mod_ll_t$coefficients[2], logl_time_slopesd=summary(.mod_ll_t)$coefficients[2,2], 
+               # logl_time_slope=.mod_ll_t$coefficients[2], logl_time_slopesd=.mod_ll_t$stderr[2], 
+               logl_time_r2=corPearson(.df$time_sec, log(.df$length_um))^2,
+               logg_time_slope=.mod_lg_t$coefficients[2], logg_time_slopesd=.mod_lg_t$stderr[2], 
+               logg_time_r2=corPearson(.df$time_sec, log(.df$gfp_nb))^2,
+               l_time_slope=.mod_l_t$coefficients[2], l_time_slopesd=.mod_l_t$stderr[2], 
+               l_time_r2=corPearson(.df$time_sec, .df$length_um)^2,
+               g_time_slope=.mod_g_t$coefficients[2], g_time_slopesd=.mod_g_t$stderr[2], 
+               g_time_r2=corPearson(.df$time_sec, .df$gfp_nb)^2,
+               g_l_slope=.mod_g_l$coefficients[2], g_l_slopesd=.mod_g_l$stderr[2], 
+               g_l_r2=corPearson(.df$length_um, log(.df$gfp_nb))^2)
+  })(.) ) %>% 
+  collect() %>% 
+  arrange(condition, date, pos, gl, id)
+
+
 ```
 
 
@@ -908,34 +1037,28 @@ ggplot(filter(myframes, !discard_start, !discard_top, condition=='glucose', end_
   stat_smooth(method='lm', se=FALSE) +
   geom_path(alpha=0.8, size=1) +
   scale_colour_periodic_brewer(guide='none') +
-  scale_y_continuous(trans='log2', limits=c(1, 4)) +
+  scale_x_continuous(breaks=seq(0, 80, 40)) +
+  scale_y_continuous(trans='log2', breaks=2:4) +
+  expand_limits(y=4) +
   labs(x='time after division (min)', y='length (µm)')
-ggsave('plots/asc_loglength_time.pdf', width=4, height=3)
+ggsave('plots/asc_loglength_time.pdf', width=2.5, height=3)
 
 
-ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div', start_time>=2*3600),
-       aes(Rsize_vs_time^2, col=condition)) +
-  stat_ecdf() +
-  labs(x='exponential fit r2', y='cumulative probability') +
+ggplot(mycells) +
+  stat_ecdf(aes(logl_time_r2, col=condition, lty='exponential')) +
+  stat_ecdf(aes(l_time_r2, col=condition, lty='linear')) +
+  labs(x='Pearson correlation r2', y='cumulative probability', lty='fit') +
   theme(legend.position=c(0.15, 0.8)) +
   xlim(0.94, 1) 
-ggsave('plots/asc_loglength_time_r2ecdf.pdf', width=4, height=3)
+ggsave('plots/asc_loglength_time_r2ecdf.pdf', width=3, height=3)
 
-
-myr2 <- filter(myframes, !discard_start, !discard_top, condition!='switch', end_type=='div', start_time>=2*3600) %>%
-  group_by(date, pos, gl, id) %>%
-  do((function(.df) {
-    .mod <- lm(log(length_um)~time_sec, data=.df)
-    return(data.frame(logh_time_slope=coef(.mod)[2], logh_time_r2=summary(.mod)$r.squared))
-  })(.) )
 
 ```
 
 
 ```{r}
 
-ggplot(filter(mycells, !discard_start, end_time>5*3600, condition!='switch', end_type=='div'),
-       aes(end_time, (end_time-start_time)/60, col=condition)) +
+ggplot(mycells, aes(time_div, (time_div-time_birth)/60, col=condition)) +
   geom_point(alpha=0.2) +
   # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
   stat_smooth(size=1) +
@@ -945,16 +1068,15 @@ ggplot(filter(mycells, !discard_start, end_time>5*3600, condition!='switch', end
   ylim(0, 200)
  
 # table(filter(mycells, condition!='switch')$Rsize_vs_time^2>.95)
-ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div'),
-       aes(end_time - 2*3600, log(2)/slope_size_vs_time / 60, col=condition)) +
-  geom_point(alpha=0.2, size=1,
-             data=filter(mycells, Rsize_vs_time^2>.95, !discard_start, condition!='switch', end_type=='div')) +
+ggplot(filter(mycells, logl_time_r2>.95), aes(time_div - 2*3600, log(2)/logl_time_slope / 60, col=condition)) +
+  geom_point(alpha=0.2, size=1) +
   # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
   stat_smooth(method='lm', size=1,
-              data=filter(mycells, end_time>5*3600, Rsize_vs_time^2>.95, !discard_start, condition!='switch', end_type=='div')) +
-  scale_x_hours(5, name='time at division (h)') +
+              data=filter(mycells, logl_time_r2>.95, time_birth > 5*3600)) +
+  scale_x_hours(6, name='time at division (h)') +
   labs(y='doubling time (min)') +
-  expand_limits(x=0, y=0)
+  expand_limits(x=c(0, 24*3600), y=0) +
+  theme(legend.position=c(0.15, 0.8))
 ggsave('plots/asc_dt_divtime.pdf', width=6, height=3)
 
 ```
@@ -962,13 +1084,12 @@ ggsave('plots/asc_dt_divtime.pdf', width=6, height=3)
 Let's check that cells with long doubling time are not filamentous.
 
 ```{r}
-l_end <- select(mycells, date, pos, gl, id, time_sec=end_time) %>%
+l_end <- select(mycells, date, pos, gl, id, time_sec=time_div) %>%
          left_join(select(myframes, date, pos, gl, id, time_sec, length_um))
-mycells <- mutate(mycells, length_um_end = l_end$length_um)
+mycells <- left_join(mycells, l_end %>% select(-time_sec)) %>% rename(length_um_end=length_um)
 
 
-ggplot(filter(mycells, !discard_start, end_time>5*3600, condition!='switch', end_type=='div'),
-       aes(length_um_end, log(2)/slope_size_vs_time / 60, col=condition)) +
+ggplot(mycells, aes(length_um_end, log(2)/logl_time_slope / 60, col=condition)) +
   geom_point(alpha=0.2) +
   # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
   stat_smooth(method='lm', size=1) +
@@ -979,22 +1100,17 @@ ggplot(filter(mycells, !discard_start, end_time>5*3600, condition!='switch', end
 
 
 ```{r eval=FALSE}
-ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div'), # %>% filter(Rsize_vs_time^2>.98),
-       aes(log(2)/slope_size_vs_time / 60)) +
+ggplot(mycells, # %>% filter(Rsize_vs_time^2>.98),
+       aes(log(2)/logl_time_slope / 60)) +
   stat_bin(aes(y=..density.., fill=condition), geom='bar', position='identity', col='transparent', alpha=.2) + 
   geom_stephist(aes(y=..density.., col=condition), position='identity') + 
     # stat_ecdf() +
+  xlim(0, 300) +
   labs(x='doubling time (min)') +
-  xlim(0, 300)
-ggsave('plots/asc_dt.pdf', width=6, height=2)
+  theme(legend.position=c(0.15, 0.8))
+ggsave('plots/asc_dt.pdf', width=5.5, height=2)
 
- ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div'), # filter(Rsize_vs_time>.992)
-       aes(Rsize_vs_time^2, col=condition)) +
-  stat_density(geom='line') + 
-  xlim(0.95, 1)
-
-ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div'),
-       aes(log(2)/slope_size_vs_time / 60, Rsize_vs_time, col=condition)) +
+ggplot(mycells, aes(log(2)/logl_time_slope / 60, logl_time_r2, col=condition)) +
   geom_point(alpha=.2) + 
   geom_smooth(method='lm') +
   xlim(0, 150) + ylim(0.95, 1) +
@@ -1005,28 +1121,46 @@ ggplot(filter(mycells, !discard_start, condition!='switch', end_type=='div'),
 
 ## Fluo in lactose
 
+```{r}
+(function() {
+  # browser()
+  # .df <- filter(myframes, date=='20150624', pos==0, gl==4)
+  .df <- filter(myframes, date=='20150703', pos==3, gl==1)
+  .df_div <- filter(.df, !discard_top, !discard_start) %>% 
+    group_by(id) %>% 
+    do(compute_div_between_facets(.df, .))
+  
+  ggplot() +
+    facet_grid(b_rank~., as.table=FALSE) +
+    # facets alternated background
+    geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf), alpha=.05, data=data.frame(b_rank=seq(0, 3, 2))) +
+    # show divisions (lty='11' means densely dotted line using hex notation)
+    geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=gfp_nb, yend=gfp_nbp), col='darkgreen', alpha=.3, lty='11', data=filter(.df_div, b_rank<4) %>% filter(!(b_rank==3 & gfp_nbp==Inf))) + 
+    # show cell traces
+    geom_path(aes(time_sec - 2*3600, gfp_nb, group=id), col='darkgreen', data=filter(.df, !discard_top, !discard_start, b_rank<4)) +
+    scale_x_hours(4) +
+    scale_y_continuous(breaks=c(0, 5000, 10000)) +
+    expand_limits(y=0) +
+    labs(y='total GFP per cell (molecules)') +
+    theme(panel.margin = unit(0, "lines"), panel.border=element_blank(),
+          strip.background = element_blank(), strip.text = element_blank())
+})()
+# ggsave('plots/asc_gfp_time.pdf', width=8, height=5)
+
+```
+
+
 
 ```{r}
-ggplot(filter(myframes, !discard_start, !discard_top, condition=='lactose', end_type=='div', parent_id>0) %>% head(2e3),
-       aes(time_sec - 2*3600, gfp_nb, col=cell)) +
-    geom_rect(aes(xmin=0, xmax=Inf, ymin=-Inf, ymax=Inf, x=NaN, y=NaN), fill=rgb(1, 0, 0, .1), col='transparent', data=data.frame()) +
-  geom_path(alpha=0.8) +
-  scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(5) +
-  labs(y='total fluorescence (GFP molecules)') +
-  expand_limits(x=0, y=0)
-ggsave('plots/asc_gfp_time.pdf', width=6, height=3)
-
-ggplot(filter(mycells, !discard_start, condition=='lactose', end_type=='div'),
-       aes(Rfluo_vs_time)) +
+ggplot(filter(mycells, condition=='lactose'), aes(logg_time_r2)) +
   stat_bin()
 
 
-ggplot(filter(mycells, !discard_start, condition=='lactose', end_type=='div', Rfluo_vs_time^2 > 0.95),
-       aes(dsope_fluo_vs_time * fp_per_dn)) +
-  stat_bin() +
-  labs(x='GFP production rate (/sec)')
-ggsave('plots/asc_gfpprod.pdf', width=6, height=2)
+ggplot(filter(mycells, condition=='lactose', logg_time_r2 > 0.95),
+       aes(g_time_slope, ..density..)) +
+  stat_bin(col='darkblue', fill='darkblue', alpha=.5) +
+  labs(x='GFP production (molecules/sec)')
+ggsave('plots/asc_gfpprod.pdf', width=7, height=2.5)
 
 ```
 
