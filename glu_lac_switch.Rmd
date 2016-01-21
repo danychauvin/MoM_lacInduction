@@ -47,6 +47,7 @@ numCores <- min(30, detectCores()-1) # do not use more than 30 cores
 
 library(multidplyr)
 mycluster <- create_cluster(numCores)
+for (.l in mylibs) { mycluster %>% cluster_library(.l) }
 set_default_cluster(mycluster)
 
 ```
@@ -179,6 +180,7 @@ timm_data <- lapply(l_data, function(.df) {
   }) %>%
   do.call(rbind, .) %>%
   extract(path, c('date', 'pos', 'gl'), ".*/(\\d+)_pos(\\d+)_[^/]*GL0*(\\d+)\\.timm") %>%
+  # to do: keep only files for which the output is used
   mutate(date=as.numeric(date), pos=as.numeric(pos), gl=as.numeric(gl))
 
 
@@ -334,10 +336,12 @@ mean_autofluo <- mg_autofluo %>% ungroup %>%
             slope0.sd=1 / sqrt(sum(1/slope0.sd^2)))
 
 ggplot(filter(mg_autofluo, between(intercept, -500, 900))) +
-  geom_stephist(aes(slope0, col='Y=aX')) +
-  geom_stephist(aes(slope, col='Y=aX+b')) +
+  # geom_step_hist(aes(slope0, col='Y=aX')) +
+  # geom_step_hist(aes(slope, col='Y=aX+b')) +
+  stat_ecdf(aes(slope0, col='Y=aX')) +
+  stat_ecdf(aes(slope, col='Y=aX+b')) +
   geom_vline(aes(xintercept=slope0, col='Y=aX'), data=mean_autofluo, lty='dashed') +
-  labs(x='slope (DN/µm)', col='model')
+  labs(x='slope (DN/µm)', y='cumulative', col='model')
 
 autofluo_predict <- function(.h) .h * mean_autofluo$slope0
 if (use_eriks_params)
@@ -442,10 +446,10 @@ p_decayfit_r2_ecdf <- ggplot(data = bleaching_fits) +
   theme_classic() + theme(legend.position=c(0.2, 0.85))
 ggsave('plots/article/decayfit_r2_ecdf.pdf', p_decayfit_r2_ecdf, width=4, height=3)
 
-.bw <- .1
-ggplot(data = filter(bleaching_fits, r2>.8)) +
-  geom_stephist(aes(slope/mean(slope), col='lin'), binwidth=.bw) +
-  geom_stephist(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'), binwidth=.bw)
+# .bw <- .1
+# ggplot(data = filter(bleaching_fits, r2>.8)) +
+#   geom_step_hist(aes(slope/mean(slope), col='lin'), binwidth=.bw) +
+#   geom_step_hist(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'), binwidth=.bw)
 
 ggplot(data = filter(bleaching_fits, r2>.8)) +
   stat_ecdf(aes(slope/mean(slope), col='lin')) +
@@ -475,7 +479,6 @@ p_decayfit_exp <- ggplot(filter(bleaching_fits, exp_slope<1e-4), aes(fluogfp_amp
   theme_classic()
 ggsave('plots/article/decayfit_exp.pdf', p_decayfit_exp, width=4, height=3)
 
-# library(gridExtra)
 # pdf('plots/article/decay_gfp.pdf', width=10, height=3)
 # grid.arrange(p_decayGFP_lin, p_decayGFP_exp, ncol=2)
 # dev.off()
@@ -501,7 +504,6 @@ ggplot(data = bleaching_fits) +
 
 p_decayfit_exp2 <- p_decayfit_exp +
   geom_hline(yintercept=bleaching_rate$mean, col=brewer_cols[2], lty='dashed')
-library(gridExtra)
 pdf('plots/article/decay_fit.pdf', width=12, height=3)
 grid.arrange(p_decayfit_r2_ecdf, p_decayfit_lin, p_decayfit_exp2, ncol=3)
 dev.off()
@@ -517,9 +519,6 @@ For each division event (where mother and both daughters are observed for 10 fra
 Reassuringly, while the daughters sum is systematically lower than their mother (due to bleaching + degradation) with the average estimation, the sum is closer to the mother value with the fit. In the following we assume these are equal and use the sum to compute the bias since this is less subject to measurement errors. Regarding the size estimation, the fit underestimate size at birth as already established by Erik.
 
 ```{r}
-library(RcppArmadillo)
-library(ccaPP)
-
 ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', 
                      cell_num_in_lane < total_cell_in_lane,
                      time_sec>(2+4)*3600, 
@@ -538,6 +537,7 @@ ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch'
 
 triad_avgw <- 3
 triad_fitw <- 10
+set.seed(19082328)
 swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
                      cell_num_in_lane < total_cell_in_lane,
                      time_sec>(2+4)*3600, 
@@ -611,7 +611,15 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch'
              setNames(., paste("t", names(.), sep="."))
          )
        })(.df1, .) )
-  })(.) )
+  })(.) ) %>% 
+  # add convenience variables
+  ungroup %>% 
+  mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
+         lbias_bottom=b.length_fit / (b.length_fit + t.length_fit),
+         lbias_old=ifelse(b.pole=="old", lbias_bottom, 1-lbias_bottom),
+         fbias_old=ifelse(b.pole=="old", fbias_bottom, 1-fbias_bottom),
+         rnd=runif(dim(.)[1])<0.5, lbias_rnd=ifelse(rnd, lbias_bottom, 1-lbias_bottom),
+         fbias_rnd=ifelse(rnd, fbias_bottom, 1-fbias_bottom) )
 
 # write.csv(swi_triads %>% data.frame, file='nu_triads_20151230.csv')
 
@@ -634,69 +642,67 @@ ggplot(swi_triads) +
 
 
 ```{r}
-qplot(b.fluo_fit+t.fluo_fit, b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
+ggplot(data=swi_triads, aes(b.fluo_fit + t.fluo_fit , fbias_rnd)) +
   geom_hline(yintercept=0.5, lty='dashed') + 
   # stat_density2d(fill='blue', col='transparent', alpha=.05, geom='polygon') + # , binwidth=1e-4
   geom_point(alpha=0.5, size=1) + 
-  ylim(0.3, .7) +
+  ylim(0.35, .65) +
 #   geom_pointrange(aes(x=fluo, y=m, ymin=m-s, ymax=m+s), 
 #                   data=data.frame(fluo=seq(5e3, 4e4, 1e3)) %>% mutate(
 #                     m=sapply(fluo, function(.fl) 
 #                       filter(swi_triads, between(fluo_fit, .fl-1e3, .fl+1e3)) %>% mutate(bias=b.fluo_fit / (b.fluo_fit + t.fluo_fit)) %>% .[['bias']] %>% mean),
 #                     s=sapply(fluo, function(.fl) 
 #                       filter(swi_triads, between(fluo_fit, .fl-1e3, .fl+1e3)) %>% mutate(bias=b.fluo_fit / (b.fluo_fit + t.fluo_fit)) %>% .[['bias']] %>% sd)) ) +
-  labs(x='total fluorescence (DN)', y='fluorescence bias toward bottom daughter') 
+  labs(x='total fluorescence (DN)', y='GFP bias toward daughter 1')
 ggsave('plots/asc_nutriads_fluotot.pdf', width=3.9, height=2.9)
 
-
-ggplot(swi_triads %>% ungroup %>% 
-         filter(between(b.fluo_fit + t.fluo_fit, 5e3, 3e4)) %>% 
-         mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
-                lbias_bottom=b.length_fit / (b.length_fit + t.length_fit),
-                bias_bottom=fbias_bottom-lbias_bottom,
-                bias_random=ifelse(runif(dim(.)[1])<0.5, fbias_bottom-lbias_bottom, lbias_bottom-fbias_bottom),
-                bias_old=ifelse(b.pole=="old", fbias_bottom-lbias_bottom, lbias_bottom-fbias_bottom)) ) +
-  geom_hline(yintercept=0, lty='dashed') +
-#   stat_smooth(aes(b.fluo_fit+t.fluo_fit, bias_random, col="random"), method="lm") +
-#   geom_point(aes(b.fluo_fit+t.fluo_fit, bias_random, col="random"), alpha=.5) +
-  # geom_hline(aes(yintercept=mean(bias_random), col="random")) +
-  stat_smooth(aes(b.fluo_fit+t.fluo_fit, bias_bottom, col="bottom"), method="lm") +
-  geom_point(aes(b.fluo_fit+t.fluo_fit, bias_bottom, col="bottom"), alpha=.5) +
-  # geom_hline(aes(yintercept=mean(bias_bottom), col="bottom")) +
-  stat_smooth(aes(b.fluo_fit+t.fluo_fit, bias_old, col="old"), method="lm") +
-  geom_point(aes(b.fluo_fit+t.fluo_fit, bias_old, col="old"), alpha=.5) +
-  # geom_hline(aes(yintercept=mean(bias_old), col="old")) +
-  labs(y="bias", col="criteria")
-
-qplot(b.length_fit / (b.length_fit + t.length_fit) , b.fluo_fit / (b.fluo_fit + t.fluo_fit), data=swi_triads, geom="blank") +
-  # geom_abline() +
+ggplot(data=swi_triads, aes(lbias_rnd, fbias_rnd)) +
   geom_hline(yintercept=0.5, lty='dashed') + 
-  geom_smooth(method='lm', se=FALSE) + 
+  geom_smooth(method='lm', se=TRUE) + 
   geom_point(alpha=0.5, size=1) + 
-  # ylim(0.4, 0.6) +
-  labs(x='length bias toward bottom daughter', y='fluorescence bias toward bottom daughter') 
+  xlim(0.42, 0.58) +
+  labs(x='length bias toward daughter 1', y='GFP bias toward daughter 1') 
 ggsave('plots/asc_nutriads_length.pdf', width=3.9, height=2.9)
 
-mod <- lm(I(b.fluo_fit / (b.fluo_fit + t.fluo_fit)) ~ I(b.length_avg / (b.length_avg + t.length_avg)), data=swi_triads)
-summary(mod)$r.squared
-
-
-qplot(lbias_rnd, fbias_rnd-lbias_rnd, geom="blank", 
-      data=swi_triads %>% ungroup %>% 
-        mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
-               lbias_bottom=b.length_fit / (b.length_fit + t.length_fit),
-               rnd=runif(dim(.)[1])<0.5, lbias_rnd=ifelse(rnd, lbias_bottom, 1-lbias_bottom),
-               fbias_rnd=ifelse(rnd, fbias_bottom, 1-fbias_bottom) )) +
-  geom_abline() +
-  geom_smooth(method='lm', se=FALSE) + 
-  geom_point(alpha=0.2) + 
-  # ylim(0.4, 0.6) +
-  labs(x='volume bias', y='volume-corrected GFP bias') 
+ggplot(swi_triads, aes(lbias_rnd, fbias_rnd-lbias_rnd)) +
+  geom_hline(yintercept=0, lty='dashed') + 
+  geom_smooth(method='lm', se=TRUE) + 
+  geom_point(alpha=0.5, size=1) + 
+  xlim(0.42, 0.58) +
+  labs(x='volume bias toward daughter 1', y='volume-corrected \nGFP bias toward daughter 1') 
 ggsave('plots/asc_nutriads_lengthcor.pdf', width=3.9, height=2.9)
 
-with(data=swi_triads %>% mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
-                                lbias_bottom=b.length_fit / (b.length_fit + t.length_fit)),
-     corPearson(lbias_bottom, fbias_bottom-lbias_bottom) )
+# # manually check the effect of random assignement on the r2
+# swi_triads %>% ungroup %>% 
+#   mutate(fbias_bottom=b.fluo_fit / (b.fluo_fit + t.fluo_fit),
+#          lbias_bottom=b.length_fit / (b.length_fit + t.length_fit),
+#                          rnd=runif(dim(.)[1])<0.5, lbias_rnd=ifelse(rnd, lbias_bottom, 1-lbias_bottom),
+#                 fbias_rnd=ifelse(rnd, fbias_bottom, 1-fbias_bottom) ) %>% 
+#   summarise(r2_lb_fb=cor(lbias_bottom, fbias_bottom, use="complete.obs", method="pearson")^2,
+#             r2_lb_cfb=cor(lbias_bottom, fbias_bottom-lbias_bottom, use="complete.obs", method="pearson")^2,
+#             r2_lr_fr=cor(lbias_rnd, fbias_rnd, use="complete.obs", method="pearson")^2,
+#             r2_lr_cfr=cor(lbias_rnd, fbias_rnd-lbias_rnd, use="complete.obs", method="pearson")^2)
+
+ggplot(swi_triads %>%
+         # filter(between(b.fluo_fit + t.fluo_fit, 5e3, 3e4)) %>% 
+         filter(b.fluo_fit + t.fluo_fit > 5e3) ) +
+  geom_hline(yintercept=0, lty='dashed') +
+#   stat_smooth(aes(b.fluo_fit+t.fluo_fit, fbias_rnd-lbias_rnd, col="random"), method="lm") +
+#   geom_point(aes(b.fluo_fit+t.fluo_fit, fbias_rnd-lbias_rnd, col="random"), alpha=.5) +
+  # geom_hline(aes(yintercept=mean(fbias_rnd-lbias_rnd), col="random")) +
+  stat_smooth(aes(b.fluo_fit+t.fluo_fit, fbias_bottom-lbias_bottom, col="bottom"), method="lm", show.legend=FALSE) +
+  geom_point(aes(b.fluo_fit+t.fluo_fit, fbias_bottom-lbias_bottom, col="bottom"), alpha=.5) +
+  # geom_hline(aes(yintercept=mean(fbias_bottom-lbias_bottom), col="bottom")) +
+  stat_smooth(aes(b.fluo_fit+t.fluo_fit, fbias_old-lbias_old, col="old"), method="lm", show.legend=FALSE) +
+  geom_point(aes(b.fluo_fit+t.fluo_fit, fbias_old-lbias_old, col="old"), alpha=.5) +
+  # geom_hline(aes(yintercept=mean(fbias_old-lbias_old), col="old")) +
+  labs(x="mother's total GFP (molecules)", y="volume-corrected GFP bias", col="criteria") +
+  theme(legend.justification=c(1,1), legend.position=c(1, 1)) +
+  guides(col=guide_legend(override.aes = list(size=3, alpha=1)))
+ggsave('plots/asc_nutriads_oldpolebias.pdf', width=5, height=4.5)
+
+# table(swi_triads$b.pole=="old")
+
 ```
 
 For each triad, we can compute a conversion factor (cf Rosenfeld method 1).
@@ -974,6 +980,8 @@ dev.off()
 
 ## Growth in constant environments
 
+The cell length doesn't increase during experiments in constant conditions, indicating limited photodamage and physiological aging. See doubling time lower.
+
 ```{r}
 ggplot(filter(myframes, !discard_start, !discard_top, end_type=='div', start_time>=2*3600) %>% sample_frac(.1, replace=FALSE), # , condition=='glucose'
        aes(time_sec - 2*3600, length_um, col=condition)) +
@@ -982,12 +990,13 @@ ggplot(filter(myframes, !discard_start, !discard_top, end_type=='div', start_tim
   scale_x_hours() +
   facet_grid(condition~.)
 # geom_point(aes(time_sec, length_um), alpha=0.1)
+
+ggplot(filter(myframes, condition!='switch', !discard_top), aes(time_sec, length_um, col=condition)) +
+  geom_smooth()
+
 ```
 
 ```{r}
-mycluster %>% cluster_library("dplyr") %>% 
-  cluster_library("RcppArmadillo") %>% 
-  cluster_library("ccaPP")
 mycells <- filter(myframes, condition!='switch', !discard_top) %>%
   # group_by(date, pos, gl, id, parent_id, genealogy) %>%
   partition(condition, date, pos, gl, id, parent_id, genealogy) %>%
@@ -1103,7 +1112,7 @@ ggplot(mycells, aes(length_um_end, log(2)/logl_time_slope / 60, col=condition)) 
 ggplot(mycells, # %>% filter(Rsize_vs_time^2>.98),
        aes(log(2)/logl_time_slope / 60)) +
   stat_bin(aes(y=..density.., fill=condition), geom='bar', position='identity', col='transparent', alpha=.2) + 
-  geom_stephist(aes(y=..density.., col=condition), position='identity') + 
+  # geom_step_hist(aes(y=..density.., col=condition), position='identity') + 
     # stat_ecdf() +
   xlim(0, 300) +
   labs(x='doubling time (min)') +
@@ -1254,150 +1263,270 @@ mycells_switching <- myframes_switching %>%
   group_by(cell) %>%
   do((function(.df){
     .preswitch_gfp <- mean(filter(.df, pre_switch)$gfp_nb)
+    .preswitch_length <- mean(filter(.df, pre_switch)$length_um)
     .tmin <- filter(.df, pre_switch)$time_sec %>% max
     .switch_idx <- (.tmin - switch_times) %>% abs %>% which.min
-    .t_50 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+50)$time %>% first
-    .t_50_fail <- filter(.df, time_sec>.t_50, gfp_nb < .preswitch_gfp+50)$time %>% first
     .t_200 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+200)$time %>% first
     .t_200_fail <- filter(.df, time_sec>.t_200, gfp_nb < .preswitch_gfp+200)$time %>% first
     # if (.switch_idx==2) browser()
-    return(data.frame(switch_idx=.switch_idx, gfp_ini=.preswitch_gfp, cell_num=mean(.df$cell_num_in_lane),
-                      lac_50=.t_50, lac_50_fail=.t_50_fail,
+    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), 
+                      switch_idx=.switch_idx, time_birth=unique(.df$start_time), time_div=unique(.df$end_time), 
+                      gfp_ini=.preswitch_gfp, length_ini=.preswitch_length, cell_num=mean(.df$cell_num_in_lane),
                       lac_200=.t_200, lac_200_fail=.t_200_fail))
     })(.)) %>%
-  mutate(time_switch=switch_times[switch_idx],
-         gl_id=gsub('\\.[0-9]+$', '', cell))
+  mutate(gl_id=gsub('\\.[0-9]+$', '', cell),
+         time_switch=switch_times[switch_idx]) %>% 
+  mutate(lag_200 = ifelse(is.na(lac_200_fail) | lac_200_fail-lac_200 > 20*60,
+                          lac_200-time_switch, as.numeric(NA)))
 
-# write.table(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-              # select(-contains("fail")), 'lac_induction_lag.txt', row.names=FALSE)
+MASS::fitdistr(filter(mycells_switching, switch_idx==2, !is.na(lag_200)) %>% .[['lag_200']], 'log-normal')
 
-ggplot(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60),
-       aes(x=(lac_50 - time_switch)/60)) +
-  # stat_density(aes(col=factor(switch_idx)), fill='transparent', position='identity', geom='line')
-  geom_histogram(aes(y=..density.., fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show_guide=FALSE) +
-  geom_stephist(aes(y=..density.., col=factor(switch_idx)), binwidth=3, position='identity') +
-  # stat_function(fun=dlnorm, arg = list(meanlog=3, sdlog=.5)) +
-  labs(x='time to induction (+50 GFP molecules; min)', col='switch') +
-  scale_colour_brewer(palette='Set1', breaks=1:3, 
-                      labels=filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-                        group_by(switch_idx) %>% summarise(n=n()) %>% .[['n']] %>%
-                        paste0(1:3, ' (n=', ., ')')) +
-  theme(legend.position=c(.85, .7))
-
-# ggplot(data.frame(x=c(0, 100)), aes(x)) +
-#   stat_function(fun=dgamma, colour="red", arg = list(shape=3, rate=0.11))
-
-MASS::fitdistr(filter(mycells_switching, !is.na(lac_50), is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60, switch_idx==2) %>%
-           mutate(lag_50=(lac_50-time_switch)/60) %>% .[['lag_50']], 'log-normal')
-
-ggplot(filter(mycells_switching, is.na(lac_200_fail) | lac_200_fail-lac_200 > 20*60),
-       aes(x=(lac_200 - time_switch)/60, y=..density..)) +
-  # stat_density(aes(col=factor(switch_idx)), fill='transparent', position='identity', geom='line')
-  geom_histogram(aes(fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show_guide=FALSE) +
-  geom_stephist(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
+ggplot(mycells_switching, aes(x=lag_200/60, y=..density..)) +
+  geom_histogram(aes(fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show.legend=FALSE) +
+  geom_step_hist(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
   labs(x='time to induction (+200 GFP molecules; min)', col='switch') +
   scale_colour_brewer(palette='Set1', breaks=1:3, 
-                      labels=filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-                        group_by(switch_idx) %>% summarise(n=n()) %>% .[['n']] %>%
-                        paste0(1:3, ' (n=', ., ')')) +
-  theme(legend.position=c(.85, .7))
+                      labels=mycells_switching %>% group_by(switch_idx) %>% summarise(n=n()) %>% 
+                               .[['n']] %>% paste0(1:3, ' (n=', ., ')')) +
+  theme(legend.justification=c(1, 1), legend.position=c(1, 1))
+ggsave('plots/asc_gfp_lag200.pdf', width=6, height=3)
 
-ggplot(filter(mycells_switching, is.na(lac_200_fail)), aes((lac_50-time_switch)/60, (lac_200-time_switch)/60)) +
-  geom_abline() +
-  geom_point(alpha=0.25) +
-  labs(x='time to induction (+50 GFP molecules; min)', y='time to induction (+200 GFP molecules; min)') +
-  facet_grid(switch_idx~.)
-
-```
-
-Does the induction lag depends on the initial amount of GFP?
-
-```{r}
-ggplot(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60),
-       aes(x=gfp_ini, y=(lac_50 - time_switch)/60)) +
-  geom_point(alpha=.1) +
-  # scale_x_log10() +
-  # scale_y_log10() +
-  labs(x='initial GFP concentration (GFP molecules)', y='time to induction (+50 GFP molecules; min)') +
-  facet_grid(switch_idx~.)
-
-ggplot(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-         mutate(gfp_ini2=Hmisc::cut2(gfp_ini, c(0, 50, 70))),
-       aes(x=gfp_ini, y=(lac_50 - time_switch)/60)) +
-  geom_point(alpha=.1) +
-  stat_smooth(method='lm') +
-  # scale_x_log10() +
-  # scale_y_log10() +
-  labs(x='initial GFP concentration (GFP molecules)', y='time to induction (+50 GFP molecules; min)') +
-  facet_wrap(~gfp_ini2, scale='free')
-
-cor_df <- function(.df, .x, .y, ...) {
-  .df <- .df %>%
-    select_(.dots=list(.x, .y)) %>%
-    na.omit
-  cor(.df[[.x]], .df[[.y]], ...)
-}
-
-cor_df(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60, gfp_ini<50) %>% 
-  mutate(lag=lac_50 - time_switch),
-  'gfp_ini', 'lag')^2
-
-cor_df(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60, gfp_ini>70) %>% 
-  mutate(lag=lac_50 - time_switch),
-  'gfp_ini', 'lag')^2
+# ggplot(mycells_switching, aes((lac_50-time_switch)/60, (lac_200-time_switch)/60)) +
+#   facet_grid(switch_idx~.) +
+#   geom_abline() +
+#   geom_point(alpha=0.25) +
+#   labs(x='time to induction (+50 GFP molecules; min)', y='time to induction (+200 GFP molecules; min)')
 
 ```
 
 Compare variance within growth lane versus global variance:
 
 ```{r}
-# mycells_switching  <- 
-ggplot() +
-  geom_stephist(aes(lac50_sd/lac50_mean, ..density.., col=factor(switch_idx)), binwidth=.002, position='identity',
-    data=filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-      group_by(switch_idx, gl_id) %>%
-      summarise(lac50_mean=mean(lac_50, na.rm=TRUE), lac50_sd=sd(lac_50, na.rm=TRUE),
-                lac50_n=sum(!is.na(lac_50)))) +
-    geom_vline(aes(xintercept=lac50_sd/lac50_mean, col=factor(switch_idx)), linetype='dashed',
-    data=filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-      group_by(switch_idx) %>%
-      summarise(lac50_mean=mean(lac_50, na.rm=TRUE), lac50_sd=sd(lac_50, na.rm=TRUE),
-                lac50_n=sum(!is.na(lac_50)))) +
-  labs(x='induction lag c.o.v.', col='switch')
+# histogram of number of estimated lags per GL
+mycells_switching %>% group_by(switch_idx, gl_id) %>%
+  mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
+         lag200_n=sum(!is.na(lag_200))) %>% 
+  ( function(.df)
+    ggplot(.df, aes(lag200_n) ) +
+      facet_grid(.~switch_idx) +
+      geom_histogram(binwidth=1) )
+    
+# correlation lag and avg lag in GL
+mycells_switching %>% group_by(switch_idx, gl_id) %>%
+  mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
+         lag200_n=sum(!is.na(lac_200)), lag200_se=lag200_sd/sqrt(lag200_n)) %>% 
+  filter(lag200_n>2) %>% 
+  filter(!(switch_idx==2 & lag200_mean/60>100)) %>% #group_by(switch_idx) %>% 
+  # summarise(n=n(), r2=cor(lag200_mean, lag_200, use="complete.obs", method="pearson")^2)
+  ( function(.df) { #browser()
+    ggplot(.df, aes(lag200_mean/60, lag_200/60, col=factor(switch_idx)) ) +
+      facet_wrap(~switch_idx, scales="free") +
+      # stat_smooth(method='lm', fullrange=TRUE) +
+      geom_abline(lty="dashed") +
+      geom_segment(aes(x=(lag200_mean-lag200_se)/60, xend=(lag200_mean+lag200_se)/60, yend=lag_200/60), alpha=0.5, show.legend=FALSE) +
+      geom_point(size=0.5, alpha=0.5) +
+        scale_colour_brewer(palette='Set1', # breaks=1:3, 
+                            labels=.df %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(lag200_mean, lag_200, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.2f)', .df$switch_idx, .df$r2)) ) +
+      labs(x='induction lag average in GL (min)', y='induction lag (min)', col='switch') +
+      expand_limits(x=0, y=0) + 
+      theme(legend.position='top') + guides(col=guide_legend(override.aes = list(size=3, alpha=1)))
+    })
+ggsave('plots/asc_gfp_lag200_gl.pdf', width=6, height=3.5)
 
+# compare variance within GL versus global variance
+mycells_switching %>% group_by(switch_idx, gl_id) %>%
+  mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
+         lag200_n=sum(!is.na(lag_200))) %>% 
+  filter(lag200_n>2) %>% 
+  ( function(.df)
+    ggplot(.df) +
+      geom_histogram(aes(lag200_sd/lag200_mean, ..density.., fill=factor(switch_idx)), 
+                     binwidth=.05, position='identity', alpha=.2, col='transparent', show.legend=FALSE) +
+      geom_step_hist(aes(lag200_sd/lag200_mean, ..density.., col=factor(switch_idx), lty='GLs'), binwidth=.05, position='identity') +
+      geom_vline(aes(xintercept=lag200_sd/lag200_mean, col=factor(switch_idx), lty='all'),  show.legend=FALSE,
+                 data=.df %>% group_by(switch_idx) %>%
+                   summarise(lag200_mean=mean(lag_200, na.rm=TRUE)/60, lag200_sd=sd(lag_200, na.rm=TRUE)/60)) +
+      scale_linetype_manual(name='group', values=2:1) +
+      labs(x='induction lag c.o.v.', col='switch')
+  )
+ggsave('plots/asc_gfp_lag200_cov.pdf', width=6, height=3)
 
-# filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60) %>%
-#   group_by(switch_idx, gl_id) %>%
-#   summarise(lac50_mean=mean(lac_50, na.rm=TRUE)) %>%
-#   summarise(type='', mean=mean(lac50_mean, na.rm=TRUE), sd=sd(lac50_mean, na.rm=TRUE),
-#             n=sum(!is.na(lac50_mean)))
 ```
+
 
 Position effect in the growth lane on induction lag:
 
 ```{r}
-ggplot(filter(mycells_switching, is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60),
-       aes(x=cell_num, y=(lac_50 - time_switch)/60, col=factor(switch_idx))) +
-  geom_point(alpha=.33) +
+# within GL correlation makes it irrelevant to look at the position/lag correl:
+ggplot(mycells_switching, aes(x=cell_num, y=lag_200/60, col=factor(switch_idx))) +
+  geom_point(alpha=.33, size=.5, show.legend=FALSE) +
   stat_smooth(method='lm', se=FALSE) +
-  labs(y='time to induction (+50 GFP molecules; min)', col='switch')
+  scale_x_reverse() + 
+  expand_limits(y=0) +
+  labs(x='position (closed end -- exit)', y='time to induction \n(+200 GFP molecules; min)', col='switch') +
+  scale_colour_brewer(palette='Set1', # breaks=1:3, 
+                      labels=mycells_switching %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(cell_num, lag_200/60, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.1e)', .df$switch_idx, .df$r2)) ) +
+  theme(legend.justification=c(0, 1), legend.position=c(0, 1))
 
-ggplot(mycells_switching %>%
-         group_by(switch_idx, gl_id) %>%
-         mutate(gl_exit_lag=lac_50-lac_50[which.min(cell_num)],
-                gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]) %>%
-         filter(is.na(lac_50_fail) | lac_50_fail-lac_50 > 20*60, !is.na(gl_exit_lag)),
+# relative to exit cell
+ggplot(mycells_switching %>% group_by(switch_idx, gl_id) %>%
+         mutate(gl_exit_lag=lag_200/lag_200[which.min(cell_num)],
+                gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]),
        aes(gl_exit_cdist, gl_exit_lag, col=factor(switch_idx))) +
-  geom_point(alpha=0.25) +
-  stat_smooth(method='lm', se=FALSE)
+  geom_point(alpha=0.25, size=.5) +
+  stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
+  scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
+  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
+  labs(x='distance to "exit" cell (cell position)', y='induction lag relative to exit cell', col='switch')
+ggsave('plots/asc_gfp_lag200_position_exit.pdf', width=3, height=3.5)
 
-# plot time betw cell 1 and cell k in each gl
+
+ggplot(mycells_switching %>% group_by(switch_idx, gl_id) %>%
+         mutate(gl_rel_lag200=lag_200/mean(lag_200, na.rm=TRUE),
+                gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]),
+       aes(cell_num, gl_rel_lag200, col=factor(switch_idx))) +
+  geom_point(alpha=0.25, size=.5) +
+  stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
+  scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
+  expand_limits(y=2) +
+  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
+  labs(x='position (closed end -- exit)', y='induction lag relative to GL average', col='switch')
+ggsave('plots/asc_gfp_lag200_position_avg.pdf', width=3, height=3.5)
+
+
+# plot time btw cell 1 and cell k in each gl
 ```
 
 
 
+Does the induction lag depends on the initial amount of GFP?
 
 ```{r}
+ggplot(mycells_switching, aes(x=gfp_ini, y=lag_200/60, col=factor(switch_idx))) +
+  facet_grid(switch_idx~.) +
+  geom_point(alpha=.5, size=.5) +
+  expand_limits(y=0) +
+  scale_y_continuous(breaks=seq(0, 500, 100)) +
+  labs(x='initial GFP level (molecules)', y='induction lag (+200 GFP molecules; min)', col='switch') +
+  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
+ggsave('plots/asc_gfp_lag200_gfpini.pdf', width=6, height=4)
+
+mycells_switching %>% mutate(switch_idx2=ifelse(switch_idx==2 & gfp_ini<190, '2_low', as.character(switch_idx))) %>% 
+  group_by(switch_idx2) %>% 
+  summarise(r2 = cor(gfp_ini, lag_200, use="complete.obs", method="pearson")^2)
+
+# cor_df <- function(.df, .x, .y, ...) {
+#   .df <- .df %>%
+#     select_(.dots=list(.x, .y)) %>%
+#     na.omit
+#   cor(.df[[.x]], .df[[.y]], ...)
+# }
+
+```
+
+
+Does the induction lag depends on the cell cycle state at the switch?
+
+```{r}
+glc_dt <- filter(mycells, condition=='glucose') %>% 
+  mutate(dt=time_div-time_birth) %>% 
+  .[['dt']] %>% mean
+
+ggplot(filter(mycells_switching, !is.na(lag_200)), aes(x=(time_switch-time_birth)/glc_dt, y=lag_200/60, col=factor(switch_idx))) +
+  facet_grid(switch_idx~.) +
+  geom_point(alpha=.5, size=.5) +
+  expand_limits(y=0) + scale_y_continuous(breaks=seq(0, 500, 100)) +
+  labs(x='cell cycle progression at switch', y='induction lag (+200 GFP molecules; min)', col='switch') +
+  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
+ggsave('plots/asc_gfp_lag200_cellcycle.pdf', width=6, height=4)
+
+filter(mycells_switching, !is.na(lag_200), (time_switch-time_birth)/glc_dt<= 1) %>% 
+  group_by(switch_idx) %>% 
+  summarise(r2=cor((time_switch-time_birth)/glc_dt, lag_200, use="complete.obs", method="pearson")^2)
+
+```
+
+
+Look at lag inheritance:
+
+```{r}
+genealogy_ontology <- function(.div_min, .div_max) {
+  .rel <- NA
+  if (.div_min == 1 && .div_max == 1) {
+    .rel <- 'sisters'
+  } else if (.div_min == 2 && .div_max == 2) {
+    .rel <- 'cousins1'
+  } else if (.div_min == 3 && .div_max == 3) {
+    .rel <- 'cousins2'
+  } else if (.div_min == 1 && .div_max == 2) {
+    .rel <- 'niece'
+  }
+  return(.rel)
+}
+
+genealogy_relationship <- function(.s) {
+# sisters: div_min == div_max == 1
+# 1st cousins: div_min == div_max == 2
+# niece: div_min==1 && div_max==2
+  if (length(.s)!=2) stop("arguments must be a vector of 2 strings.")
+  .min_l <- min(str_length(.s[1]), str_length(.s[2]))
+  .x1 <- .s[1] %>% str_sub(1, .min_l) %>% str_split("") %>% unlist
+  .x2 <- .s[2] %>% str_sub(1, .min_l) %>% str_split("") %>% unlist
+  .anc_length <- min(which(.x1 != .x2)) - 1 # 0 if no common ancestor
+  .div_1 <- str_sub(.s[1], .anc_length+1, -1) %>% str_length # -1 to select the last char
+  .div_2 <- str_sub(.s[2], .anc_length+1, -1) %>% str_length # -1 to select the last char
+  .div_min <- min(.div_1, .div_2)
+  .div_max <- max(.div_1, .div_2)
+  return(list(rel=genealogy_ontology(.div_min, .div_max), ancestor=str_sub(.s[1], 1, .anc_length), 
+              genealogy_1=.s[1], div_1=.div_1, genealogy_2=.s[2], div_2=.div_2, 
+              div_min=.div_min, div_max=.div_max, less_div=which.min(c(.div_1, .div_2)) ))
+}
+
+mypairs_switching <- mycells_switching %>% group_by(gl_id, switch_idx) %>% 
+  do((function(.df) {
+    # browser()
+    if (dim(.df)[1]<2) 
+      return(data.frame())
+    return( combn(.df$genealogy, 2, simplify=FALSE) %>% 
+      lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>% 
+      do.call(rbind, .) )
+  })(.)) %>% 
+  mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>% 
+  left_join(mycells_switching %>% ungroup %>% 
+              setNames(., paste(names(.), "1", sep="_")) %>% rename(gl_id=gl_id_1, switch_idx=switch_idx_1) ) %>% 
+  left_join(mycells_switching %>% ungroup %>% 
+              setNames(., paste(names(.), "2", sep="_")) %>% rename(gl_id=gl_id_2, switch_idx=switch_idx_2) ) 
+
+ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
+  facet_wrap(~switch_idx, scales='free', ncol = 3) +
+  geom_abline(col='gray50') +
+  geom_point(alpha=.5, size=.5) +
+  # geom_smooth() +
+  expand_limits(x=0, y=0) +
+  # scale_y_continuous(breaks=seq(0, 500, 100)) +
+  labs(x='induction lag cell 1 (min)', y='induction lag cell 2 (min)', col='relationship') +
+  theme(legend.position='bottom') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
+ggsave('plots/asc_gfp_lag200_genealogy.pdf', width=5, height=4)
+
+# with(mypairs_switching, table(switch_idx, rel, useNA='ifany'))
+filter(mypairs_switching, rel!='niece', !(switch_idx==2 & lag_200_1/60>75)) %>% 
+  group_by(switch_idx, rel) %>% 
+  summarise(r2=cor(lag_200_1, lag_200_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  (function(.df) ggplot(.df, aes(rel, r2)) +
+     facet_grid(.~switch_idx) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=paste0("n = ", n)), angle=90, hjust=1) +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+ggsave('plots/asc_gfp_lag200_genealogyr2.pdf', width=2.5, height=4)
+
+
+```
+
+
+```{r}
+
 ggplot(filter(myframes_switching, nframes>20, between(time_sec, 360*60, 600*60)) %>% head(5e3),
        aes(gfp_nb, length_um, col=cell)) +
   geom_path() + 
@@ -1460,16 +1589,16 @@ myfcm <- data.frame(path=c('./data/facs/20150918/asc662_lactose_gfp600.fcs', './
 
 ggplot(filter(myfcm, g85==TRUE, gw85>.5), aes(gfp_nb, ..density..)) +
   geom_histogram(aes(fill=cond), binwidth=100, alpha=.2, position='identity') +
-  geom_stephist(aes(col=cond), binwidth=100) + 
+  geom_step_hist(aes(col=cond), binwidth=100) + 
   geom_vline(xintercept=550)
 
 ggplot(filter(myframes, condition!='switch', !discard_start, !discard_top), aes(length_um, ..density..)) +
   geom_histogram(aes(fill=condition), binwidth=.065, alpha=.2, position='identity') +
-  geom_stephist(aes(col=condition), binwidth=.065)
+  geom_step_hist(aes(col=condition), binwidth=.065)
 
 ggplot(filter(myframes, condition!='switch', !discard_start, !discard_top), aes(gfp_nb, ..density..)) +
   geom_histogram(aes(fill=condition), binwidth=100, alpha=.2, position='identity') +
-  geom_stephist(aes(col=condition), binwidth=100)
+  geom_step_hist(aes(col=condition), binwidth=100)
 
 ggplot(data.frame(prop=seq(.85, .1, by=-.15)) %>%
   group_by(prop) %>%
