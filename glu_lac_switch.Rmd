@@ -4,7 +4,15 @@ author: Thomas Julou
 output: html_document
 ---
 
-```{r variables, include=FALSE}
+```{r knitr_settings, include=FALSE}
+library(knitr)
+opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+
+```
+
+
+```{r variables}
+# SET VARIABLES ####
 dt <- 3             # frame intervall (min)
 dl <- 0.065         # pixel size (µm)
 vertical_cutoff <- 4 / dl   # after it touched this coordinate a cell is discarded
@@ -14,13 +22,7 @@ proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
 r_scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
                   "~/Documents/Biozentrum/Projects/vngWetLabR/ggplot")
 perl_scripts_path <- "~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
-data2preproc <- function(.d) sub('/data/', '/preproc/', .d) # store cache file in preproc subdir
-
-date_cond <- c("20150616"="glucose", "20150617"="glucose", "20150624"="lactose", "20150630"="lactose", "20150703"="switch", "20150708"="switch")
-
-# # save environment (but `pls`)
-# myvars <- ls(all.names = TRUE)
-# save(list=myvars[which(myvars!='pls')], file=".RData", envir=.GlobalEnv)
+data2preproc <- function(.d) sub('/(data_matthias|data_thomas)/*', '/preproc/', .d) # store cache file in preproc subdir
 
 # # local paths
 # proj_path <- "~/Downloads/january/MoM_Switch"
@@ -28,15 +30,38 @@ date_cond <- c("20150616"="glucose", "20150617"="glucose", "20150624"="lactose",
 #                   "~/Downloads/january/vngWetLabR/ggplot")
 # perl_scripts_path <- "~/Downloads/january/vngWetLabR/mother_machine"
 
-```
+date_cond <- c("20150616"="glucose", "20150617"="glucose", 
+               "20150624"="lactose", "20150630"="lactose", 
+               "20150703"="switch_4h", "20150708"="switch_4h",
+               "20151204"="switch_6h",
+               "20151207"="switch_iptg",
+               "20151218"="switch_8h",
+               "20151221"="switch_m9" )
 
+condition_ts <- rbind(data.frame(duration=1560, medium='glucose', condition='glucose'),
+                      data.frame(duration=1560, medium='lactose', condition='lactose'),
+                      data.frame(duration=c(360, 240, 240, 240, 240, 240),
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+                                 condition='switch_4h'),
+                      data.frame(duration=c(360, 240, 360, 240, 360, 240), 
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+                                 condition='switch_6h'),
+                      data.frame(duration=c(360, 240, 480, 240, 480, 240), 
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+                                 condition='switch_8h'),
+                      data.frame(duration=c(360, 240, 240, 240, 240, 240),
+                                 medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
+                                 condition='switch_iptg'),
+                      data.frame(duration=c(360, 120, 360, 720, 360, 240), 
+                                 medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
+                                 condition='switch_m9') 
+)
 
-```{r settings}
-# 
-library(knitr)
-opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE) # , include=FALSE
+condition_ts <- condition_ts %>% group_by(condition) %>% 
+  mutate(t_start=cumsum(c(0, duration[-(length(duration))])),
+         t_end=cumsum(duration))
 
-# set working environment
+# SET ENVIRONMENT ####
 invisible(sapply(
   list.files(r_scripts_path, pattern="\\.[Rr]$", full.names=TRUE, ignore.case=TRUE), 
   source, .GlobalEnv))
@@ -48,13 +73,18 @@ numCores <- min(30, detectCores()-1) # do not use more than 30 cores
 library(multidplyr)
 mycluster <- create_cluster(numCores)
 for (.l in mylibs) { mycluster %>% cluster_library(.l) }
-set_default_cluster(mycluster)
+# set_default_cluster(mycluster)
+
+
+# SAVE ENVIRONMENT (but `pls`) ####
+# myvars <- ls(all.names = TRUE)
+# save(list=myvars[which(myvars!='pls')], file=".RData", envir=.GlobalEnv)
 
 ```
 
 
 ```{r load_mg_data}
-mg_files <- list.files("./data/MG1655_glu_lac", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+mg_files <- list.files("./data_matthias/MG1655_glu_lac", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
 
 # load perl scripts output to dataframes (using parallel lapply)
 # NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
@@ -71,7 +101,9 @@ mg_frames <- l_data %>%
   lapply(function(.l) .l$frames) %>% 
   do.call(rbind, .) %>%
   mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
-         discard_start=(time_sec < 2*3600) ) %>% 
+         discard_start=(time_sec < 2*3600),
+         vertical_center=(vertical_bottom + vertical_top)/2,
+         cell=paste(date, pos, gl, id, sep='.') ) %>% 
   group_by(date, pos, gl, id) %>%
   # remove frames after touching the exit
   group_by(date, pos, gl, id) %>%
@@ -82,32 +114,22 @@ mg_frames <- l_data %>%
          b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
   # remove daughters of cells that touched the exit
   ungroup %>% group_by(date, pos, gl) %>%
-  mutate(discard_top=which_to_progeny(discard_top, cid)) %>%
+  mutate(discard_top=which_to_progeny(discard_top, cid))
   #   filter(discard_top==FALSE) %>%
-  mutate(vertical_center=(vertical_bottom + vertical_top)/2,
-         cell=paste(date, pos, gl, id, sep='.'))
 
 ```
 
 
 ```{r load_ASC662_data}
-condition_ts <- bind_rows(data.frame(t_start=c(0, 360, 600, 840, 1080, 1320), 
-                                     t_end=c(360, 600, 840, 1080, 1320, 1560), 
-                                     medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-                                     condition='switch'),
-                          data.frame(t_start=0, t_end=1560, medium='glucose', condition='glucose'),
-                          data.frame(t_start=0, t_end=1560, medium='lactose', condition='lactose') )
-glc_files <- list.files("./data/glucose", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-lac_files <- list.files("./data/lactose", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-swi_files <- list.files("./data/glu_lac_switch", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-# swi_files_all <- swi_files
-# swi_files <- swi_files[1]
+asc_files <- c("./data_matthias/glucose", "./data_matthias/lactose", 
+               "./data_matthias/glu_lac_switch", "./data_thomas/") %>% 
+  list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
 
 # load perl scripts output to dataframes (using parallel lapply)
 # NB: creating a list of dataframes and rbind them at last is faster than using rbind in a loop
-l_data <- mclapply(c(glc_files, lac_files, swi_files), 
-                function(.f) try( load_timm_data(.f, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE)),
-                mc.cores=numCores)
+l_data <- mclapply(asc_files, 
+                   function(.f) try( load_timm_data(.f, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE)),
+                   mc.cores=numCores) # 1
 
 # mycells <- l_data %>% 
 #   lapply(function(.l) if('cells' %in% names(.l)) .l$cells) %>% 
@@ -115,7 +137,7 @@ l_data <- mclapply(c(glc_files, lac_files, swi_files),
 #   mutate(condition=date_cond[as.character(date)]) %>%
 #   mutate(discard_start= (start_time < 2*3600) )
 
-myframes <- l_data %>% 
+myframes <- l_data[1:3] %>% 
   mclapply(function(.l) {
     if ('frames' %in% names(.l)) {
       .l$frames %>%
@@ -130,7 +152,7 @@ myframes <- l_data %>%
         ungroup %>%
         mutate(discard_top=which_to_progeny(discard_top, cid))
       }
-    }) %>% 
+    }, mc.cores=numCores) %>% 
   do.call(rbind, .) %>%
   group_by(date, pos, gl, id) %>%
   mutate(start_time=first(time_sec), end_time=last(time_sec),
@@ -144,16 +166,35 @@ myframes <- l_data %>%
 ```
 
 
-
 ```{r}
-ggplot(data=filter(mg_frames, !discard_top, pos==0,  gl==14), aes(group=interaction(date, pos, gl, id))) + 
-#   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(condition_ts, condition=='switch', medium=='lactose')) +
-  geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-(dl*vertical_center-length_um/2), ymax=-(dl*vertical_center+length_um/2), fill=fluo_amplitude/length_um)) +
-  geom_path(aes(dt*frame, -dl*vertical_center)) +
-#   geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(condition_ts, condition=='switch', medium=='lactose')) +
-  labs(x="time (min)", y="position (µm)", "GFP concentration")
-```
+# trying to load data using multidplyr
 
+# # length(new_files) <- max(length(new_files), 2*numCores)
+# myframes2 <- data_frame(path=asc_files) %>% 
+#   group_by(path) %>% 
+#   # partition(path, cluster=mycluster) %>% 
+#   do((function(.df){
+#     # browser()
+#     .l <- try( load_timm_data(.df$path, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE))
+#     if ('frames' %in% names(.l)) {
+#       return( .l$frames %>%
+#                 mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
+#                        discard_start=(time_sec < 2*3600)) %>% 
+#                 # remove frames after touching the exit
+#                 group_by(id) %>%
+#                 mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>% 
+#                 mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
+#                 mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
+#                 # remove daughters of cells that touched the exit
+#                 ungroup %>%
+#                 mutate(discard_top=which_to_progeny(discard_top, cid)) )
+#     } else {
+#       return (data.frame())
+#     }
+#   })(.)) %>% 
+#   collect()
+
+```
 
 
 # Curation stats
@@ -200,7 +241,7 @@ mygl <- myframes %>%
               group_by(date, pos, gl) %>% 
               summarise(nframes=max(frame)) ) %>%
   # add curation times
-  left_join(read.csv("./data/curation_times.csv", comment.char="#") %>%
+  left_join(read.csv("./data_matthias/curation_times.csv", comment.char="#") %>%
               na.omit %>%
               mutate(pos=as.numeric(gsub('pos', '', pos)),
                      gl=as.numeric(gsub('GL', '', gl))) ) %>%
@@ -215,7 +256,10 @@ mygl <- myframes %>%
       group_by(date, pos, gl) %>%
       summarise(n_cur_frames=0)) )
 
+```
 
+
+```{r}
 kable(mygl %>%
   group_by(condition) %>%
   summarise(n_lanes=length(unique(interaction(date, pos, gl))),
@@ -394,10 +438,10 @@ We focus on estimating $\beta + \delta$ and aim at extrapolating the mother and 
 Let's first look at fluorescence decay for cells in a given lane. The slopes are steeper for more fluorescent cells, which suggests proportional decay (as expected). This is nicely confirmed by constant slope in log scale.
 
 ```{r}
-ts <- filter(condition_ts, condition=='switch', medium=='glucose')$t_start
-te <- filter(condition_ts, condition=='switch', medium=='glucose')$t_end
+ts <- filter(condition_ts, condition=='switch4h', medium=='glucose')$t_start
+te <- filter(condition_ts, condition=='switch4h', medium=='glucose')$t_end
 
-p_decayGFP_lin <- ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div', time_sec>(2+4)*3600, 
+p_decayGFP_lin <- ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch4h', end_type=='div', time_sec>(2+4)*3600, 
                                        # fluogfp_amplitude > autofluo_predict(length_um),
                      between_or(time_sec, (ts+30)*60, (te-30)*60) ) %>% 
          mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
@@ -415,7 +459,7 @@ p_decayGFP_lin <- ggplot(data = filter(myframes, !discard_start, !discard_top, c
 p_decayGFP_exp <- p_decayGFP_lin +
   scale_y_continuous(trans='log10', breaks=c(5e3, 1e4, 2e4, 4e4))
 
-bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
+bleaching_fits <- filter(myframes, !discard_start, !discard_top, condition=='switch4h', 
                          time_sec>(2+4)*3600, # end_type=='div',
                          between_or(time_sec, (ts+30)*60, (te-30)*60) ) %>% 
   group_by(date, pos, gl, id) %>% 
@@ -519,7 +563,7 @@ For each division event (where mother and both daughters are observed for 10 fra
 Reassuringly, while the daughters sum is systematically lower than their mother (due to bleaching + degradation) with the average estimation, the sum is closer to the mother value with the fit. In the following we assume these are equal and use the sum to compute the bias since this is less subject to measurement errors. Regarding the size estimation, the fit underestimate size at birth as already established by Erik.
 
 ```{r}
-ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch', 
+ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch4h', 
                      cell_num_in_lane < total_cell_in_lane,
                      time_sec>(2+4)*3600, 
                      between_or(time_sec, (ts+30)*60, (te-30)*60)) %>% 
@@ -538,7 +582,7 @@ ggplot(data = filter(myframes, !discard_start, !discard_top, condition=='switch'
 triad_avgw <- 3
 triad_fitw <- 10
 set.seed(19082328)
-swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch', 
+swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch4h', 
                      cell_num_in_lane < total_cell_in_lane,
                      time_sec>(2+4)*3600, 
                      between_or(time_sec, (ts+30)*60, (te-30)*60)) %>%
@@ -699,7 +743,7 @@ ggplot(swi_triads %>%
   labs(x="mother's total GFP (molecules)", y="volume-corrected GFP bias", col="criteria") +
   theme(legend.justification=c(1,1), legend.position=c(1, 1)) +
   guides(col=guide_legend(override.aes = list(size=3, alpha=1)))
-ggsave('plots/asc_nutriads_oldpolebias.pdf', width=5, height=4.5)
+ggsave('plots/asc_nutriads_oldpolebias.pdf', width=4, height=4)
 
 # table(swi_triads$b.pole=="old")
 
@@ -752,6 +796,32 @@ if (partitioning_opt$convergence == 0) { fp_per_dn <- partitioning_opt$par[1] * 
 if (use_eriks_params)
   fp_per_dn <- 0.0361 * fp_per_oligomers
 ```
+
+
+```{r}
+# work in progress: hunting for the difference with Erik
+
+with(swi_triads,
+    partitioning_loglik(10^(-2.13), 10^(-2.67),
+      .x=b.fluo_fit, .y=t.fluo_fit, .r=b.length_fit/(b.length_fit+t.length_fit)) )
+
+# ls <- seq(1e-5, 1e-1, length.out=200)
+# vs <- seq(1e-3, 1e0, length.out=200)
+ls <- 10^seq(-3, -1, length.out=200)
+vs <- 10^seq(-5, -2, length.out=200)
+
+lls <- with(swi_triads,
+            outer(ls, vs, Vectorize(partitioning_loglik, c('.lambda', '.v')),
+                  .x=b.fluo_fit, .y=t.fluo_fit, .r=b.length_fit/(b.length_fit+t.length_fit)) )
+contour(log10(ls), log10(vs), lls)
+plot_ly(x=log10(ls), y=log10(vs), z=t(lls), type="surface") #, transpose=TRUE)
+
+
+partitioning_opt <- with(swi_triads,
+                                  optim(c(.1, 1e-4), partitioning_loglik_wrapper, control = list(fnscale = -1),
+                                   .x=b.fluo_fit, .y=t.fluo_fit, .r=b.length_fit/(b.length_fit+t.length_fit)) )
+```
+
 
 This yields a conversion factor FP/DN at `r format(fp_per_dn, digits=2)`. The sd of the volume bias is infered to be `r sqrt(partitioning_opt$par[2]) %>% format(digits=2)` while it is measured at `r (swi_triads$b.length_fit / (swi_triads$b.length_fit+swi_triads$t.length_fit)) %>% sd %>% format(digits=2)`.
 
@@ -814,7 +884,7 @@ compute_div_between_facets <- function(.df1, .df2){
 
 pls <- myframes %>% 
   # filter((date=='20150703' & pos==0 & gl==7))%>% 
-#   filter(condition=='switch') %>% 
+#   filter(condition=='switch4h') %>% 
   group_by(condition, date, pos, gl) %>%
   do(pll=(function(.df){
     # browser()
@@ -916,7 +986,7 @@ pls <- myframes %>%
   })(.))
 
 
-pdf('plots/path_length.pdf', width=12, height=10)
+pdf('plots/switch_path_length.pdf', width=12, height=10)
 for (i in 1:dim(pls)[1]) {
   if ('l' %in% names(pls[[i, 'pll']]))
     plot(pls[[i, 'pll']] [['l']] + 
@@ -924,7 +994,7 @@ for (i in 1:dim(pls)[1]) {
 }
 dev.off()
 
-pdf('plots/path_fluotot.pdf', width=12, height=10)
+pdf('plots/switch_path_fluotot.pdf', width=12, height=10)
 for (i in 1:dim(pls)[1]) {
   if ('ft' %in% names(pls[[i, 'pll']]))
   plot(pls[[i, 'pll']] [['ft']] + 
@@ -932,7 +1002,7 @@ for (i in 1:dim(pls)[1]) {
 }
 dev.off()
 
-pdf('plots/path_fluoconc.pdf', width=12, height=10)
+pdf('plots/switch_path_fluoconc.pdf', width=12, height=10)
 for (i in 1:dim(pls)[1]) {
   if ('fc' %in% names(pls[[i, 'pll']]))
   plot(pls[[i, 'pll']] [['fc']] + 
@@ -959,11 +1029,11 @@ plk <- group_by(swi_frames, date, pos, gl) %>%
     #     browser()
     .df_div <- filter(swi_frames_divs, date==unique(.df$date), pos==unique(.df$pos), gl==unique(.df$gl))
     ggplot(data=.df, aes(group=interaction(date, pos, gl, id))) + 
-      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), fill=rgb(1, 0, 0, .1), data=filter(condition_ts, condition=='switch4h', medium=='lactose')) +
       geom_rect(aes(xmin=dt*(frame-.5), xmax=dt*(frame+.5), ymin=-dl*(hcenter-height/2), ymax=-dl*(hcenter+height/2), fill=fluo_signal/height)) +
       geom_path(aes(dt*frame, -dl*hcenter)) +
       geom_path(aes(dt*frame, -dl*hcenter), data=.df_div, linetype="dotted") +
-      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+      geom_rect(aes(xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, group=1), col='red', fill="transparent", data=filter(condition_ts, condition=='switch4h', medium=='lactose')) +
       scale_fill_gradient2(low="gray50", high="green", midpoint=200) + 
       labs(x="time (min)", y="position (µm)", "GFP concentration")
   })(.))
@@ -980,26 +1050,12 @@ dev.off()
 
 ## Growth in constant environments
 
-The cell length doesn't increase during experiments in constant conditions, indicating limited photodamage and physiological aging. See doubling time lower.
+Let's compute stats over the cell cycle for each cell:
 
 ```{r}
-ggplot(filter(myframes, !discard_start, !discard_top, end_type=='div', start_time>=2*3600) %>% sample_frac(.1, replace=FALSE), # , condition=='glucose'
-       aes(time_sec - 2*3600, length_um, col=condition)) +
-  # stat_density2d()
-  geom_point(alpha=.1) +
-  scale_x_hours() +
-  facet_grid(condition~.)
-# geom_point(aes(time_sec, length_um), alpha=0.1)
-
-ggplot(filter(myframes, condition!='switch', !discard_top), aes(time_sec, length_um, col=condition)) +
-  geom_smooth()
-
-```
-
-```{r}
-mycells <- filter(myframes, condition!='switch', !discard_top) %>%
-  # group_by(date, pos, gl, id, parent_id, genealogy) %>%
-  partition(condition, date, pos, gl, id, parent_id, genealogy) %>%
+mycells <- filter(myframes, condition %in% c('glucose', 'lactose'), !discard_top) %>%
+  # group_by(date, pos, gl, id, cell, parent_id, genealogy) %>%
+  partition(condition, date, pos, gl, id, cell, parent_id, genealogy, cluster=mycluster) %>%
   filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
   filter(n()>4) %>% # at least 4 time points
   do((function(.df) {
@@ -1023,22 +1079,25 @@ mycells <- filter(myframes, condition!='switch', !discard_top) %>%
                loglength_end=last(.logl$fit), loglength_endse=last(.logl$se.fit), 
                logl_time_slope=.mod_ll_t$coefficients[2], logl_time_slopesd=summary(.mod_ll_t)$coefficients[2,2], 
                # logl_time_slope=.mod_ll_t$coefficients[2], logl_time_slopesd=.mod_ll_t$stderr[2], 
-               logl_time_r2=corPearson(.df$time_sec, log(.df$length_um))^2,
+               logl_time_r2=cor(.df$time_sec, log(.df$length_um))^2,
                logg_time_slope=.mod_lg_t$coefficients[2], logg_time_slopesd=.mod_lg_t$stderr[2], 
-               logg_time_r2=corPearson(.df$time_sec, log(.df$gfp_nb))^2,
+               logg_time_r2=cor(.df$time_sec, log(.df$gfp_nb))^2,
                l_time_slope=.mod_l_t$coefficients[2], l_time_slopesd=.mod_l_t$stderr[2], 
-               l_time_r2=corPearson(.df$time_sec, .df$length_um)^2,
+               l_time_r2=cor(.df$time_sec, .df$length_um)^2,
+               g_first=first(.df$gfp_nb), g_last=last(.df$gfp_nb),
                g_time_slope=.mod_g_t$coefficients[2], g_time_slopesd=.mod_g_t$stderr[2], 
-               g_time_r2=corPearson(.df$time_sec, .df$gfp_nb)^2,
+               g_time_r2=cor(.df$time_sec, .df$gfp_nb)^2,
                g_l_slope=.mod_g_l$coefficients[2], g_l_slopesd=.mod_g_l$stderr[2], 
-               g_l_r2=corPearson(.df$length_um, log(.df$gfp_nb))^2)
+               g_l_r2=cor(.df$length_um, log(.df$gfp_nb))^2)
   })(.) ) %>% 
   collect() %>% 
-  arrange(condition, date, pos, gl, id)
+  arrange(condition, date, pos, gl, id) %>% 
+  mutate(gl_id=gsub('\\.[0-9]+$', '', cell))
 
 
 ```
 
+Print an example of what cell traces look like and r2 CDF to show that elongation is more exponential than linear:
 
 ```{r}
 ggplot(filter(myframes, !discard_start, !discard_top, condition=='glucose', end_type=='div', start_time>=2*3600) %>% filter(cell %in% c(nth(cell, 1), nth(cell, 100), nth(cell, 30), nth(cell, 300), nth(cell, 400))),
@@ -1052,89 +1111,203 @@ ggplot(filter(myframes, !discard_start, !discard_top, condition=='glucose', end_
   labs(x='time after division (min)', y='length (µm)')
 ggsave('plots/asc_loglength_time.pdf', width=2.5, height=3)
 
-
-ggplot(mycells) +
+ggplot(mycells %>% filter(condition %in% c('glucose', 'lactose')) ) +
   stat_ecdf(aes(logl_time_r2, col=condition, lty='exponential')) +
   stat_ecdf(aes(l_time_r2, col=condition, lty='linear')) +
   labs(x='Pearson correlation r2', y='cumulative probability', lty='fit') +
-  theme(legend.position=c(0.15, 0.8)) +
-  xlim(0.94, 1) 
+  xlim(0.94, 1) +
+  theme(legend.justification=c(0, 1), legend.position=c(0, 1))
 ggsave('plots/asc_loglength_time_r2ecdf.pdf', width=3, height=3)
 
 
 ```
 
 
-```{r}
+Neither the cell length nor the doubling time increases during experiments in constant conditions, indicating limited photodamage and physiological aging.
 
-ggplot(mycells, aes(time_div, (time_div-time_birth)/60, col=condition)) +
-  geom_point(alpha=0.2) +
-  # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
-  stat_smooth(size=1) +
-  scale_x_hours() +
-  labs(y='division time (min)') +
-  expand_limits(y=0) + 
-  ylim(0, 200)
- 
-# table(filter(mycells, condition!='switch')$Rsize_vs_time^2>.95)
-ggplot(filter(mycells, logl_time_r2>.95), aes(time_div - 2*3600, log(2)/logl_time_slope / 60, col=condition)) +
-  geom_point(alpha=0.2, size=1) +
-  # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
-  stat_smooth(method='lm', size=1,
-              data=filter(mycells, logl_time_r2>.95, time_birth > 5*3600)) +
-  scale_x_hours(6, name='time at division (h)') +
-  labs(y='doubling time (min)') +
-  expand_limits(x=c(0, 24*3600), y=0) +
-  theme(legend.position=c(0.15, 0.8))
+```{r}
+ggplot(myframes %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+         filter(!discard_start, !discard_top, end_type=='div', start_time>=2*3600) %>%
+         sample_frac(.1, replace=FALSE), 
+       aes(time_sec - 2*3600, length_um, col=condition)) +
+  facet_grid(condition~.) +
+  # stat_density2d()
+  geom_point(alpha=.1) +
+  scale_x_hours()
+# geom_point(aes(time_sec, length_um), alpha=0.1)
+
+ggplot(filter(myframes, condition!='switch4h', !discard_top), 
+       aes(time_sec, length_um, col=condition)) +
+  geom_smooth()
+
+```
+
+
+```{r}
+# table(mycells %>% filter(condition %in% c('glucose', 'lactose'))$Rsize_vs_time^2>.95)
+mycells %>% filter(condition %in% c('glucose', 'lactose'), logl_time_r2>.95) %>% 
+  ( function(.df)
+    ggplot(.df, aes(time_div - 2*3600, log(2)/logl_time_slope / 60, col=condition)) +
+      geom_point(alpha=0.2, size=1) +
+      # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
+      stat_smooth(method='lm', size=1,
+                  data=filter(.df, time_birth > 5*3600)) +
+      scale_x_hours(6, name='time at division (h)') +
+      labs(y='doubling time (min)') +
+      expand_limits(x=c(0, 24*3600), y=0) +
+      theme(legend.justification=c(0, 1), legend.position=c(0, 1)) )
 ggsave('plots/asc_dt_divtime.pdf', width=6, height=3)
 
 ```
 
-Let's check that cells with long doubling time are not filamentous.
 
-```{r}
-l_end <- select(mycells, date, pos, gl, id, time_sec=time_div) %>%
-         left_join(select(myframes, date, pos, gl, id, time_sec, length_um))
-mycells <- left_join(mycells, l_end %>% select(-time_sec)) %>% rename(length_um_end=length_um)
+Let's look at the distribution of doubling times. NB: the decrease is the quality of the elongation fit is only moderate for cells with long doubling time (for dt>100, r2 <= 5%)
 
+```{r eval=FALSE}
+ggplot(mycells %>% filter(condition %in% c('glucose', 'lactose')), 
+       # %>% filter(Rsize_vs_time^2>.98),
+       aes(log(2)/logl_time_slope / 60)) +
+  stat_bin(aes(y=..density.., fill=condition), geom='bar', position='identity', col='transparent', alpha=.2) + 
+  geom_step_hist(aes(y=..density.., col=condition), position='identity') +
+    # stat_ecdf() +
+  xlim(0, 300) +
+  labs(x='doubling time (min)') +
+  theme(legend.justification=c(0, 1), legend.position=c(0, 1))
+ggsave('plots/asc_dt.pdf', width=5.5, height=2)
 
-ggplot(mycells, aes(length_um_end, log(2)/logl_time_slope / 60, col=condition)) +
-  geom_point(alpha=0.2) +
-  # stat_smooth(method='loess', span=.7, se=FALSE, size=1) +
-  stat_smooth(method='lm', size=1) +
-  labs(y='doubling time (min)') +
-  ylim(0, 300)
+# ggplot(mycells %>% filter(condition %in% c('glucose', 'lactose')),
+#        aes(log(2)/logl_time_slope / 60, logl_time_r2, col=condition)) +
+#   facet_wrap(~condition) +
+#   geom_point(alpha=.2) +
+#   geom_smooth(method='lm') +
+#   # stat_density2d() +
+#   labs(x='doubling time (min)') +
+#   xlim(50, 200) + ylim(0.95, 1)
+
+mycells %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+  group_by(condition) %>% 
+  mutate(dt=log(2)/logl_time_slope / 60 ) %>% 
+  filter(dt > 100) %>% 
+  do((function(.df){
+    .mod <- fastLmPure( cbind(1, .df$dt), .df$logl_time_r2 )
+    data.frame(slope=.mod$coefficients[2],
+            r2=cor(.df$dt, .df$logl_time_r2)^2)
+    })(.)) %>% kable
 
 ```
 
 
-```{r eval=FALSE}
-ggplot(mycells, # %>% filter(Rsize_vs_time^2>.98),
-       aes(log(2)/logl_time_slope / 60)) +
-  stat_bin(aes(y=..density.., fill=condition), geom='bar', position='identity', col='transparent', alpha=.2) + 
-  # geom_step_hist(aes(y=..density.., col=condition), position='identity') + 
-    # stat_ecdf() +
-  xlim(0, 300) +
-  labs(x='doubling time (min)') +
-  theme(legend.position=c(0.15, 0.8))
-ggsave('plots/asc_dt.pdf', width=5.5, height=2)
+Let's check that cells with long doubling time are not filamentous: the slowest 10% in each condition have a similar length but they tend to be slightly longer. 
 
-ggplot(mycells, aes(log(2)/logl_time_slope / 60, logl_time_r2, col=condition)) +
-  geom_point(alpha=.2) + 
-  geom_smooth(method='lm') +
-  xlim(0, 150) + ylim(0.95, 1) +
-  facet_wrap(~condition)
+```{r}
+l_end <- select(mycells, date, pos, gl, id, time_sec=time_div) %>%
+  left_join(select(myframes, date, pos, gl, id, time_sec, length_um)) %>%
+  rename(length_um_end=length_um)
+mycells <- left_join(mycells, l_end %>% select(-time_sec)) %>% ungroup
+
+mycells %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+  group_by(condition) %>% 
+  mutate(dt=log(2)/logl_time_slope / 60,
+         is_long_dt= dt>quantile(dt, 0.9)) %>% 
+  ( function(.df)
+    ggplot(.df, aes(length_um_end, ..density.., col=condition)) +
+      facet_wrap(~condition) +
+      geom_step_hist(aes(linetype='all'), position='identity') +
+      geom_step_hist(aes(linetype='long dt (10%)'), position='identity', 
+                     data=filter(.df, is_long_dt)) +
+      labs(linetype='subset') )
+
+ggplot(mycells %>% filter(condition %in% c('glucose', 'lactose')), 
+       aes(length_um_end, log(2)/logl_time_slope / 60, col=condition)) +
+  facet_wrap(~condition) +
+  geom_point(alpha=0.2)
+
+mycells %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+  group_by(condition) %>% 
+  mutate(dt=log(2)/logl_time_slope / 60,
+         is_long_dt= dt>quantile(dt, 0.9)) %>% 
+  filter(is_long_dt) %>% 
+  do((function(.df){
+    .mod <- fastLmPure( cbind(1, .df$length_um_end), .df$dt )
+    data.frame(slope=.mod$coefficients[2],
+            r2=cor(.df$length_um_end, .df$dt)^2)
+    })(.)) %>% kable
+
+```
+
+
+
+### Growth rate inheritance 
+
+Is there a genealogical signal on growth rate in constant environment?
+
+```{r}
+mypairs_constant <- mycells %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+  # group_by(gl_id) %>% 
+  partition(gl_id, cluster=mycluster %>% cluster_assign_func(genealogy_relationship) %>% cluster_assign_func(genealogy_ontology)) %>% 
+  do((function(.df) {
+    # browser()
+    if (dim(.df)[1]<2) 
+      return(data.frame())
+    return( combn(.df$genealogy, 2, simplify=FALSE) %>% 
+      lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>% 
+      do.call(rbind, .) )
+  })(.)) %>% 
+  collect() %>% 
+  # mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>% 
+  left_join(mycells %>% ungroup %>% 
+              setNames(., paste(names(.), "1", sep="_")) %>% rename(gl_id=gl_id_1) ) %>% 
+  left_join(mycells %>% ungroup %>% 
+              setNames(., paste(names(.), "2", sep="_")) %>% rename(gl_id=gl_id_2) ) 
+
+
+ggplot(filter(mypairs_constant, TRUE), aes(log(2)/logl_time_slope_1 / 60, log(2)/logl_time_slope_2 / 60, col=factor(rel))) +
+  # facet_grid(switch_idx~.) +
+  geom_point(alpha=.5, size=.5) +
+  expand_limits(x=0, y=0) #+
+  # labs(x='initial GFP level (molecules)', y='induction lag (+200 GFP molecules; min)', col='switch4h') +
+  # theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
+
+filter(mypairs_constant, TRUE) %>% 
+  group_by(rel) %>% 
+  summarise(r2=cor(log(2)/logl_time_slope_1 / 60,  log(2)/logl_time_slope_2 / 60, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  (function(.df) ggplot(.df, aes(rel, r2)) +
+     # facet_grid(.~switch_idx) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=paste0("n = ", n)), angle=90, hjust=1) +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+
+
+filter(mypairs_constant, TRUE) %>% 
+  group_by(div_min, div_max) %>% 
+  summarise(r2=cor(log(2)/logl_time_slope_1 / 60,  log(2)/logl_time_slope_2 / 60, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  mutate(rel=(Vectorize(genealogy_ontology))(div_min, div_max)) %>% 
+  (function(.df) ggplot(.df, aes(div_min, div_max)) +
+     # facet_grid(.~switch_idx) +
+     geom_tile(aes(fill=r2), stat='identity', show.legend=FALSE) +
+     geom_text(aes(label=sprintf("%s\nr2 = %.3f", rel, r2))) +
+     geom_text(aes(y=div_max-.4, label=sprintf("(n = %d)", n))) +
+     scale_fill_gradient(high='red', low='lightblue') +
+     scale_x_continuous(breaks=0:10, expand=c(0,0)) + scale_y_continuous(trans="reverse", breaks=0:10, expand=c(0,0)) +
+     expand_limits(fill=0) + coord_fixed() +
+     labs(x='divs since common ancestor (cell 1)', y='div since common ancestor (cell 2)') #+
+     # theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
 
 ```
 
 
 ## Fluo in lactose
 
+Plot an example of GFP traces:
+
 ```{r}
 (function() {
   # browser()
-  # .df <- filter(myframes, date=='20150624', pos==0, gl==4)
-  .df <- filter(myframes, date=='20150703', pos==3, gl==1)
+  .df <- filter(myframes, date=='20150624', pos==0, gl==4)
+  # .df <- filter(myframes, date=='20150703', pos==3, gl==1)
   .df_div <- filter(.df, !discard_top, !discard_start) %>% 
     group_by(id) %>% 
     do(compute_div_between_facets(.df, .))
@@ -1158,6 +1331,152 @@ ggplot(mycells, aes(log(2)/logl_time_slope / 60, logl_time_r2, col=condition)) +
 
 ```
 
+In this case, r2 CDFs don't help concluding whether the GFP increase over the cell cycle is more exponential (null model assuming concentration homeostasis) or linear:
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose') ) +
+  stat_ecdf(aes(logg_time_r2, col='fluo', lty='exponential')) +
+  stat_ecdf(aes(g_time_r2, col='fluo', lty='linear')) +
+  stat_ecdf(aes(logl_time_r2, col='length', lty='exponential')) +
+  stat_ecdf(aes(l_time_r2, col='length', lty='linear')) +
+  labs(x='Pearson correlation r2', y='cumulative probability', lty='fit', col='variable') +
+  xlim(0.74, 1) +
+  theme(legend.justification=c(0, 1), legend.position=c(0, 1))
+
+```
+
+
+```{r}
+# ggplot(mycells %>% filter(condition %in% 'lactose'),
+#        aes(l_time_r2, logl_time_r2) ) +
+#   geom_point(size=.5, alpha=.5) +
+#   geom_abline(col='red') +
+#   xlim(0.94, 1) + ylim(0.94, 1)
+
+```
+
+Surprisingly, most cells are described as accurately by a linear or an exponential fit (with r2>0.97). For cells which cannot be captured by such a model (r2<0.95), it looks like that the fit is either exponential or linear (but not equally good):
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(g_time_r2, logg_time_r2) ) +
+  geom_point(size=.5, alpha=.5) +
+  geom_abline(col='red') +
+  # xlim(0.94, 1) + ylim(0.94, 1) +
+  xlim(0.84, 1) + ylim(0.84, 1) +
+  coord_equal()
+  # labs(x='Pearson correlation r2', y='cumulative probability', lty='fit') +
+  # theme(legend.justification=c(0, 1), legend.position=c(0, 1))
+
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(1-g_time_r2, 1-logg_time_r2)) +
+  geom_point(size=.5, alpha=.5) +
+  # stat_density2d() +
+  geom_abline(col='red') +
+  scale_x_log10() + scale_y_log10() +
+  coord_equal()
+
+```
+
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose')) +
+  geom_bar(end_type)
+```
+
+
+This suggests that it's simply not relevant to try to describe the GFP increase with such a model (and hence to compare increase rates over the entire cell cycle). For total GFP, there is no dependance of the GFP increase to the initial GFP. However, the concentration increase is negatively correlated with the initial GFP concentration (which can also be seen by the fact that the intial / final GFP concentration scatter has a slope < 1). This strongly suggests that the GFP concentration is regulated (actively or passively).
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(g_first, g_last-g_first)) +
+  geom_point(size=.5, alpha=.5) +
+  geom_abline(col='red') +
+  expand_limits(x=0, y=0) +
+  labs(x='initial total GFP', y='added total GFP')
+
+with(mycells %>% filter(condition %in% 'lactose'),
+     corPearson(g_first, g_last-g_first))^2
+
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(g_first/exp(loglength_start), g_last/exp(loglength_end) - g_first/exp(loglength_start))) +
+  geom_point(size=.5, alpha=.5) +
+  expand_limits(x=0, y=0) +
+  labs(x='initial GFP concentration', y='added GFP concentration')
+
+with(mycells %>% filter(condition %in% 'lactose'),
+     corPearson(g_first/exp(loglength_start), g_last/exp(loglength_end) - g_first/exp(loglength_start) ))^2
+
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(g_first/exp(loglength_start), g_last/exp(loglength_end) )) +
+  geom_point(size=.5, alpha=.5) +
+  stat_smooth(method=lm) +
+  geom_abline(col='red') +
+  expand_limits(x=0, y=0) +
+  labs(x='initial GFP concentration', y='final GFP concentration')
+
+with(mycells %>% filter(condition %in% 'lactose'),
+     corPearson(g_first/exp(loglength_start), g_last/exp(loglength_end) ))^2
+
+
+```
+
+
+However, the GFP added per unit length is independent of the initial GFP concentration ($r^2 = `with(mycells %>% filter(condition %in% 'lactose'), corPearson(g_first/exp(loglength_start), (g_last-g_first) / (exp(loglength_end)-exp(loglength_start))))^2`$):
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(g_first/exp(loglength_start), (g_last-g_first) / (exp(loglength_end)-exp(loglength_start)))) +
+  geom_point(size=.5, alpha=.5) +
+  geom_abline(col='red') +
+  expand_limits(x=0, y=0) +
+  labs(x='initial GFP concentration', y='added GFP / added length')
+
+```
+
+Moreover, the initial GFP concentration correlates only weakly with the initial cell size:
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(exp(loglength_start), g_first/exp(loglength_start))) +
+  geom_point(size=.5, alpha=.5) +
+  expand_limits(x=0, y=0) +
+  labs(x='initial length', y='initial GFP concentration')
+  
+with(mycells %>% filter(condition %in% 'lactose'),
+     corPearson(exp(loglength_start), g_first/exp(loglength_start)))^2
+
+```
+
+
+
+```{r}
+ggplot(myframes %>% filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+         group_by(date, pos) %>% slice(1:1e4)) +
+  geom_path(aes(time_sec-start_time, gfp_nb, col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+  xlim(0, 1e4) + expand_limits(y=0)
+
+ggplot(myframes %>% filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+         group_by(date, pos) %>% slice(1:1e4),
+       aes(time_sec-start_time, gfp_nb/length_um)) +
+  geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+  stat_summary(fun.data=mean_sdl, geom="pointrange") +
+  xlim(0, 1e4) + expand_limits(y=0) 
+
+```
+
+
+```{r}
+myframes %>% filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+  mutate(time_cell=time_sec-start_time) %>% 
+  group_by(date, pos, time_cell) %>% 
+  summarise(mean=mean(gfp_nb/length_um), sd=sd(gfp_nb/length_um), cov=sd/mean) %>% 
+  gather(variable, value, -date, -pos, -time_cell) %>% 
+ggplot(aes(time_cell, value, col=interaction(date, pos))) + 
+  facet_grid(variable~., scales='free_y') + 
+  geom_path() +
+  xlim(0, 5e3)
+```
 
 
 ```{r}
@@ -1174,15 +1493,154 @@ ggsave('plots/asc_gfpprod.pdf', width=7, height=2.5)
 ```
 
 
+## Instantaneous rates
+
+```{r}
+rate_width <- 10 # number of frames used for fitting
+rate_hw <- round(rate_width/2) * dt * 60
+
+myrates <- filter(myframes, !discard_top, condition=='lactose') %>% # head(1e4) %>%
+  # first loop on all growth lanes
+  group_by(date, pos, gl) %>%
+  # partition(date, pos, gl, 
+  #           cluster=mycluster %>% cluster_assign_obj(dt) %>% cluster_assign_obj(rate_hw) %>% 
+  #             cluster_assign_func(get_parent_cid) %>% cluster_assign_func(get_daughters_cid)) %>%
+  do( (function(.df){
+    .df_full <- .df
+    filter(.df, !discard_start) %>%
+      # then loop on all cells
+      group_by(id, cell) %>%
+      do( (function(.dfgl, .df){
+        # browser()
+        .time_ini <- first(.df$time_sec)
+        .time_end <- last(.df$time_sec)
+        .cid <- unique(.df$cid)
+        # bind data with parent and offspring
+        .df2 <- bind_rows(
+          filter(.dfgl, between(time_sec, .time_ini-rate_hw, .time_ini-dt*60),
+                 cid %in% c(.cid, get_parent_cid(.cid))) %>%
+            select(cid, time_sec, length_um, gfp_nb) %>%
+            mutate(length_um=ifelse(cid!=.cid, length_um/2, length_um),
+                   gfp_nb=ifelse(cid!=.cid, gfp_nb/2, gfp_nb)) %>%
+            select(-cid) %>%
+            mutate(type='parent'),
+          select(.df, time_sec, length_um, gfp_nb) %>%
+            mutate(type='cell'),
+          filter(.dfgl, between(time_sec, .time_end+dt*60, .time_end+rate_hw),
+                 cid %in% c(.cid, get_daughters_cid(.cid))) %>%
+            select(time_sec, length_um, gfp_nb) %>%
+            group_by(time_sec) %>%
+            summarise(length_um=ifelse(n()==2, sum(length_um), 2*length_um),
+                      gfp_nb=ifelse(n()==2, sum(gfp_nb), 2*gfp_nb)) %>%
+            mutate(type='daughters')
+        )
+        # if(.cid=='0BBBB') browser()
+        if(dim(.df)[1] > 10) browser()
+        ggplot(.df2)+
+          geom_path(aes(time_sec, gfp_nb, col=type))
+
+        filter(.df2, type=='cell') %>%
+          group_by(time_sec) %>%
+          do((function(.p) {
+            # browser()
+            .df <- filter(.df2, between(time_sec, .p[['time_sec']]-rate_hw, .p[['time_sec']]+rate_hw))
+            .mod_ll <- fastLmPure( cbind(1, .df$time_sec), log(.df$length_um) )
+            .mod_lg <- fastLmPure( cbind(1, .df$time_sec), log(.df$gfp_nb) )
+            .mod_g_l <- fastLmPure( cbind(1, .df$length_um), .df$gfp_nb )
+            data.frame(irate_npoints=.mod_ll$df.residual+1,
+                       islope_ll_time=.mod_ll$coefficients[2], islopesd_ll_time=.mod_ll$stderr[2],
+                       ir2_ll_time=corPearson(.df$time_sec, log(.df$length_um))^2,
+                       ir2_l_time=corPearson(.df$time_sec, .df$length_um)^2,
+                       islope_lg_time=.mod_lg$coefficients[2], islopesd_lg_time=.mod_lg$stderr[2],
+                       ir2_lg_time=corPearson(.df$time_sec, log(.df$gfp_nb))^2,
+                       ir2_g_time=corPearson(.df$time_sec, .df$gfp_nb)^2,
+                       islope_g_l=.mod_g_l$coefficients[2], islopesd_g_l=.mod_g_l$stderr[2],
+                       ir2_g_l=corPearson(.df$length_um, .df$gfp_nb)^2)
+          })(.) )
+      })(.df_full, .) )
+  })(.) ) %>% 
+  collect()
+
+
+myrates <- left_join(myrates, myframes %>% select(cell, start_time) %>% distinct) %>% 
+  left_join(myframes %>% select(cell, time_sec, length_um, gfp_nb))
+
+
+```
+
+
+```{r}
+i <- 15
+
+myrates %>% ungroup %>%  filter(cell==nth(unique(cell), i)) %>% 
+  select(cell, time_sec, gfp_nb, ir2_g_time, ir2_lg_time) %>% 
+  gather(var, value, -cell, -time_sec) %>% 
+  mutate(type=ifelse(var=='ir2_lg_time', 'exponential', 'linear'),
+         var=ifelse(var!='gfp_nb', 'r2', var)) %>% # todo: rather use a regex
+ggplot() +
+  facet_grid(var~., scales='free_y') +
+  geom_path(aes(time_sec, value, col=cell, linetype=type)) +
+  geom_rug(aes(time_sec))
+
+```
+
+
+
+```{r}
+ggplot(myrates, aes(irate_height)) +
+  stat_bin()
+ggplot(myrates, aes(irate_gfp)) +
+  stat_bin()
+
+ggplot(myrates, aes(irate_height, irate_gfp)) +
+  geom_abline() +
+  # geom_point(size=.1, alpha=.1) +
+  geom_density2d()
+
+```
+
+
+```{r}
+ggplot(myrates) +
+  geom_step_hist(aes(irate_r2_height, col='log(height)=f(time)')) +
+  geom_step_hist(aes(irate_r2_gfp, col='log(gfp)=f(time)')) +
+  geom_step_hist(aes(islope_r2_gfp_height, col='gfp=f(height)'))
+
+```
+
+
+```{r}
+ggplot(myrates, aes((time_sec-start_time)/60, irate_height)) +
+  geom_point(size=.1, alpha=.1) +
+  geom_smooth() +
+  xlim(0, 300) +
+  expand_limits(y=0)
+
+ggplot(myrates, aes((time_sec-start_time)/60, irate_gfp)) +
+  geom_point(size=.1, alpha=.1) +
+  geom_smooth() +
+  xlim(0, 300) +
+  expand_limits(y=0)
+
+ggplot(myrates, aes((time_sec-start_time)/60, islope_gfp_height)) +
+  geom_point(size=.1, alpha=.1) +
+  geom_smooth() +
+  xlim(0, 300) +
+  expand_limits(y=0)
+
+
+```
+
+
 # Switching environment
 
 ## Growth lag
 
 ```{r}
 gl_idx <- 11
-ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
+ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch4h', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
        aes(time_sec - 2*3600, length_um, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=0, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=0, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch4h', medium=='lactose')) +
   geom_path(alpha=0.6) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
@@ -1203,9 +1661,9 @@ ggsave('plots/asc_switch_length.pdf', width=8, height=3)
 
 ```{r}
 
-ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
+ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch4h', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
        aes(time_sec - 2*3600, gfp_nb / length_um, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch4h', medium=='lactose')) +
   geom_path(alpha=0.6) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
@@ -1213,9 +1671,9 @@ ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_t
   expand_limits(x=0, y=0)
 ggsave('plots/asc_switch_fluoconc.pdf', width=8, height=3)
 
-ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
+ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch4h', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
        aes(time_sec - 2*3600, gfp_nb , col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch4h', medium=='lactose')) +
   geom_path(alpha=0.6) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
@@ -1224,9 +1682,9 @@ ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_t
 ggsave('plots/asc_switch_fluotot.pdf', width=8, height=3)
 
 
-ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch', end_type=='div') %>% head(1e4),
+ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch4h', end_type=='div') %>% head(1e4),
        aes(time_sec - 2*3600, gfp_nb, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch4h', medium=='lactose')) +
   geom_path(alpha=0.5) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(5) +
@@ -1240,62 +1698,85 @@ Distribution of induction times:
 - I checked visually that no induction happens in the first 10' after the switch (for all 3 switches)
 -
 
+
 ```{r}
-myframes_switching <- filter(myframes, !discard_start, !discard_top, condition=='switch', time_sec>2*3600) %>%
+ts <- lapply(unique(condition_ts$condition), function(.c) 
+  filter(condition_ts, condition==.c, medium!='glucose')$t_start) %>% 
+  setNames(unique(condition_ts$condition))
+# te <- lapply(unique(condition_ts$condition), function(.c) 
+#   filter(condition_ts, condition==.c, medium!='glucose')$t_end) %>% 
+#   setNames(unique(condition_ts$condition))
+
+myframes_switching <- filter(myframes, !discard_start, !discard_top, !(condition %in% c('glucose', 'lactose')), time_sec>2*3600) %>%
+  mutate(ts1=60*sapply(condition, function(.c) ts[[.c]][1]), 
+         ts2=60*sapply(condition, function(.c) ts[[.c]][2]), 
+         ts3=60*sapply(condition, function(.c) ts[[.c]][3]) ) %>% 
   group_by(date, pos, gl, id) %>%
-  filter( (first(time_sec) < (360)*60 & last(time_sec) > (360+30)*60) |
-            (first(time_sec) < (840)*60 & last(time_sec) > (840+30)*60) |
-            (first(time_sec) < (1320)*60 & last(time_sec) > (1320+30)*60) ) %>%
-  mutate(nframes=n(), pre_switch = between(time_sec, (360+1)*60, (360+10)*60) |
-           between(time_sec, (840+1)*60, (840+10)*60) |
-           between(time_sec, (1320+1)*60, (1320+10)*60))
+  filter( (first(time_sec) < ts1 & last(time_sec) > ts1+30*60) |
+            (first(time_sec) < ts2 & last(time_sec) > ts2+30*60) |
+            (first(time_sec) < ts3 & last(time_sec) > ts3+30*60) ) %>%
+  mutate(nframes=n(), pre_switch = (time_sec>ts1+60 & time_sec<ts1+10*60) |
+           (time_sec>ts2+60 & time_sec<ts2+10*60) |
+           (time_sec>ts3+60 & time_sec<ts3+10*60) )
 
 ggplot(data=filter(myframes_switching, T), aes(time_sec - 2*3600, gfp_nb, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  # geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  facet_wrap(~condition) +
   geom_path(alpha=0.5) + # geom_point() +
   scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(1) + #, limits=c(19*3600, 23*3600)) +
-  labs(y='total fluorescence (GFP molecules)') +
-  expand_limits(x=0, y=0)
+  scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
+  ylim(0, 1e4) +   expand_limits(x=0, y=0) +
+  labs(y='total fluorescence (GFP molecules)')
+ggsave('plots/asc_gfp_induction_facetcond.pdf', width=7, height=4)
 
-switch_times <- c(360, 840, 1320) * 60
 mycells_switching <- myframes_switching %>%
-  group_by(cell) %>%
+  group_by(condition, cell) %>%
   do((function(.df){
     .preswitch_gfp <- mean(filter(.df, pre_switch)$gfp_nb)
     .preswitch_length <- mean(filter(.df, pre_switch)$length_um)
     .tmin <- filter(.df, pre_switch)$time_sec %>% max
-    .switch_idx <- (.tmin - switch_times) %>% abs %>% which.min
+    .ts <- ts[[unique(.df$condition)]]*60
+    .switch_idx <- (.tmin - .ts) %>% abs %>% which.min
     .t_200 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+200)$time %>% first
     .t_200_fail <- filter(.df, time_sec>.t_200, gfp_nb < .preswitch_gfp+200)$time %>% first
     # if (.switch_idx==2) browser()
-    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), 
+    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), time_switch=.ts[.switch_idx],
                       switch_idx=.switch_idx, time_birth=unique(.df$start_time), time_div=unique(.df$end_time), 
                       gfp_ini=.preswitch_gfp, length_ini=.preswitch_length, cell_num=mean(.df$cell_num_in_lane),
                       lac_200=.t_200, lac_200_fail=.t_200_fail))
     })(.)) %>%
   mutate(gl_id=gsub('\\.[0-9]+$', '', cell),
-         time_switch=switch_times[switch_idx]) %>% 
-  mutate(lag_200 = ifelse(is.na(lac_200_fail) | lac_200_fail-lac_200 > 20*60,
-                          lac_200-time_switch, as.numeric(NA)))
+         lag_200 = ifelse(is.na(lac_200_fail) | lac_200_fail-lac_200 > 20*60,
+                          lac_200-time_switch, as.numeric(NA)) )
 
-MASS::fitdistr(filter(mycells_switching, switch_idx==2, !is.na(lag_200)) %>% .[['lag_200']], 'log-normal')
 
-ggplot(mycells_switching, aes(x=lag_200/60, y=..density..)) +
+ggplot(filter(mycells_switching, condition %in% c('switch_4h', 'switch_iptg')), aes(x=lag_200/60, y=..density..)) +
+  facet_grid(condition~.) +
   geom_histogram(aes(fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show.legend=FALSE) +
   geom_step_hist(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
-  labs(x='time to induction (+200 GFP molecules; min)', col='switch') +
-  scale_colour_brewer(palette='Set1', breaks=1:3, 
-                      labels=mycells_switching %>% group_by(switch_idx) %>% summarise(n=n()) %>% 
-                               .[['n']] %>% paste0(1:3, ' (n=', ., ')')) +
-  theme(legend.justification=c(1, 1), legend.position=c(1, 1))
-ggsave('plots/asc_gfp_lag200.pdf', width=6, height=3)
+  # scale_y_continuous(breaks=seq(0, 1, 0.05)) +
+  labs(x='time to induction (+200 GFP molecules; min)', col='switch')
+ggsave('plots/asc_gfp_lag200_iptg.pdf', width=7, height=4)
 
-# ggplot(mycells_switching, aes((lac_50-time_switch)/60, (lac_200-time_switch)/60)) +
-#   facet_grid(switch_idx~.) +
-#   geom_abline() +
-#   geom_point(alpha=0.25) +
-#   labs(x='time to induction (+50 GFP molecules; min)', y='time to induction (+200 GFP molecules; min)')
+ggplot(filter(mycells_switching, condition %in% c('switch_4h', 'switch_iptg')), aes(x=lag_200/60)) +
+  facet_grid(condition~.) +
+  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
+  labs(x='time to induction (+200 GFP molecules; min)', y='reverse cumulative probability', col='switch')
+ggsave('plots/asc_gfp_lag200_rcdf_iptg.pdf', width=7, height=4)
+
+ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=lag_200/60, y=..density..)) +
+  facet_grid(condition~.) +
+  geom_histogram(aes(fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show.legend=FALSE) +
+  geom_step_hist(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
+  scale_y_continuous(breaks=seq(0, 1, 0.05)) +
+  labs(x='time to induction (+200 GFP molecules; min)', col='switch')
+ggsave('plots/asc_gfp_lag200_facetcond.pdf', width=7, height=4)
+
+ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=lag_200/60)) +
+  facet_grid(condition~.) +
+  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
+  labs(x='time to induction (+200 GFP molecules; min)', y='reverse cumulative probability', col='switch')
+ggsave('plots/asc_gfp_lag200_rcdf_facetcond.pdf', width=7, height=4)
 
 ```
 
@@ -1327,7 +1808,7 @@ mycells_switching %>% group_by(switch_idx, gl_id) %>%
       geom_point(size=0.5, alpha=0.5) +
         scale_colour_brewer(palette='Set1', # breaks=1:3, 
                             labels=.df %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(lag200_mean, lag_200, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.2f)', .df$switch_idx, .df$r2)) ) +
-      labs(x='induction lag average in GL (min)', y='induction lag (min)', col='switch') +
+      labs(x='induction lag average in GL (min)', y='induction lag (min)', col='switch4h') +
       expand_limits(x=0, y=0) + 
       theme(legend.position='top') + guides(col=guide_legend(override.aes = list(size=3, alpha=1)))
     })
@@ -1347,12 +1828,14 @@ mycells_switching %>% group_by(switch_idx, gl_id) %>%
                  data=.df %>% group_by(switch_idx) %>%
                    summarise(lag200_mean=mean(lag_200, na.rm=TRUE)/60, lag200_sd=sd(lag_200, na.rm=TRUE)/60)) +
       scale_linetype_manual(name='group', values=2:1) +
-      labs(x='induction lag c.o.v.', col='switch')
+      labs(x='induction lag c.o.v.', col='switch4h')
   )
 ggsave('plots/asc_gfp_lag200_cov.pdf', width=6, height=3)
 
 ```
 
+
+### Position effect 
 
 Position effect in the growth lane on induction lag:
 
@@ -1363,7 +1846,7 @@ ggplot(mycells_switching, aes(x=cell_num, y=lag_200/60, col=factor(switch_idx)))
   stat_smooth(method='lm', se=FALSE) +
   scale_x_reverse() + 
   expand_limits(y=0) +
-  labs(x='position (closed end -- exit)', y='time to induction \n(+200 GFP molecules; min)', col='switch') +
+  labs(x='position (closed end -- exit)', y='time to induction \n(+200 GFP molecules; min)', col='switch4h') +
   scale_colour_brewer(palette='Set1', # breaks=1:3, 
                       labels=mycells_switching %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(cell_num, lag_200/60, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.1e)', .df$switch_idx, .df$r2)) ) +
   theme(legend.justification=c(0, 1), legend.position=c(0, 1))
@@ -1377,7 +1860,7 @@ ggplot(mycells_switching %>% group_by(switch_idx, gl_id) %>%
   stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
   scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-  labs(x='distance to "exit" cell (cell position)', y='induction lag relative to exit cell', col='switch')
+  labs(x='distance to "exit" cell (cell position)', y='induction lag relative to exit cell', col='switch4h')
 ggsave('plots/asc_gfp_lag200_position_exit.pdf', width=3, height=3.5)
 
 
@@ -1390,7 +1873,7 @@ ggplot(mycells_switching %>% group_by(switch_idx, gl_id) %>%
   scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
   expand_limits(y=2) +
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-  labs(x='position (closed end -- exit)', y='induction lag relative to GL average', col='switch')
+  labs(x='position (closed end -- exit)', y='induction lag relative to GL average', col='switch4h')
 ggsave('plots/asc_gfp_lag200_position_avg.pdf', width=3, height=3.5)
 
 
@@ -1398,18 +1881,20 @@ ggsave('plots/asc_gfp_lag200_position_avg.pdf', width=3, height=3.5)
 ```
 
 
+### Effect of initial cell state
 
 Does the induction lag depends on the initial amount of GFP?
 
 ```{r}
-ggplot(mycells_switching, aes(x=gfp_ini, y=lag_200/60, col=factor(switch_idx))) +
-  facet_grid(switch_idx~.) +
+ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=gfp_ini, y=lag_200/60, col=factor(switch_idx))) +
+  facet_grid(condition~switch_idx) +
   geom_point(alpha=.5, size=.5) +
-  expand_limits(y=0) +
+  # scale_x_continuous(trans='log2') +
   scale_y_continuous(breaks=seq(0, 500, 100)) +
+  expand_limits(y=0) +
   labs(x='initial GFP level (molecules)', y='induction lag (+200 GFP molecules; min)', col='switch') +
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
-ggsave('plots/asc_gfp_lag200_gfpini.pdf', width=6, height=4)
+ggsave('plots/asc_gfp_lag200_gfpini_facetcond.pdf', width=7, height=4)
 
 mycells_switching %>% mutate(switch_idx2=ifelse(switch_idx==2 & gfp_ini<190, '2_low', as.character(switch_idx))) %>% 
   group_by(switch_idx2) %>% 
@@ -1436,7 +1921,7 @@ ggplot(filter(mycells_switching, !is.na(lag_200)), aes(x=(time_switch-time_birth
   facet_grid(switch_idx~.) +
   geom_point(alpha=.5, size=.5) +
   expand_limits(y=0) + scale_y_continuous(breaks=seq(0, 500, 100)) +
-  labs(x='cell cycle progression at switch', y='induction lag (+200 GFP molecules; min)', col='switch') +
+  labs(x='cell cycle progression at switch', y='induction lag (+200 GFP molecules; min)', col='switch4h') +
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
 ggsave('plots/asc_gfp_lag200_cellcycle.pdf', width=6, height=4)
 
@@ -1447,40 +1932,9 @@ filter(mycells_switching, !is.na(lag_200), (time_switch-time_birth)/glc_dt<= 1) 
 ```
 
 
-Look at lag inheritance:
+### Lag inheritance
 
 ```{r}
-genealogy_ontology <- function(.div_min, .div_max) {
-  .rel <- NA
-  if (.div_min == 1 && .div_max == 1) {
-    .rel <- 'sisters'
-  } else if (.div_min == 2 && .div_max == 2) {
-    .rel <- 'cousins1'
-  } else if (.div_min == 3 && .div_max == 3) {
-    .rel <- 'cousins2'
-  } else if (.div_min == 1 && .div_max == 2) {
-    .rel <- 'niece'
-  }
-  return(.rel)
-}
-
-genealogy_relationship <- function(.s) {
-# sisters: div_min == div_max == 1
-# 1st cousins: div_min == div_max == 2
-# niece: div_min==1 && div_max==2
-  if (length(.s)!=2) stop("arguments must be a vector of 2 strings.")
-  .min_l <- min(str_length(.s[1]), str_length(.s[2]))
-  .x1 <- .s[1] %>% str_sub(1, .min_l) %>% str_split("") %>% unlist
-  .x2 <- .s[2] %>% str_sub(1, .min_l) %>% str_split("") %>% unlist
-  .anc_length <- min(which(.x1 != .x2)) - 1 # 0 if no common ancestor
-  .div_1 <- str_sub(.s[1], .anc_length+1, -1) %>% str_length # -1 to select the last char
-  .div_2 <- str_sub(.s[2], .anc_length+1, -1) %>% str_length # -1 to select the last char
-  .div_min <- min(.div_1, .div_2)
-  .div_max <- max(.div_1, .div_2)
-  return(list(rel=genealogy_ontology(.div_min, .div_max), ancestor=str_sub(.s[1], 1, .anc_length), 
-              genealogy_1=.s[1], div_1=.div_1, genealogy_2=.s[2], div_2=.div_2, 
-              div_min=.div_min, div_max=.div_max, less_div=which.min(c(.div_1, .div_2)) ))
-}
 
 mypairs_switching <- mycells_switching %>% group_by(gl_id, switch_idx) %>% 
   do((function(.df) {
@@ -1497,7 +1951,16 @@ mypairs_switching <- mycells_switching %>% group_by(gl_id, switch_idx) %>%
   left_join(mycells_switching %>% ungroup %>% 
               setNames(., paste(names(.), "2", sep="_")) %>% rename(gl_id=gl_id_2, switch_idx=switch_idx_2) ) 
 
-ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
+ggplot(filter(mycells_switching, !(switch_idx>1 & gfp_ini<150)), aes(x=gfp_ini, y=lag_200/60, col=factor(switch_idx))) +
+  facet_grid(switch_idx~.) +
+  geom_point(alpha=.5, size=.5) +
+  expand_limits(y=0) +
+  scale_y_continuous(breaks=seq(0, 500, 100)) +
+  labs(x='initial GFP level (molecules)', y='induction lag (+200 GFP molecules; min)', col='switch4h') +
+  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
+
+ggplot(filter(mypairs_switching, rel!='niece', !( (switch_idx>1 & gfp_ini_1<150) | (switch_idx>1 & gfp_ini_2<150) )), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
+# ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
   facet_wrap(~switch_idx, scales='free', ncol = 3) +
   geom_abline(col='gray50') +
   geom_point(alpha=.5, size=.5) +
@@ -1509,7 +1972,8 @@ ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, 
 ggsave('plots/asc_gfp_lag200_genealogy.pdf', width=5, height=4)
 
 # with(mypairs_switching, table(switch_idx, rel, useNA='ifany'))
-filter(mypairs_switching, rel!='niece', !(switch_idx==2 & lag_200_1/60>75)) %>% 
+filter(mypairs_switching, rel!='niece', !( (switch_idx>1 & gfp_ini_1<150) | (switch_idx>1 & gfp_ini_2<150) )) %>% 
+# filter(mypairs_switching, rel!='niece', !(switch_idx==2 & lag_200_1/60>75)) %>% 
   group_by(switch_idx, rel) %>% 
   summarise(r2=cor(lag_200_1, lag_200_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
   (function(.df) ggplot(.df, aes(rel, r2)) +
@@ -1580,7 +2044,7 @@ read_fcs_gate_props <- function(.path, .props=seq(.85, .1, by=-.15)) {
         predict(pc_fit, select(df_ff, fsc, ssc)) %>% data.frame %>% setNames(c("pc1", "pc2")) )
 }
 
-myfcm <- data.frame(path=c('./data/facs/20150918/asc662_lactose_gfp600.fcs', './data/facs/20150918/asc662_glucose_gfp600.fcs'),
+myfcm <- data.frame(path=c('./data_matthias/facs/20150918/asc662_lactose_gfp600.fcs', './data_matthias/facs/20150918/asc662_glucose_gfp600.fcs'),
            cond=c('lactose', 'glucose'), stringsAsFactors=FALSE) %>%
   group_by(path, cond) %>%
   do((function(.df){read_fcs_gate_props(.df$path)})(.)) %>%
@@ -1592,11 +2056,11 @@ ggplot(filter(myfcm, g85==TRUE, gw85>.5), aes(gfp_nb, ..density..)) +
   geom_step_hist(aes(col=cond), binwidth=100) + 
   geom_vline(xintercept=550)
 
-ggplot(filter(myframes, condition!='switch', !discard_start, !discard_top), aes(length_um, ..density..)) +
+ggplot(filter(myframes, condition!='switch4h', !discard_start, !discard_top), aes(length_um, ..density..)) +
   geom_histogram(aes(fill=condition), binwidth=.065, alpha=.2, position='identity') +
   geom_step_hist(aes(col=condition), binwidth=.065)
 
-ggplot(filter(myframes, condition!='switch', !discard_start, !discard_top), aes(gfp_nb, ..density..)) +
+ggplot(filter(myframes, condition!='switch4h', !discard_start, !discard_top), aes(gfp_nb, ..density..)) +
   geom_histogram(aes(fill=condition), binwidth=100, alpha=.2, position='identity') +
   geom_step_hist(aes(col=condition), binwidth=100)
 
