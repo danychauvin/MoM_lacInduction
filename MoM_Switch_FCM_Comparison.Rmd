@@ -1,0 +1,89 @@
+---
+title: "Comparison with flow cytometry"
+author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+
+```{r}
+# set working environment
+invisible(sapply(
+  list.files("~/Documents/Biozentrum/Projects/vngWetLabR/facs", pattern="\\.[Rr]$", full.names=TRUE, ignore.case=TRUE), 
+  source, .GlobalEnv))
+
+read_fcs_gate_props <- function(.path, .props=seq(.85, .1, by=-.15)) {
+  if(! .85 %in% .props) stop('.85 must appear in props.')
+  f_par <- list(
+    channels = c(fsc = 1, ssc = 3, fl1 = 5),
+    lims = c(2.5, 4.5), # limits for fsc and ssc (in log10 scale)
+    min.cells = 5000,  # minimum number of cells to include in preprocesing
+    facs.max = 262143, #
+    file.pattern = '.fcs$')
+  f_utils <- set_fsc_ssc_gates(dirname(.path), f_par, .pattern='gfp600')#, .interactive=TRUE)
+  
+  ff <- read.FCS(.path)
+  ff <- ff[, f_par$channels]
+  ff <- Subset(ff, f_utils$not.debris.gate)
+  ff <- f_utils$ListlogT %on% ff
+  colnames(ff) <- c('fsc', 'ssc', 'gfp')
+  
+  df_ff <- data.frame(exprs(ff))
+  for (.p in .props) {
+    .polyg <- find_densest_area(exprs(ff[, 1:2]), .prop=.p)
+    colnames(.polyg) <- c(colnames(ff)[1], colnames(ff)[2]) # required for gating
+    .gate <- polygonGate(filterId="similar.cells", .gate=.polyg)
+    gfp_normal <- EM_normal_unif_mixture(dplyr::filter(df_ff, ff %in% .gate)$gfp, .p=0.99, .min=1, .max=log10(f_par$facs.max)) #, .plot=TRUE)
+    df_ff[[paste0('g', .p*100)]] <- ff %in% .gate
+    df_ff[[paste0('gw', .p*100)]] <- NA
+    df_ff[ff %in% .gate, paste0('gw', .p*100)] <- gfp_normal$weights
+  }
+  
+  # compute principal components of fsc/ssc
+  pc_fit <- prcomp(~fsc+ssc, data=dplyr::filter(df_ff, g85==TRUE) %>% select(fsc, ssc))
+  cbind(df_ff,  
+        predict(pc_fit, select(df_ff, fsc, ssc)) %>% data.frame %>% setNames(c("pc1", "pc2")) )
+}
+
+myfcm <- data.frame(path=c('./data_matthias/facs/20150918/asc662_lactose_gfp600.fcs', './data_matthias/facs/20150918/asc662_glucose_gfp600.fcs'),
+           cond=c('lactose', 'glucose'), stringsAsFactors=FALSE) %>%
+  group_by(path, cond) %>%
+  do((function(.df){read_fcs_gate_props(.df$path)})(.)) %>%
+  mutate(gfp_nb = 2.884 * exp(gfp / log10(exp(1))))
+
+
+ggplot(filter(myfcm, g85==TRUE, gw85>.5), aes(gfp_nb, ..density..)) +
+  geom_histogram(aes(fill=cond), binwidth=100, alpha=.2, position='identity') +
+  geom_step_hist(aes(col=cond), binwidth=100, position='identity') + 
+  geom_vline(xintercept=550)
+
+ggplot(filter(myframes, condition %in% c('glucose', 'lactose'), !discard_start, !discard_top), aes(length_um, ..density..)) +
+  geom_histogram(aes(fill=condition), binwidth=.065, alpha=.2, position='identity') +
+  geom_step_hist(aes(col=condition), binwidth=.065, position='identity')
+
+ggplot(filter(myframes, condition %in% c('glucose', 'lactose'), !discard_start, !discard_top), aes(gfp_nb, ..density..)) +
+  geom_histogram(aes(fill=condition), binwidth=100, alpha=.2, position='identity') +
+  geom_step_hist(aes(col=condition), binwidth=100, position='identity')
+
+ggplot(data.frame(prop=seq(.85, .1, by=-.15)) %>%
+  group_by(prop) %>%
+  do((function(.df){
+#     qqplot(filter(myframes, condition=='lactose', !discard_start, !discard_top)$gfp_nb, 
+#            filter_(myfcm, paste0('g', .df$prop*100, '==TRUE'), paste0('gw', .df$prop*100, '>.5'))$gfp_nb, plot.it=FALSE) %>% 
+#       as.data.frame
+    .quantiles <- seq(0, 1, length.out=1000)
+    data.frame(quantile=.quantiles, 
+               mom=quantile(filter(myframes, condition=='lactose', !discard_start, !discard_top, end_type=='div')$gfp_nb, .quantiles),
+               fcm=quantile(filter_(myfcm, paste0('g', .df$prop*100, '==TRUE'), paste0('gw', .df$prop*100, '>.5'))$gfp_nb, .quantiles))
+    })(.)) %>% 
+  filter(between(quantile, .015, .998)) ) +
+  geom_point(aes(mom, fcm, col=factor(prop)), size=.5) 
+
+qqplot(filter(myframes, condition=='lactose', !discard_start, !discard_top)$gfp_nb, 
+       10^filter(myfcm, g85==TRUE)$gfp, plot.it=FALSE) %>% 
+  as.data.frame %>% 
+  ggplot() + 
+  geom_point(aes(x, y), size=.5)
+
+```
+
+

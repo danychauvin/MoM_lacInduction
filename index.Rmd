@@ -1,0 +1,10 @@
+---
+title: "Glucose/Lactose experiments in the Mother Machine"
+author: Thomas Julou
+output:
+  html_document:
+    toc: false
+    toc_float: false
+---
+
+<iframe width="853" height="480" src="https://www.youtube.com/embed/2Tznm868fmc?rel=0" frameborder="0" allowfullscreen></iframe>
