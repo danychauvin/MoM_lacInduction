@@ -66,9 +66,9 @@ for (.l in mylibs) { mycluster %>% cluster_library(.l) }
 # save(list=myvars[which(myvars!='pls')], file=".RData", envir=.GlobalEnv)
 
 condition_ts <- condition_ts %>% group_by(condition) %>% 
-  mutate(t_start=cumsum(c(0, duration[-(length(duration))])),
-         t_end=cumsum(duration))
-
+  mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
+         t_end=cumsum(duration) * 60 - 1e-5,
+         m_cycle=value_occurence_index(medium))
 
 
 # LOAD MG1655 DATA ####
@@ -76,7 +76,7 @@ mg_files <- list.files("./data_matthias/MG1655_glu_lac", ".*\\d+\\.csv", recursi
 nc <- min(length(mg_files), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
 
 # load perl scripts output to dataframes (using multidplyr)
-mgframes <- dplyr::data_frame(path=mg_files) %>%
+mg_frames <- dplyr::data_frame(path=mg_files) %>%
   group_by(path) %>%
   partition(path, cluster=mycluster[1:nc] %>%
               cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
@@ -103,7 +103,8 @@ mgframes <- dplyr::data_frame(path=mg_files) %>%
   collect() %>% 
   group_by(date, pos, gl, id) %>%
   mutate(start_time=first(time_sec), end_time=last(time_sec),
-         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)))
+         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)),
+         cell=paste(date, pos, gl, id, sep='.'))
 
 
 # LOAD AS662 DATA ####
@@ -138,6 +139,7 @@ myframes <- dplyr::data_frame(path=asc_files) %>%
     }
   })(.)) %>%
   collect() %>% 
+  arrange(date, pos, gl, id, frame) %>%  # sort data after `partition()`
   group_by(date, pos, gl, id) %>%
   mutate(start_time=first(time_sec), end_time=last(time_sec),
          b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
@@ -145,7 +147,15 @@ myframes <- dplyr::data_frame(path=asc_files) %>%
   ungroup %>% 
   mutate(condition=date_cond[as.character(date)],
          vertical_center=(vertical_bottom + vertical_top)/2,
-         cell=paste(date, pos, gl, id, sep='.'))
+         cell=paste(date, pos, gl, id, sep='.')) %>% 
+  # propagate medium info
+  group_by(condition) %>% 
+  do((function(.df){
+    .ts <- filter(condition_ts, condition==unique(.df$condition))
+    .idx <- find_unique_interval(.df$time_sec, .ts$t_start, .ts$t_end)
+    mutate(.df, medium=.ts$medium[.idx], m_start=.ts$t_start[.idx], m_cycle=.ts$m_cycle[.idx])
+  })(.))  
+
 
 
 # CURATION STATS ####

@@ -315,7 +315,36 @@ Plot an example of GFP traces:
   # .df <- filter(myframes, date=='20150703', pos==3, gl==1)
   .df_div <- filter(.df, !discard_top, !discard_start) %>% 
     group_by(id) %>% 
-    do(compute_div_between_facets(.df, .))
+    do((function(.dfgl, .dfc) { # compute_div_between_facets
+        # .dfgl: dataframe of the entire GL
+        # .dfc: dataframe of the current cell
+        if (unique(.dfc$parent_id) < 0) return(data.frame())
+        .dfp <- filter(.dfgl, id==unique(.dfc$parent_id))
+        
+        if (unique(.dfc$b_rank) == unique(.dfp$b_rank)) {
+          .length_ump <- filter(.dfp, time_sec==max(time_sec))$length_um
+          .gfp_nbp <- filter(.dfp, time_sec==max(time_sec))$gfp_nb
+          .out <- filter(.dfc, time_sec==min(time_sec)) %>%
+            select(id, b_rank, time_sec, length_um, gfp_nb) %>%
+            mutate(time_secp=time_sec-dt*60, length_ump=.length_ump, gfp_nbp=.gfp_nbp)
+        }
+        if (unique(.dfc$b_rank) > unique(.dfp$b_rank)) {
+          .out <- bind_rows(
+            filter(ungroup(.dfc), time_sec==min(time_sec)) %>%
+              select(id, b_rank, time_sec, length_um, gfp_nb) %>%
+              mutate(time_secp=time_sec-dt*60/2, length_ump=0, gfp_nbp=-Inf),
+            filter(ungroup(.dfp), time_sec==max(time_sec)) %>%
+              select(id, b_rank, time_sec, length_um, gfp_nb) %>%
+              mutate(id=unique(.dfc$id), time_secp=time_sec+dt*60/2, length_ump=Inf, gfp_nbp=Inf) )
+          if(diff(.out$b_rank) < -1) {
+            .out <- rbind(.out,
+                          data.frame(id=unique(.dfc$id), b_rank=(min(.out$b_rank)+1):(max(.out$b_rank)-1),
+                                     time_sec=min(.dfc$time_sec)-dt*60/2, time_secp=min(.dfc$time_sec)-dt*60/2,
+                                     length_um=0, length_ump=Inf, gfp_nb=-Inf, gfp_nbp=Inf))
+          }
+        }
+        return(.out)
+      })(.df, .))
   
   ggplot() +
     facet_grid(b_rank~., as.table=FALSE) +
@@ -435,6 +464,21 @@ ggplot(mycells %>% filter(condition %in% 'lactose'),
   
 with(mycells %>% filter(condition %in% 'lactose'),
      corPearson(exp(loglength_start), g_first/exp(loglength_start)))^2
+
+```
+
+does added GFP correlate with the division time (as predicted assuming a constant production rate)?
+
+```{r}
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes((time_div-time_birth)/60, log(g_last/g_first))) +
+  geom_density2d(size=.5, alpha=.5) +
+  # geom_abline(col='red') +
+  expand_limits(x=0, y=0) +
+  labs(x='division time (min)', y='added total GFP')
+
+with(mycells %>% filter(condition %in% 'lactose'),
+     corPearson((time_div-time_birth)/60, log(g_last/g_first)))^2
 
 ```
 

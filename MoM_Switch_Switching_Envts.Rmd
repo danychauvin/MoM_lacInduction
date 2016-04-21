@@ -10,7 +10,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 gl_idx <- 11
 ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch_4h', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% ungroup %>% filter(glid %in% nth(unique(glid), gl_idx)),
        aes(time_sec - 2*3600, length_um, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=0, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=0, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
   geom_path(alpha=0.6) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
@@ -33,7 +33,7 @@ ggsave('plots/asc_switch_length.pdf', width=8, height=3)
 
 ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch_4h', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
        aes(time_sec - 2*3600, gfp_nb / length_um, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
   geom_path(alpha=0.6) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
@@ -43,7 +43,7 @@ ggsave('plots/asc_switch_fluoconc.pdf', width=8, height=3)
 
 ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch_4h', end_type=='div') %>% mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), gl_idx)),
        aes(time_sec - 2*3600, gfp_nb , col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
   geom_path(alpha=0.6) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(4) +
@@ -54,7 +54,7 @@ ggsave('plots/asc_switch_fluotot.pdf', width=8, height=3)
 
 ggplot(filter(myframes, !discard_start, !discard_top, condition=='switch_4h', end_type=='div') %>% head(1e4),
        aes(time_sec - 2*3600, gfp_nb, col=cell)) +
-  geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
+  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch_4h', medium=='lactose')) +
   geom_path(alpha=0.5) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(5) +
@@ -70,27 +70,14 @@ Distribution of induction times:
 
 
 ```{r}
-ts <- lapply(unique(condition_ts$condition), function(.c) 
-  filter(condition_ts, condition==.c, medium!='glucose')$t_start) %>% 
-  setNames(unique(condition_ts$condition))
-# te <- lapply(unique(condition_ts$condition), function(.c) 
-#   filter(condition_ts, condition==.c, medium!='glucose')$t_end) %>% 
-#   setNames(unique(condition_ts$condition))
-
 myframes_switching <- filter(myframes, !discard_start, !discard_top, !(condition %in% c('glucose', 'lactose')), time_sec>2*3600) %>%
-  mutate(ts1=60*sapply(condition, function(.c) ts[[.c]][1]), 
-         ts2=60*sapply(condition, function(.c) ts[[.c]][2]), 
-         ts3=60*sapply(condition, function(.c) ts[[.c]][3]) ) %>% 
   group_by(date, pos, gl, id) %>%
-  filter( (first(time_sec) < ts1 & last(time_sec) > ts1+30*60) |
-            (first(time_sec) < ts2 & last(time_sec) > ts2+30*60) |
-            (first(time_sec) < ts3 & last(time_sec) > ts3+30*60) ) %>%
-  mutate(nframes=n(), pre_switch = (time_sec>ts1+60 & time_sec<ts1+10*60) |
-           (time_sec>ts2+60 & time_sec<ts2+10*60) |
-           (time_sec>ts3+60 & time_sec<ts3+10*60) )
+  mutate(is_lac=str_detect(medium, 'lactose'), t_lac_switch=min(m_start[is_lac])) %>% 
+  filter(!first(is_lac) & any(is_lac) & last(time_sec)>unique(t_lac_switch)+30*60) %>% 
+  mutate(nframes=n(), pre_switch=(time_sec>t_lac_switch+60 & time_sec<t_lac_switch+10*60))
 
 ggplot(data=filter(myframes_switching, T), aes(time_sec - 2*3600, gfp_nb, col=cell)) +
-  # geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
   facet_wrap(~condition) +
   geom_path(alpha=0.5) + # geom_point() +
   scale_colour_periodic_brewer(guide='none') +
@@ -101,20 +88,24 @@ ggsave('plots/asc_gfp_induction_facetcond.pdf', width=7, height=4)
 
 mycells_switching <- myframes_switching %>%
   group_by(condition, cell) %>%
+  partition(condition, cell, cluster=mycluster) %>%
   do((function(.df){
     .preswitch_gfp <- mean(filter(.df, pre_switch)$gfp_nb)
     .preswitch_length <- mean(filter(.df, pre_switch)$length_um)
     .tmin <- filter(.df, pre_switch)$time_sec %>% max
-    .ts <- ts[[unique(.df$condition)]]*60
-    .switch_idx <- (.tmin - .ts) %>% abs %>% which.min
+    # .ts <- ts[[unique(.df$condition)]]
+    .time_switch <- filter(.df, is_lac)$time_sec %>% min
+    .switch_idx <- filter(.df, is_lac)$m_cycle %>% min
     .t_200 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+200)$time %>% first
     .t_200_fail <- filter(.df, time_sec>.t_200, gfp_nb < .preswitch_gfp+200)$time %>% first
     # if (.switch_idx==2) browser()
-    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), time_switch=.ts[.switch_idx],
+    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), time_switch=.time_switch,
                       switch_idx=.switch_idx, time_birth=unique(.df$start_time), time_div=unique(.df$end_time), 
                       gfp_ini=.preswitch_gfp, length_ini=.preswitch_length, cell_num=mean(.df$cell_num_in_lane),
                       lac_200=.t_200, lac_200_fail=.t_200_fail))
     })(.)) %>%
+  collect() %>% 
+  arrange(condition, cell, time_birth) %>%  # sort data after `partition()`
   mutate(gl_id=gsub('\\.[0-9]+$', '', cell),
          lag_200 = ifelse(is.na(lac_200_fail) | lac_200_fail-lac_200 > 20*60,
                           lac_200-time_switch, as.numeric(NA)) )
@@ -358,16 +349,4 @@ ggsave('plots/asc_gfp_lag200_genealogyr2.pdf', width=2.5, height=4)
 
 ```
 
-
-```{r}
-
-ggplot(filter(myframes_switching, nframes>20, between(time_sec, 360*60, 600*60)) %>% head(5e3),
-       aes(gfp_nb, length_um, col=cell)) +
-  geom_path() + 
-  geom_smooth(method='lm', fullrange=FALSE,
-              data=filter(myframes_switching, nframes>20, gfp_nb>100, between(time_sec, 360*60, 600*60)) %>% head(5e3)) +
-  scale_colour_periodic_brewer() +
-  facet_wrap(~cell)
-
-```
 

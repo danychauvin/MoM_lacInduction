@@ -4,12 +4,52 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
+# Introduction
+
+## Motivation
+
+Can we use data obtained with our Mother Machine (MoM) setup (where we measure cell size and total fluorescence) to better understand our flow cytometry (FCM) data?
+
+- does the GFP channel of FCM measurements rather correspond to total GFP or to GFP concentration?
+- can we use FSC and/or SSC channels to estimate cell size?
+
+## Roadmap
+
+### Available data
+
+The *E. coli* strain ASC662 (MG1655 lacZ-GFP) has been studied in the Mother Machine in (1) M9 + glucose 0.2% and (2) M9 + lactose 0.2%. Additionally, it has been measured by FCM in similar conditions (trying to allow steady state in exponential growth). The GFP distributions can be meaningfully compared in lactose medium only, while the size distributions can be compared in both media (where there are expected to be slightly different).
+
+### Preprocessing
+
+In order to obtain a relevant mapping between the two sets of observation, one needs to use appropriate preprocessing on each and to choose which subset of data can be meaningfully compared.
+
+In particular, our current default FCM preprocessing has 2 steps: (1) select a given fraction of the data (typically 10%) around the FSC/SSC mode and (2) apply a gaussian + uniform mixture model on log-transformed GFP in order to downweigh aberrant FCM measurements for mean and variance estimation. Here I propose to keep a large fraction of the data during FSC/SSC filtering (e.g. 85%) and to use a threshold on the mixture model weight to discard putative GFP outliers.
+
+For Mother Machine data, it is important to discard (1) cells at the exit of the channel (where the length and hence total GFP are inaccurate), (2) cells at the start of the experiment (before GFP photobleaching has reached a steady state) and (3) the bottom cells for which the size estimation is slightly different. We assume that the effects of pole age is negligible in our data (all the more so since we discard all bottom cells).
+
+Which subset of the Mother Machine data is best comparable to FCM data is not obvious; e.g. should we only use data from cells observed during their entire cell cycle or rather use all data including cells that exit the channel? So far we assume that this has little impact on the comparison.
+
+Once data are properly filtered, quantile-quantile plots can be produced for the variables to be compared (e.g. GFP in FCM and total GFP numbers in Mother Machine).
+
+
+### Questions
+
+- taking a cutoff at 2x the strain autofluorescence for FCM data, how good is the correlation of the total fluorescence QQ plot? how does it depend on the FSC/SSC gated fraction?
+
+- same for GFP in FCM *vs* fluorescence concentration in the Mother Machine? is the correlation different / spanning a different range than for total fluorescence?
+
+- compare cell size of Mother Machine data to FSC, SSC, and PC1 (of PCA on FSC/SSC) of FCM data in glucose and lactose media. how does this depend on the FSC/SSC gated fraction? is one FCM variable better than the other in both conditions (at high FSC/SSC gated fraction)? 
+
+
+# Results
+
 
 ```{r}
 # set working environment
 invisible(sapply(
   list.files("~/Documents/Biozentrum/Projects/vngWetLabR/facs", pattern="\\.[Rr]$", full.names=TRUE, ignore.case=TRUE), 
   source, .GlobalEnv))
+
 
 read_fcs_gate_props <- function(.path, .props=seq(.85, .1, by=-.15)) {
   if(! .85 %in% .props) stop('.85 must appear in props.')
@@ -32,7 +72,7 @@ read_fcs_gate_props <- function(.path, .props=seq(.85, .1, by=-.15)) {
     .polyg <- find_densest_area(exprs(ff[, 1:2]), .prop=.p)
     colnames(.polyg) <- c(colnames(ff)[1], colnames(ff)[2]) # required for gating
     .gate <- polygonGate(filterId="similar.cells", .gate=.polyg)
-    gfp_normal <- EM_normal_unif_mixture(dplyr::filter(df_ff, ff %in% .gate)$gfp, .p=0.99, .min=1, .max=log10(f_par$facs.max)) #, .plot=TRUE)
+    gfp_normal <- EM_normal_unif_mixture(filter(df_ff, ff %in% .gate)$gfp, .p=0.99, .min=1, .max=log10(f_par$facs.max)) #, .plot=TRUE)
     df_ff[[paste0('g', .p*100)]] <- ff %in% .gate
     df_ff[[paste0('gw', .p*100)]] <- NA
     df_ff[ff %in% .gate, paste0('gw', .p*100)] <- gfp_normal$weights
@@ -44,46 +84,289 @@ read_fcs_gate_props <- function(.path, .props=seq(.85, .1, by=-.15)) {
         predict(pc_fit, select(df_ff, fsc, ssc)) %>% data.frame %>% setNames(c("pc1", "pc2")) )
 }
 
-myfcm <- data.frame(path=c('./data_matthias/facs/20150918/asc662_lactose_gfp600.fcs', './data_matthias/facs/20150918/asc662_glucose_gfp600.fcs'),
-           cond=c('lactose', 'glucose'), stringsAsFactors=FALSE) %>%
+myfcm_w <- data.frame(path=c('./data_matthias/facs/20150918/asc662_lactose_gfp600.fcs', './data_matthias/facs/20150918/asc662_glucose_gfp600.fcs'),
+                      cond=c('lactose', 'glucose'), stringsAsFactors=FALSE) %>%
   group_by(path, cond) %>%
   do((function(.df){read_fcs_gate_props(.df$path)})(.)) %>%
   mutate(gfp_nb = 2.884 * exp(gfp / log10(exp(1))))
 
-
-ggplot(filter(myfcm, g85==TRUE, gw85>.5), aes(gfp_nb, ..density..)) +
-  geom_histogram(aes(fill=cond), binwidth=100, alpha=.2, position='identity') +
-  geom_step_hist(aes(col=cond), binwidth=100, position='identity') + 
-  geom_vline(xintercept=550)
-
-ggplot(filter(myframes, condition %in% c('glucose', 'lactose'), !discard_start, !discard_top), aes(length_um, ..density..)) +
-  geom_histogram(aes(fill=condition), binwidth=.065, alpha=.2, position='identity') +
-  geom_step_hist(aes(col=condition), binwidth=.065, position='identity')
-
-ggplot(filter(myframes, condition %in% c('glucose', 'lactose'), !discard_start, !discard_top), aes(gfp_nb, ..density..)) +
-  geom_histogram(aes(fill=condition), binwidth=100, alpha=.2, position='identity') +
-  geom_step_hist(aes(col=condition), binwidth=100, position='identity')
-
-ggplot(data.frame(prop=seq(.85, .1, by=-.15)) %>%
-  group_by(prop) %>%
+# compute GFP background mean for MG1655
+myfcm_bg <- data.frame(path=c('./data_matthias/facs/20150918/asc662_control_lactose_gfp600.fcs', './data_matthias/facs/20150918/asc662_control_glucose_gfp600.fcs'),
+                       cond=c('lactose', 'glucose'), stringsAsFactors=FALSE) %>%
+  group_by(path, cond) %>%
+  do((function(.df){read_fcs_gate_props(.df$path)})(.)) %>%
+  mutate(gfp_nb = 2.884 * exp(gfp / log10(exp(1)))) %>%
+  select(cond, gfp_nb, contains('gw')) %>%
+  group_by(cond) %>%
   do((function(.df){
-#     qqplot(filter(myframes, condition=='lactose', !discard_start, !discard_top)$gfp_nb, 
-#            filter_(myfcm, paste0('g', .df$prop*100, '==TRUE'), paste0('gw', .df$prop*100, '>.5'))$gfp_nb, plot.it=FALSE) %>% 
-#       as.data.frame
-    .quantiles <- seq(0, 1, length.out=1000)
-    data.frame(quantile=.quantiles, 
-               mom=quantile(filter(myframes, condition=='lactose', !discard_start, !discard_top, end_type=='div')$gfp_nb, .quantiles),
-               fcm=quantile(filter_(myfcm, paste0('g', .df$prop*100, '==TRUE'), paste0('gw', .df$prop*100, '>.5'))$gfp_nb, .quantiles))
-    })(.)) %>% 
-  filter(between(quantile, .015, .998)) ) +
-  geom_point(aes(mom, fcm, col=factor(prop)), size=.5) 
+    (select(.df, -path, -cond) * log(.df$gfp_nb)) %>% 
+      select(-gfp_nb) %>%
+      summarise_each(funs(mean(., na.rm=TRUE))) %>% exp
+    })(.) ) %>%
+  gather(gate, mean, -cond) %>%
+  mutate(gate=gsub('gw', '', as.character(gate)) %>% as.numeric %>% `/`(100) )
+  
+```
 
-qqplot(filter(myframes, condition=='lactose', !discard_start, !discard_top)$gfp_nb, 
-       10^filter(myfcm, g85==TRUE)$gfp, plot.it=FALSE) %>% 
-  as.data.frame %>% 
-  ggplot() + 
-  geom_point(aes(x, y), size=.5)
+Looking at the effect of the mixture model filtering on GFP indicates that any cutoff between 0.5 and 0.8 will remove outliers while minimally affecting the GFP distribution. In the following, I use 0.8.
+
+```{r}
+ggplot(myfcm_w) +
+  geom_step_hist(aes(gw85, col='0.85')) +
+  geom_histogram(aes(gw85, fill='0.85'), alpha=.1, show_guide=FALSE) +
+  geom_step_hist(aes(gw10, col='0.1')) +
+  geom_histogram(aes(gw10, fill='0.1'), alpha=.1, show_guide=FALSE) +
+  geom_vline(xintercept=0.8) +
+  scale_y_log10() +
+  labs(col='FSC/SSC \ngated fraction')
+  
+gfp_mm_cutoff <- 0.8
 
 ```
 
 
+
+## Comparing GFP distributions
+
+I start by comparing the GFP distribution because I expect the correspondence to Mother Machine data to be more direct. The distribution of GFP in FCM doesn't depend much on the FSC/SSC gated fraction.
+
+```{r}
+
+myfcm <- myfcm_w %>% ungroup %>%  
+  select(cond, fsc, ssc, pc1, gfp_nb, contains('gw')) %>% 
+  group_by(cond) %>% 
+  do((function(.df){
+    # browser()
+    bind_cols(
+      ( (select(.df, contains('gw')) > gfp_mm_cutoff) * .df$fsc ) %>% 
+        as.data.frame %>% gather(gate, fsc, na.rm=TRUE) %>% filter(fsc!=0),
+      ( (select(.df, contains('gw')) > gfp_mm_cutoff) * .df$ssc ) %>% 
+        as.data.frame %>% gather(gate, ssc, na.rm=TRUE) %>% filter(ssc!=0) %>% select(ssc),
+      ( (select(.df, contains('gw')) > gfp_mm_cutoff) * .df$pc1 ) %>% 
+        as.data.frame %>% gather(gate, pc1, na.rm=TRUE) %>% filter(pc1!=0) %>% select(pc1),
+      ( (select(.df, contains('gw')) > gfp_mm_cutoff) * .df$gfp_nb ) %>% 
+        as.data.frame %>% gather(gate, gfp_nb, na.rm=TRUE) %>% filter(gfp_nb!=0) %>% select(gfp_nb) ) %>%
+      mutate(gate=gsub('gw', '', as.character(gate)) %>% as.numeric %>% `/`(100) )
+    })(.))
+
+ggplot(myfcm, aes(gfp_nb, ..density.., col=factor(gate))) +
+  geom_step_hist(binwidth=100, position="identity") +
+  facet_grid(.~cond)
+
+```
+
+The comparison with Mother Machine distribution highlights that the main issue of FCM: a significant fraction of the measured cells with low fluorescence are lower than the sensitivity threshold. The dashed lines show the criteria used in the promoter evolution analysis (2x the mean of a strain without GFP).
+
+```{r}
+bind_rows(
+  filter(myfcm, gate==.85) %>% select(condition=cond, gfp_nb) %>% mutate(type='FCM'),
+  myframes %>% ungroup %>% 
+    filter(condition %in% c('glucose', 'lactose'), !discard_start, !discard_top, 
+           cell_num_in_lane<total_cell_in_lane, end_type=='div') %>%
+    select(condition, gfp_nb) %>% mutate(type='MoM') ) %>% 
+ggplot(aes(gfp_nb, ..density.., col=condition)) +
+  facet_grid(.~type, scales='free_y') +
+  geom_step_hist(binwidth=100, position='identity') +
+  geom_vline(aes(xintercept=2*mean, col=condition), lty='dashed', 
+             data=filter(myfcm_bg, gate==.85) %>% mutate(type="FCM", condition=cond))
+
+
+ggplot(filter(myfcm, gate==.85), aes(gfp_nb, ..density..)) +
+  facet_grid(.~cond, scales='free_y') +
+  geom_step_hist(aes(col='FCM'), binwidth=100) +
+  geom_step_hist(aes(col='MoM'), binwidth=100,
+                data= myframes %>%
+                  filter(condition %in% c('glucose', 'lactose'), !discard_start, !discard_top, 
+                         cell_num_in_lane<total_cell_in_lane, end_type=='div') %>%
+                  select(cond=condition, gfp_nb) ) +
+  geom_vline(aes(xintercept=2*mean, col='FCM'), lty='dashed', data=filter(myfcm_bg, gate==.85)) +
+  labs(col='type')
+
+```
+
+Let's compare the total GFP and GFP concentration distributions in Mother Machine data, this shows us how different FACS' gfp variable and the inappropriate Mother Machine variable (most likely concentration) can be.
+
+```{r}
+ggplot(myframes %>% ungroup %>% 
+         filter(condition %in% c('glucose', 'lactose'), !discard_start, !discard_top, 
+                cell_num_in_lane<total_cell_in_lane, end_type=='div') %>%
+         select(cond=condition, gfp_nb, length_um) %>% mutate(gfp_conc=gfp_nb/length_um) %>% 
+         gather(var, value, -cond) %>% group_by(cond, var) %>% mutate(value_norm=(value-mean(value))/sd(value)) %>% 
+         filter(var!='length_um')) +
+  geom_step_hist(aes(value_norm, col=var), binwidth=.1, position="identity") +
+  facet_grid(.~cond)
+
+qs <- seq(0, 1, length.out=1001)
+
+mom_qq <- filter(myframes, condition %in% c('glucose', 'lactose'), !discard_start, !discard_top,
+                 cell_num_in_lane<total_cell_in_lane, end_type=='div') %>%
+  group_by(condition) %>% 
+  do((function(.df){
+    # browser()
+    .q <- seq(0, 1, length.out=1001)
+    data.frame(quantile=.q, 
+           tot=quantile(.df$gfp_nb, .q),
+           conc=mutate(.df, conc=gfp_nb/length_um) %>% .[['conc']] %>% quantile(.q) )
+  })(.) )
+
+
+ggplot(mom_qq) +
+  geom_point(aes(tot, conc, col=condition), size=1) +
+  facet_wrap(~condition, scales='free')
+
+```
+
+
+Let's compute the quantiles for total GFP and GFP concentration and plot their relationship:
+
+```{r}
+gfp_qq <- myfcm %>% group_by(cond, gate) %>% 
+  do((function(.df){
+    # if(unique(.df$cond)=='lactose') browser()
+    .q <- seq(0, 1, length.out=1001)
+    bind_rows(
+      data.frame(var='number',
+                 quantile=.q, 
+                 fcm=quantile(.df$gfp_nb, .q),
+                 mom=quantile(filter(ungroup(myframes), condition==unique(.df$cond), !discard_start, !discard_top,
+                                     cell_num_in_lane<total_cell_in_lane, end_type=='div')$gfp_nb, .q) ),
+      data.frame(var='concentration',
+                 quantile=.q, 
+                 fcm=quantile(.df$gfp_nb, .q),
+                 mom=quantile(filter(ungroup(myframes), condition==unique(.df$cond), !discard_start, !discard_top,
+                                     cell_num_in_lane<total_cell_in_lane, end_type=='div') %>% 
+                                (function(.df) .df$gfp_nb / .df$length_um), .q) ) )
+  })(.) ) 
+
+ggplot(filter(gfp_qq, cond=='lactose', var=='number')) +
+  geom_point(aes(mom, fcm, col=factor(gate)), size=.5) +
+  labs(col='FSC/SSC \ngated fraction') +
+  # xlim(800, 1200)
+  expand_limits(x=0)
+
+```
+
+We remove the last point and narrow down the x axis:
+
+```{r}
+ggplot(filter(gfp_qq, cond=='lactose', var=='number', quantile<1)) +
+  geom_point(aes(mom, fcm, col=factor(gate)), size=.5) +
+  labs(col='FSC/SSC \ngated fraction')
+
+```
+
+Now we want to look at the effect of the fsc/ssc gating, and see whether the mapping to total GFP is indeed better than to GFP concentration.
+
+```{r fig.height=12}
+gfp_qq_fit <- gfp_qq %>% group_by(cond, gate, var) %>% 
+    do((function(.df){
+      # if(unique(.df$cond)=='lactose') browser()
+      .fcm_thresh <- 2 * filter(myfcm_bg, cond==unique(.df$cond), gate==unique(.df$gate))$mean
+      .fcm_qthresh <- filter(.df, fcm>.fcm_thresh, quantile<1)$quantile %>% min
+      .mod <- lm(fcm~mom, data=filter(.df, fcm>.fcm_thresh, quantile<1))
+      data.frame(fcm_thresh=.fcm_thresh, fcm_qthresh=.fcm_qthresh, 
+                 a=.mod$coef[1], b=.mod$coef[2], r2=summary(.mod)$r.squared)
+    })(.) )
+
+ggplot(filter(gfp_qq, cond=='lactose', quantile<1)) +
+  geom_abline(aes(intercept=a, slope=b), data=filter(gfp_qq_fit, cond=='lactose'), col='black') +
+  geom_point(aes(mom, fcm, col=factor(gate)), size=1) +
+  geom_hline(aes(yintercept=fcm_thresh, col=factor(gate)), lty='dashed', data=filter(gfp_qq_fit, cond=='lactose')) +
+  scale_colour_periodic_brewer() +
+  facet_grid(gate~var, scales='free_x')
+
+```
+
+Let's zoom on the supposedly most relevant gating:
+
+```{r}
+ggplot(filter(gfp_qq, cond=='lactose', gate==.85, quantile<1)) +
+  geom_abline(aes(intercept=a, slope=b), data=filter(gfp_qq_fit, cond=='lactose', gate==.85), col='black') +
+  geom_point(aes(mom, fcm, col=factor(gate)), size=1) +
+  geom_hline(aes(yintercept=fcm_thresh, col=factor(gate)), lty='dashed', data=filter(gfp_qq_fit, cond=='lactose', gate==.85)) +
+  scale_colour_periodic_brewer() +
+  facet_grid(gate~var, scales='free_x')
+
+```
+
+We can then check that the correlation is better for total GFP number than for GFP concentration (I don't understand yet why it's higher for small gated fraction; I suspect a statistical effect). Moreover the fraction of cells under the background fluo cutoff is acceptable (between 6% and 10%; hence much higher than in Luca's analysis).
+
+```{r}
+qplot(gate, r2, col=var, data=filter(gfp_qq_fit, cond=='lactose'), geom=(c('line', 'point')), xlab='FSC/SSC gated fraction') +
+  expand_limits(y=1)
+
+qplot(gate, fcm_qthresh, data=filter(gfp_qq_fit, cond=='lactose'), geom=(c('line', 'point')), xlab='FSC/SSC gated fraction') +
+  expand_limits(x=c(0, 1), y=c(0, 1))
+
+```
+
+
+```{r include=FALSE, eval=FALSE}
+# QQ plot for GFP in glucose
+# one would need to incorporate autofluorescence back in the MoM data in order to compare the right tails
+ggplot(filter(gfp_qq, cond=='glucose', quantile<1)) +
+  geom_abline(aes(intercept=a, slope=b), data=filter(gfp_qq_fit, cond=='glucose'), col='black') +
+  geom_point(aes(mom, fcm, col=factor(gate)), size=1) +
+  geom_hline(aes(yintercept=fcm_thresh, col=factor(gate)), lty='dashed', data=filter(gfp_qq_fit, cond=='glucose')) +
+  scale_colour_periodic_brewer() +
+  facet_grid(gate~var, scales='free_x')
+
+qplot(gate, fcm_qthresh, data=filter(gfp_qq_fit, cond=='glucose'), geom=(c('line', 'point')), xlab='FSC/SSC gated fraction') +
+  expand_limits(x=c(0, 1), y=c(0, 1))
+
+qplot(gate, r2, col=var, data=filter(gfp_qq_fit, cond=='glucose'), geom=(c('line', 'point')), xlab='FSC/SSC gated fraction') +
+  expand_limits(y=1)
+
+```
+
+On can then use this linear model to predict the gfp_number in FACS.
+
+
+## Comparing size distributions
+
+Unless we assume that GFP aberrant measurements in FCM are coupled to FSC/SSC problems, there is no reason to discard the low fluorescence cells in this comparison.
+
+```{r}
+ggplot(myfcm, aes(fsc, ..density.., col=factor(gate))) +
+  geom_step_hist(position="identity") +
+  facet_grid(.~cond)
+
+# qplot(fsc, ssc, data=filter(myfcm_w, cond=='lactose', !is.na(gw10)), pch=I('.'))
+# ggplot(filter(myfcm, gate==.1, cond=='lactose'), aes(fsc, ssc)) + geom_point(pch='.')
+
+```
+
+Compare the shape of the distributions: use log for MoM data?
+
+```{r}
+ggplot(filter(myfcm, gate==.85) %>%
+         group_by(cond) %>%
+         mutate(fsc_norm=(fsc-mean(fsc))/sd(fsc)), 
+       aes(fsc_norm, ..density..)) +
+  geom_step_hist(aes(col='FCM')) +
+  geom_step_hist(aes(height_norm, col='MoM'),
+                data= myframes %>%
+                  filter(condition %in% c('glucose', 'lactose'), !discard_start, !discard_top, 
+                         cell_num_in_lane<total_cell_in_lane, end_type=='div') %>%
+                  select(cond=condition, length_um) %>% 
+                  group_by(cond) %>%
+                  mutate(height_norm=(length_um-mean(length_um))/sd(length_um)) ) +
+  facet_grid(.~cond, scales='free_y') +
+  labs(x='size', col='type')
+
+ggplot(filter(myfcm, gate==.85) %>%
+         group_by(cond) %>%
+         mutate(fsc_norm=(fsc-mean(fsc))/sd(fsc)), 
+       aes(fsc_norm, ..density..)) +
+  geom_step_hist(aes(col='FCM')) +
+  geom_step_hist(aes(height_norm, col='MoM (log)'),
+                data= myframes %>%
+                  filter(condition %in% c('glucose', 'lactose'), !discard_start, !discard_top, 
+                         cell_num_in_lane<total_cell_in_lane, end_type=='div') %>%
+                  select(cond=condition, length_um) %>% 
+                  group_by(cond) %>%
+                  mutate(height_norm=(log(length_um)-mean(log(length_um)))/sd(log(length_um))) ) +
+  facet_grid(.~cond, scales='free_y') +
+  labs(x='size', col='type')
+
+```
