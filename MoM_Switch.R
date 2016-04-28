@@ -21,6 +21,7 @@ data2preproc <- function(.d) sub('/(data_matthias|data_thomas)/*', '/preproc/', 
 
 date_cond <- c("20150616"="glucose", "20150617"="glucose", 
                "20150624"="lactose", "20150630"="lactose", 
+               "20160318"="lactose_lowillum", 
                "20150703"="switch_4h", "20150708"="switch_4h",
                "20151204"="switch_6h",
                "20151207"="switch_iptg",
@@ -29,6 +30,7 @@ date_cond <- c("20150616"="glucose", "20150617"="glucose",
 
 condition_ts <- rbind(data.frame(duration=1560, medium='glucose', condition='glucose'),
                       data.frame(duration=1560, medium='lactose', condition='lactose'),
+                      data.frame(duration=1560, medium='lactose', condition='lactose_lowillum'),
                       data.frame(duration=c(360, 240, 240, 240, 240, 240),
                                  medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
                                  condition='switch_4h'),
@@ -147,7 +149,8 @@ myframes <- dplyr::data_frame(path=asc_files) %>%
   ungroup %>% 
   mutate(condition=date_cond[as.character(date)],
          vertical_center=(vertical_bottom + vertical_top)/2,
-         cell=paste(date, pos, gl, id, sep='.')) %>% 
+         gl_id=paste(date, pos, gl, sep='.') %>% 
+         cell=paste(gl_id, id, sep='.')) %>% 
   # propagate medium info
   group_by(condition) %>% 
   do((function(.df){

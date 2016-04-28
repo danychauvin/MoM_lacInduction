@@ -32,7 +32,7 @@ myframes <- myframes %>%
 Let's compute stats over the cell cycle for each cell:
 
 ```{r}
-mycells <- filter(myframes, condition %in% c('glucose', 'lactose'), !discard_top) %>%
+mycells <- filter(myframes, condition %in% c('glucose', 'lactose', 'lactose_lowillum'), !discard_top) %>%
   # group_by(condition, date, pos, gl, id, cell, parent_id, genealogy) %>%
   partition(condition, date, pos, gl, id, cell, parent_id, genealogy, cluster=mycluster) %>%
   filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
@@ -412,7 +412,12 @@ ggplot(mycells %>% filter(condition %in% 'lactose'),
 
 ```
 
-This suggests that it's simply not relevant to try to describe the GFP increase with such a model (and hence to compare increase rates over the entire cell cycle). For total GFP, there is no dependance of the GFP increase to the initial GFP (r2=`r with(mycells %>% filter(condition %in% 'lactose'), corPearson(g_first, g_last-g_first))^2`). Nonetheless, the initial / final GFP concentration scatter has a slope < 1, due to a "regression to the mean dynamics, i.e. if a cell starts high, it's likely to divide high but less than at birth).
+This suggests that it's simply not relevant to try to describe the GFP increase with such a model (and hence to compare increase rates over the entire cell cycle). 
+
+
+### Regression to the mean between consecutive divisions
+
+For total GFP, there is no dependance of the GFP increase to the initial GFP (r2=`r with(mycells %>% filter(condition %in% 'lactose'), corPearson(g_first, g_last-g_first))^2`). Nonetheless, the initial / final GFP concentration scatter has a slope < 1, due to a "regression to the mean dynamics, i.e. if a cell starts high, it's likely to divide high but less than at birth).
 
 ```{r}
 ggplot(mycells %>% filter(condition %in% 'lactose'),
@@ -453,7 +458,7 @@ with(mycells %>% filter(condition %in% 'lactose'),
      corPearson(g_first/exp(loglength_start), (g_last-g_first) / (exp(loglength_end)-exp(loglength_start))))^2
 ```
 
-Also, the initial GFP concentration correlates only weakly with the initial cell size:
+Also, the initial GFP concentration correlates only weakly with the (fitted) initial cell size:
 
 ```{r}
 ggplot(mycells %>% filter(condition %in% 'lactose'),
@@ -467,18 +472,28 @@ with(mycells %>% filter(condition %in% 'lactose'),
 
 ```
 
-does added GFP correlate with the division time (as predicted assuming a constant production rate)?
+Noticeably, the added total GFP correlates more with the added volume (as expected assuming that fluctuation in division time are driven by fluctuations in growth rate) than with the division time (as predicted assuming a constant production rate):
 
 ```{r}
 ggplot(mycells %>% filter(condition %in% 'lactose'),
-       aes((time_div-time_birth)/60, log(g_last/g_first))) +
-  geom_density2d(size=.5, alpha=.5) +
-  # geom_abline(col='red') +
+       aes((time_div-time_birth)/60, g_last-g_first)) +
+  geom_point(size=.5, alpha=.5) +
+  # geom_density2d(size=.5, alpha=.5) +
   expand_limits(x=0, y=0) +
   labs(x='division time (min)', y='added total GFP')
 
 with(mycells %>% filter(condition %in% 'lactose'),
-     corPearson((time_div-time_birth)/60, log(g_last/g_first)))^2
+     corPearson((time_div-time_birth)/60, g_last-g_first))^2
+
+ggplot(mycells %>% filter(condition %in% 'lactose'),
+       aes(exp(loglength_end)-exp(loglength_start), g_last-g_first)) +
+  geom_point(size=.5, alpha=.5) +
+  # geom_density2d(size=.5, alpha=.5) +
+  expand_limits(x=0, y=0) +
+  labs(x='added volume', y='added total GFP')
+
+with(mycells %>% filter(condition %in% 'lactose'),
+     corPearson(exp(loglength_end)-exp(loglength_start), g_last-g_first))^2
 
 ```
 
@@ -486,57 +501,179 @@ with(mycells %>% filter(condition %in% 'lactose'),
 ### GFP during the cell cycle
 
 ```{r}
-ggplot(myframes %>% filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
-         group_by(date, pos) %>% slice(1:1e4)) +
-  geom_path(aes((time_sec-start_time)/60, gfp_nb, col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
-  xlim(0, 200) + expand_limits(y=0)
+myframes %>% 
+  filter(!discard_top, condition=='lactose') %>% 
+  group_by(date, pos, gl, id) %>% 
+  filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
+  filter(n()>4) %>% 
+  arrange(time_sec) %>%
+  mutate(gfp_aligned=gfp_nb-first(gfp_nb)+lacgfp_birth_avg) %>% 
+  (function(.df)
+    ggplot(.df, aes((time_sec-start_time)/60, gfp_nb)) +
+  geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1,
+            data=.df %>% group_by(date, pos) %>% slice(1:1e4)) +
+  stat_summary(fun.data=mean_sdl, geom="point") +
+  xlim(0, 150) + 
+  scale_y_continuous(trans='log2') )
+# expand_limits(y=0)
 
+```
+
+It's tempting to shift all traces so that they start at the average GFP level at birth. However, it doesn't change the mean. Let's write $g_i(t)$ the total GFP of cell i at time t after division, and $s_i(t)$ its shifted counterpart: $s_i(t) = g_i(t) - g_i(0) + <g(0)>$. Due to the linearity of the mean operator, $<s(t)> = <g(t)> - <g(0)> + <g(0)> = <g(t)>$
+
+
+Let's shift all traces so that they start at the average GFP level at birth:
+
+```{r}
+lacgfp_birth_avg <- myframes %>% 
+  filter(!discard_top, condition=='lactose') %>% 
+  group_by(date, pos, gl, id) %>% 
+  filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
+  filter(n()>4) %>% 
+  filter(time_sec==start_time) %>% 
+  .[['gfp_nb']] %>% mean
+
+
+myframes %>% 
+  filter(!discard_top, condition=='lactose') %>% 
+  group_by(date, pos, gl, id) %>% 
+  filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
+  filter(n()>4) %>% 
+  arrange(time_sec) %>%
+  mutate(gfp_aligned=gfp_nb-first(gfp_nb)+lacgfp_birth_avg) %>% 
+ggplot(aes((time_sec-start_time)/60, gfp_aligned)) +
+  # geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+  stat_summary(aes(col='aligned'), fun.y=mean, geom="point") +
+  stat_summary(aes(y=gfp_nb, col='raw'), fun.y=mean, geom="point") +
+  xlim(0, 150) +
+  # scale_y_continuous(trans='log2') +
+  coord_cartesian(ylim=c(4000, 8500))
+
+```
+
+
+```{r}
+# myframes %>% 
+#   filter(!discard_top, !discard_start, condition=='lactose') %>% 
+#   group_by(date, pos) %>% slice(1:1e4) %>% 
+# ggplot(aes(mycut(length_um, seq(0, 5,.1)), gfp_nb)) +
+#   geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+#   stat_summary(fun.data=mean_sdl, geom="pointrange") +
+#   ylim(0, 2e4)
+#   # scale_y_continuous(trans='log2')
+
+myframes %>% 
+  filter(!discard_top, !discard_start, condition=='lactose') %>% 
+  group_by(date, pos) %>% slice(1:1e4) %>% 
+ggplot(aes(y=gfp_nb)) +
+  # geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+  stat_summary(aes(x=mycut(length_um, seq(0, 5,.1)), col='raw'), alpha=0.5,
+               fun.data=mean_sdl, geom="pointrange") +
+  stat_summary(aes(x=mycut(length_predict, seq(0, 5,.1)), col='fit'), alpha=0.5,
+               fun.data=mean_sdl, geom="pointrange") +
+  xlim(0.85, 5) + expand_limits(y=0) + labs(x='length (µm)', col='length')
+  # scale_y_continuous(trans='log2')
+
+```
+
+Total GFP relative to the level at birth over the cell cycle:
+
+```{r}
 myframes %>% 
   filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
   group_by(date, pos) %>% slice(1:1e4) %>% 
   group_by(date, pos, gl, id) %>% arrange(time_sec) %>% mutate(gfp_rel=gfp_nb/first(gfp_nb)) %>% 
-ggplot() +
-  geom_path(aes((time_sec-start_time)/60, gfp_rel, col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
-  xlim(0, 200) + expand_limits(y=0)
+ggplot(aes(cell_cycle, gfp_rel)) +
+  geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) + 
+  stat_summary(aes(mycut(cell_cycle, seq(0,1,.01))), fun.data=mean_sdl, geom="pointrange") +
+  # expand_limits(y=0) +
+  scale_y_continuous(trans='log2')
 
-myframes %>% 
-  filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
-  group_by(date, pos) %>% slice(1:1e4) %>% 
-  group_by(date, pos, gl, id) %>% arrange(time_sec) %>% mutate(gfp_rel=gfp_nb/first(gfp_nb)) %>% 
-ggplot() +
-  geom_path(aes(cell_cycle, gfp_rel, col=interaction(date, pos), group=cell), size=.5, alpha=.1) + 
-  expand_limits(y=0)
 
 ```
 
 for concentration:
 
 ```{r}
-ggplot(myframes %>% filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
-         group_by(date, pos) %>% slice(1:1e4),
-       aes((time_sec-start_time)/60, gfp_nb/length_um)) +
-  geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
-  stat_summary(fun.data=mean_sdl, geom="pointrange") +
-  xlim(0, 200) + expand_limits(y=0) 
+# ggplot(myframes %>% filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+#          group_by(date, pos) %>% slice(1:1e4),
+#        aes((time_sec-start_time)/60, gfp_nb/length_um)) +
+#   geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+#   stat_summary(fun.data=mean_sdl, geom="pointrange") +
+#   xlim(0, 200) + expand_limits(y=0) 
+
+ggplot(myframes %>% filter(!discard_top, !discard_start, condition=='lactose'),
+       aes((time_sec-start_time)/60)) +
+  stat_summary(aes(y=gfp_nb/length_um, col='raw'), alpha=0.5, fun.data=mean_sdl, geom="pointrange") +
+  stat_summary(aes(y=gfp_nb/length_predict, col='fit'), alpha=0.5, fun.data=mean_sdl, geom="pointrange") +
+  xlim(0, 200) + expand_limits(y=0) +
+  labs(y='GFP concentration (molecules/µm)', col='length')
+
+# myframes %>% 
+#   filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+#   group_by(date, pos) %>% slice(1:1e4) %>% 
+#   group_by(date, pos, gl, id) %>% arrange(time_sec) %>% 
+#   mutate(gfp_conc_rel=gfp_nb/length_um*first(length_um)/first(gfp_nb)) %>% 
+# ggplot(aes((time_sec-start_time)/60, gfp_conc_rel)) +
+#   geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+#   stat_summary(fun.data=mean_sdl, geom="pointrange") +
+#   xlim(0, 200) + expand_limits(y=0) 
 
 myframes %>% 
   filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
-  group_by(date, pos) %>% slice(1:1e4) %>% 
-  group_by(date, pos, gl, id) %>% arrange(time_sec) %>% mutate(gfp_conc_rel=gfp_nb/length_um*first(length_um)/first(gfp_nb)) %>% 
-ggplot(aes((time_sec-start_time)/60, gfp_conc_rel)) +
-  geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
-  stat_summary(fun.data=mean_sdl, geom="pointrange") +
-  xlim(0, 200) + expand_limits(y=0) 
+  group_by(date, pos, gl, id) %>% arrange(time_sec) %>% 
+  mutate(gfp_conc_relr1=gfp_nb/length_um*first(length_um)/first(gfp_nb),
+         gfp_conc_relrm=gfp_nb/length_um*mean(length_um)/mean(gfp_nb),
+         gfp_conc_relp1=gfp_nb/length_predict*first(length_predict)/first(gfp_nb),
+         gfp_conc_relpm=gfp_nb/length_predict*mean(length_predict)/mean(gfp_nb)) %>% 
+ggplot(aes((time_sec-start_time)/60)) +
+  stat_summary(aes(y=gfp_conc_relr1, col='raw_first'), alpha=0.5, fun.data=mean_sdl, geom="pointrange") +
+  stat_summary(aes(y=gfp_conc_relrm, col='fit_first'), alpha=0.5, fun.data=mean_sdl, geom="pointrange") +
+  stat_summary(aes(y=gfp_conc_relp1, col='raw_mean'), alpha=0.5, fun.data=mean_sdl, geom="pointrange") +
+  stat_summary(aes(y=gfp_conc_relpm, col='fit_mean'), alpha=0.5, fun.data=mean_sdl, geom="pointrange") +
+  xlim(0, 200) + expand_limits(y=0) +
+  labs(y='relative GFP concentration', col='length_norm')
 
 myframes %>% 
   filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
-  group_by(date, pos) %>% slice(1:1e4) %>% 
-  group_by(date, pos, gl, id) %>% arrange(time_sec) %>% mutate(gfp_conc_rel=gfp_nb/length_um*first(length_um)/first(gfp_nb)) %>% 
-ggplot(aes(cell_cycle, gfp_conc_rel)) +
-  geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
-  geom_hline(yintercept=1, alpha=.7) +
-  stat_summary(aes(mycut(cell_cycle, seq(0, 1, length.out=30))), fun.data=mean_sdl, geom="pointrange") +
-  expand_limits(y=0) 
+  group_by(date, pos, gl, id) %>% arrange(time_sec) %>% 
+  mutate(gfp_conc_relr1=gfp_nb/length_um*first(length_um)/first(gfp_nb),
+         gfp_conc_relrm=gfp_nb/length_um*mean(length_um)/mean(gfp_nb),
+         gfp_conc_relp1=gfp_nb/length_predict*first(length_predict)/first(gfp_nb),
+         gfp_conc_relpm=gfp_nb/length_predict*mean(length_predict)/mean(gfp_nb)) %>% 
+ggplot(aes((time_sec-start_time)/60)) +
+  stat_summary(aes(y=gfp_conc_relr1, col='raw_first'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  stat_summary(aes(y=gfp_conc_relrm, col='raw_mean'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  stat_summary(aes(y=gfp_conc_relp1, col='fit_first'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  stat_summary(aes(y=gfp_conc_relpm, col='fit_mean'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  xlim(0, 200) + coord_cartesian(ylim=c(0.75, 1.1)) +
+  labs(y='relative GFP concentration', col='length_norm')
+
+
+# myframes %>% 
+#   filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+#   group_by(date, pos) %>% slice(1:1e4) %>% 
+#   group_by(date, pos, gl, id) %>% arrange(time_sec) %>% mutate(gfp_conc_rel=gfp_nb/length_um*first(length_um)/first(gfp_nb)) %>% 
+# ggplot(aes(cell_cycle, gfp_conc_rel)) +
+#   geom_path(aes(col=interaction(date, pos), group=cell), size=.5, alpha=.1) +
+#   geom_hline(yintercept=1, alpha=.7) +
+#   stat_summary(aes(mycut(cell_cycle, seq(0, 1, length.out=41))), fun.data=mean_sdl, geom="pointrange") +
+#   expand_limits(y=0) 
+
+myframes %>% 
+  filter(!discard_top, !discard_start, condition=='lactose', gfp_nb<2e4) %>% 
+  group_by(date, pos, gl, id) %>% arrange(time_sec) %>% 
+  mutate(gfp_conc_relr1=gfp_nb/length_um*first(length_um)/first(gfp_nb),
+         gfp_conc_relrm=gfp_nb/length_um*mean(length_um)/mean(gfp_nb),
+         gfp_conc_relp1=gfp_nb/length_predict*first(length_predict)/first(gfp_nb),
+         gfp_conc_relpm=gfp_nb/length_predict*mean(length_predict)/mean(gfp_nb)) %>% 
+ggplot(aes(mycut(cell_cycle, seq(0, 1, length.out=41)))) +
+  stat_summary(aes(y=gfp_conc_relr1, col='raw_first'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  stat_summary(aes(y=gfp_conc_relrm, col='raw_mean'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  stat_summary(aes(y=gfp_conc_relp1, col='fit_first'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  stat_summary(aes(y=gfp_conc_relpm, col='fit_mean'), alpha=0.5, fun.data=mean_sdl, geom="point") +
+  coord_cartesian(ylim=c(0.85, 1.1)) +
+  labs(x='cell cycle', y='relative GFP concentration', col='length_norm')
 
 ```
 
@@ -597,6 +734,10 @@ last_plot() + scale_y_log10()
 
 
 Plot over the cell cycle in physical time unit:
+NB: lacZ position 364kb; oriC position 3924kb
+hence distance to origin = 4640 - (3924-364) = 1080kb
+i.e. 47% of total replication path: 1080 / (4640/2)
+NB: Ter sites at ≈1470, 3924-1470=2454kb vs 2185kb
 
 ```{r}
 ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose'),
@@ -646,7 +787,7 @@ ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose
   # stat_smooth(aes(x=cell_cycle, y=gfp_deriv/length_predict, col='predict')) +
   # stat_smooth(aes(x=cell_cycle, y=gfp_deriv/length_um, col='raw')) +
   stat_summary(aes(y=gfp_deriv), fun.y=mean, geom="point") +
-  labs(x="cell cycle") +
+  labs(x="length (um)") +
   xlim(0, 4) +
   expand_limits(y=0)
 
@@ -688,6 +829,9 @@ last_plot() +
   scale_y_log10()
 
 ```
+
+
+
 
 
 ## Instantaneous rates
