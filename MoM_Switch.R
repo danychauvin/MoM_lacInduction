@@ -149,7 +149,7 @@ myframes <- dplyr::data_frame(path=asc_files) %>%
   ungroup %>% 
   mutate(condition=date_cond[as.character(date)],
          vertical_center=(vertical_bottom + vertical_top)/2,
-         gl_id=paste(date, pos, gl, sep='.') %>% 
+         gl_id=paste(date, pos, gl, sep='.'),
          cell=paste(gl_id, id, sep='.')) %>% 
   # propagate medium info
   group_by(condition) %>% 
