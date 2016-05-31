@@ -4,6 +4,42 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
+```{r eval=FALSE}
+# shortcut when rerunning the analysis
+
+if (use_eriks_params)
+  autofluo_predict <- function(.h) .h * 422.8
+myframes <- myframes %>%
+    mutate(fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um))
+
+fp_per_oligomers <- 4 # lacZ is tetrameric
+if (use_eriks_params)
+  fp_per_dn <- 0.0361 * fp_per_oligomers
+myframes <- myframes %>%
+  # convert to gfp units (after subtracting autofluorescence)
+  mutate(gfp_nb = fluogfp_amplitude * fp_per_dn)
+
+## low illumination experiments
+lac_fluoampl_birth <- myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% 'lactose' ) %>% 
+  filter(time_sec==start_time) %>% 
+  .[['fluo_amplitude']] %>% mean
+
+laclowillum_fluoampl_birth <- myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% 'lactose_lowillum') %>% 
+  filter(!(date=='20160427' & time_sec>7e4)) %>%  # remove dilution step at the end of expt
+  filter(time_sec==start_time) %>% 
+  group_by(date) %>% 
+  summarise(fluo_amplitude_conv=mean(fluo_amplitude)/lac_fluoampl_birth)
+
+myframes <- myframes %>% left_join(laclowillum_fluoampl_birth) %>% 
+    mutate(fluogfp_amplitude = ifelse(is.na(fluo_amplitude_conv),  fluogfp_amplitude,
+                                      (fluo_amplitude - autofluo_predict(length_um)*fluo_amplitude_conv) / fluo_amplitude_conv ),
+           gfp_nb = fluogfp_amplitude * fp_per_dn)
+
+```
+
+
 ## Autofluorescence estimation
 
 Let's look at how autofluorescence (measured as the fluorescence of MG1655 cells without GFP) correlates with cell length.
@@ -561,4 +597,66 @@ qplot(gfp_nb, data=myframes %>% filter(!discard_top, condition=='lactose', lengt
 qplot(length_um, gfp_nb, data=myframes %>% filter(!discard_top, condition=='lactose', length_um<3), alpha=I(.01))
 ```
 
+
+## Case of low illumination
+
+The variable `gfp_nb` muat be corrected to account for the lower illumination.
+
+Before:
+
+```{r}
+myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% 'lactose_lowillum') %>% 
+  filter(!(date=='20160427' & time_sec>7e4)) %>% 
+  ggplot(aes(time_sec, fluo_amplitude)) +
+  geom_path(aes(col=factor(date), group=cell))
+
+myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% c('lactose', 'lactose_lowillum') ) %>% 
+  filter(!(date=='20160427' & time_sec>7e4)) %>% 
+  filter(time_sec==start_time) %>% 
+  group_by(date) %>% 
+  mutate(fluo_amplitude_norm=fluo_amplitude/mean(fluo_amplitude),
+         fluo_amplitude_z=(fluo_amplitude-mean(fluo_amplitude))/sd(fluo_amplitude)) %>% 
+  ggplot(aes(fluo_amplitude_norm, ..density..)) +
+  geom_step_hist(aes(col=factor(date)), position='identity') +
+  scale_y_log10()
+
+
+```
+
+```{r}
+## fix the gfp_nb variable
+# fluo_amplitude is kept untouched
+lac_fluoampl_birth <- myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% 'lactose' ) %>% 
+  filter(time_sec==start_time) %>% 
+  .[['fluo_amplitude']] %>% mean
+
+laclowillum_fluoampl_birth <- myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% 'lactose_lowillum') %>% 
+  filter(!(date=='20160427' & time_sec>7e4)) %>%  # remove dilution step at the end of expt
+  filter(time_sec==start_time) %>% 
+  group_by(date) %>% 
+  summarise(fluo_amplitude_conv=mean(fluo_amplitude)/lac_fluoampl_birth)
+
+myframes <- myframes %>% left_join(laclowillum_fluoampl_birth) %>% 
+    mutate(fluogfp_amplitude = ifelse(is.na(fluo_amplitude_conv),  fluogfp_amplitude,
+                                      (fluo_amplitude - autofluo_predict(length_um)*fluo_amplitude_conv) / fluo_amplitude_conv ),
+           gfp_nb = fluogfp_amplitude * fp_per_dn)
+
+```
+
+After:
+
+```{r}
+myframes %>% 
+  filter(!discard_top, !discard_start, condition %in% c('lactose', 'lactose_lowillum') ) %>% 
+  filter(!(date=='20160427' & time_sec>7e4)) %>% 
+  filter(time_sec==start_time) %>% 
+  ggplot(aes(gfp_nb, ..density..)) +
+  geom_step_hist(aes(col=factor(date)), position='identity') +
+  scale_y_log10()
+
+```
 

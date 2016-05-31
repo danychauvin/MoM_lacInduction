@@ -11,7 +11,10 @@ proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
 r_scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
                   "~/Documents/Biozentrum/Projects/vngWetLabR/ggplot")
 perl_scripts_path <- "~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
-data2preproc <- function(.d) sub('/(data_matthias|data_thomas)/*', '/preproc/', .d) # store cache file in preproc subdir
+data2preproc <- function(.d)
+  str_split(.d, .Platform$file.sep)[[1]] %>% 
+  str_match('^\\d{8}$') %>% na.omit %>% as.character %>% 
+  file.path('.', 'preproc', .)
 
 # # local paths
 # proj_path <- "~/Downloads/january/MoM_Switch"
@@ -80,9 +83,9 @@ nc <- min(length(mg_files), length(mycluster)) # this is a dirty hack because mu
 # load perl scripts output to dataframes (using multidplyr)
 mg_frames <- dplyr::data_frame(path=mg_files) %>%
   group_by(path) %>%
-  partition(path, cluster=mycluster[1:nc] %>%
-              cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
-              cluster_assign_obj(perl_scripts_path, dt, dl, vertical_cutoff) ) %>%
+  # partition(path, cluster=mycluster[1:nc] %>%
+  #             cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
+  #             cluster_assign_obj(perl_scripts_path, dt, dl, vertical_cutoff) ) %>%
   do((function(.df){
     # browser()
     .l <- try( load_timm_data(.df$path, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE))
@@ -112,15 +115,15 @@ mg_frames <- dplyr::data_frame(path=mg_files) %>%
 # LOAD AS662 DATA ####
 asc_files <- c("./data_matthias/glucose", "./data_matthias/lactose", 
                "./data_matthias/glu_lac_switch", "./data_thomas/") %>% 
-  list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+  list.fils(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
 nc <- min(length(asc_files), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
 
 # load perl scripts output to dataframes (using multidplyr)
 myframes <- dplyr::data_frame(path=asc_files) %>%
   group_by(path) %>%
-  partition(path, cluster=mycluster[1:nc] %>%
-              cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
-              cluster_assign_obj(perl_scripts_path, dt, dl, vertical_cutoff) ) %>%
+  # partition(path, cluster=mycluster[1:nc] %>%
+  #             cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
+  #             cluster_assign_obj(perl_scripts_path, dt, dl, vertical_cutoff) ) %>%
   do((function(.df){
     # browser()
     .l <- try( load_timm_data(.df$path, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE))
@@ -264,55 +267,31 @@ rmarkdown::render_site('MoM_Switch_FCM_Comparison.Rmd')
 
 # CONTROL PLOTS ####
 
+# myframes %>% 
+#   filter((date=='20150703' & pos==0 & gl==9)) %>% 
+#   filter(!discard_top, vertical_top>vertical_cutoff) %>% 
+#   mutate(time_sec=time_sec-2*3600) %>% 
+#   plot_faceted_var_tracks(.var_col='length_um', .show_cellid=TRUE, .log=TRUE) +
+#   # mask early frames (requires a dummy df!)
+#   geom_rect(aes(xmin=-Inf, xmax=0, ymin=0, ymax=Inf, group=1), fill='white', alpha=.6, col='transparent', data=data.frame(a=1)) +
+#   scale_x_hours(4) +
+#   scale_y_continuous(breaks=2:4, trans='log2') +
+#   labs(y='length (µm)')
+
 # Plot overall experiment
 pls <- myframes %>% 
-  # filter((date=='20150703' & pos==0 & gl==7))%>% 
-#   filter(condition=='switch4h') %>% 
+  # filter((date=='20150703' & pos==0 & gl==9)) %>%
+  #   filter(condition=='switch4h') %>% 
   group_by(condition, date, pos, gl) %>%
   do(pll=(function(.df){
     # browser()
     if (dim(filter(.df, !discard_top))[1] == 0) return(list())
     .cond <- unique(.df$condition)
-    .fill <- brewer.pal(3, 'Set1')
+    .fill <- RColorBrewer::brewer.pal(3, 'Set1')
     .hmin <- max(1.2,  min(filter(.df, !discard_top)$length_um) )
     .hrange <- (max(filter(.df, !discard_top)$length_um)-.hmin) / 2
     .fmin <- min(filter(.df, !discard_top)$gfp_nb)
     .frange <- (max(filter(.df, !discard_top)$gfp_nb)-.fmin) / 2
-    
-    # compute connections to parent
-    .df <- mutate(.df, b_rank=ifelse(b_rank>6, 6, b_rank)) 
-    .df_div <- filter(.df, !discard_top) %>% 
-      group_by(id) %>% 
-      do((function(.dfgl, .dfc) { # compute_div_between_facets
-        # .dfgl: dataframe of the entire GL
-        # .dfc: dataframe of the current cell
-        if (unique(.dfc$parent_id) < 0) return(data.frame())
-        .dfp <- filter(.dfgl, id==unique(.dfc$parent_id))
-        
-        if (unique(.dfc$b_rank) == unique(.dfp$b_rank)) {
-          .length_ump <- filter(.dfp, time_sec==max(time_sec))$length_um
-          .gfp_nbp <- filter(.dfp, time_sec==max(time_sec))$gfp_nb
-          .out <- filter(.dfc, time_sec==min(time_sec)) %>%
-            select(id, b_rank, time_sec, length_um, gfp_nb) %>%
-            mutate(time_secp=time_sec-dt*60, length_ump=.length_ump, gfp_nbp=.gfp_nbp)
-        }
-        if (unique(.dfc$b_rank) > unique(.dfp$b_rank)) {
-          .out <- bind_rows(
-            filter(ungroup(.dfc), time_sec==min(time_sec)) %>%
-              select(id, b_rank, time_sec, length_um, gfp_nb) %>%
-              mutate(time_secp=time_sec-dt*60/2, length_ump=0, gfp_nbp=-Inf),
-            filter(ungroup(.dfp), time_sec==max(time_sec)) %>%
-              select(id, b_rank, time_sec, length_um, gfp_nb) %>%
-              mutate(id=unique(.dfc$id), time_secp=time_sec+dt*60/2, length_ump=Inf, gfp_nbp=Inf) )
-          if(diff(.out$b_rank) < -1) {
-            .out <- rbind(.out,
-                          data.frame(id=unique(.dfc$id), b_rank=(min(.out$b_rank)+1):(max(.out$b_rank)-1),
-                                     time_sec=min(.dfc$time_sec)-dt*60/2, time_secp=min(.dfc$time_sec)-dt*60/2,
-                                     length_um=0, length_ump=Inf, gfp_nb=-Inf, gfp_nbp=Inf))
-          }
-        }
-        return(.out)
-      })(.df, .))
     
     custom_labels <- function (.str) {
       .labels <- paste('rank:', .str)
@@ -322,83 +301,55 @@ pls <- myframes %>%
     }
     
     list(
-      l = ggplot() +
-        facet_grid(b_rank~., scales='free_y', as.table=FALSE, labeller=as_labeller(custom_labels)) +
-        # facets alternated background
-        geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=0, ymax=Inf), alpha=.05, data=data.frame(b_rank=seq(0, 6, 2))) +
+      l = filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% 
+        mutate(time_sec=time_sec-2*3600) %>% 
+        plot_faceted_var_tracks(.var_col='length_um', .show_all=TRUE, .show_cellid=TRUE, .log=TRUE, .facet_labeller=custom_labels) +
         # show medium bar
-        geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=hmin, ymax=hmax, fill=medium, group=1), size=0.2, data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, hmin=.hmin-.25, hmax=.hmin-.1)) +
-        geom_vline(aes(xintercept=t_start*60 - 2*3600, group=1), alpha=.2, size=.5, data=filter(condition_ts, condition==.cond)) +
-        geom_text(aes(x=60*(t_start+(t_end-t_start)/2-120), y=h, label=medium, group=1), col='white', data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, h=.hmin-.2), size=2, hjust=0.5, vjust=0) +
-        # show divisions (lty='11' means densely dotted line)
-        geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=length_um, yend=length_ump, col=factor(id)), alpha=.3, lty='11', data=.df_div) + 
-        # show cell traces
-        geom_path(aes(time_sec - 2*3600, length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff)) +
-        geom_text(aes(time_sec - 2*3600, length_um, col=factor(id), label=id), size=2, hjust=0, vjust=1,
-                  data=filter(.df, !discard_top) %>% group_by(id) %>% filter(row_number()==1) ) +
-        # show all traces in one panel
-        geom_path(aes(time_sec - 2*3600, length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% mutate(b_rank=-1)) +
+        geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=hmin, ymax=hmax, fill=medium, group=1), size=0.2, data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, hmin=.hmin-.25, hmax=.hmin-.1)) +
+        geom_vline(aes(xintercept=t_start - 2*3600, group=1), alpha=.2, size=.5, data=filter(condition_ts, condition==.cond)) +
+        geom_text(aes(x=t_start+(t_end-t_start)/2 - 2*3600, y=h, label=medium, group=1), col='white', size=2, hjust=0.5, vjust=0,
+                  data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, h=.hmin-.2)) +
+        scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
         # mask early frames (requires a dummy df!)
         geom_rect(aes(xmin=-Inf, xmax=0, ymin=0, ymax=Inf, group=1), fill='white', alpha=.6, col='transparent', data=data.frame(a=1)) +
-        scale_colour_periodic_brewer(guide='none') + 
-        scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
         scale_x_hours(4) +
-        scale_y_continuous(trans='log2', breaks=2:4) +
-        labs(y='length (µm)') +
-        theme(panel.margin = unit(0, "lines"), panel.border=element_blank()),
+        scale_y_continuous(breaks=2:4, trans='log2') +
+        labs(y='length (µm)'), 
       
-      ft = ggplot() +
-        facet_grid(b_rank~., scales='free_y', as.table=FALSE, labeller=as_labeller(custom_labels)) +
-        # facets alternated background
-        geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf), alpha=.05, data=data.frame(b_rank=seq(0, 6, 2))) +
+      ft = filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% 
+        mutate(time_sec=time_sec-2*3600) %>% 
+        plot_faceted_var_tracks(.var_col='gfp_nb', .show_all=TRUE, .show_cellid=TRUE, .facet_labeller=custom_labels) +
         # show medium bar
-        geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=fmin, ymax=fmax, fill=medium), size=0.2, data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, fmin=.fmin-.frange/2.5, fmax=.fmin-.frange/5)) +
-        geom_vline(aes(xintercept=t_start*60 - 2*3600), alpha=.2, size=.5, data=filter(condition_ts, condition==.cond, t_start>0)) +
-        geom_text(aes(x=60*(t_start+(t_end-t_start)/2-120), y=f, label=medium), col='white', data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, f=.fmin-.frange/3), size=2, hjust=0.5, vjust=0) +
-        # show divisions (lty='11' means densely dotted line using hex notation)
-        geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=gfp_nb, yend=gfp_nbp, col=factor(id)), alpha=.3, lty='11', data=.df_div) + 
-        # show cell traces
-        geom_path(aes(time_sec - 2*3600, gfp_nb, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff)) +
-        geom_text(aes(time_sec - 2*3600, gfp_nb, col=factor(id), label=id), size=2, hjust=0, vjust=1,
-                  data=filter(.df, !discard_top) %>% group_by(id) %>% filter(row_number()==1) ) +
-        # show all traces in one panel
-        geom_path(aes(time_sec - 2*3600, gfp_nb, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% mutate(b_rank=-1)) +
-        # mask early frames (requires a dummy df!)
-        geom_rect(aes(xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, group=1), fill='white', alpha=.6, data=data.frame(a=1)) +
-        scale_colour_periodic_brewer(guide='none') + 
+        geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=fmin, ymax=fmax, fill=medium), size=0.2, data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, fmin=.fmin-.frange/2.5, fmax=.fmin-.frange/5)) +
+        geom_vline(aes(xintercept=t_start - 2*3600), alpha=.2, size=.5, data=filter(condition_ts, condition==.cond, t_start>0)) +
+        geom_text(aes(x=(t_start+(t_end-t_start)/2 - 2*3600), y=f, label=medium), col='white', size=2, hjust=0.5, vjust=0,
+                  data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, f=.fmin-.frange/3)) +
         scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
+        # mask early frames (requires a dummy df!)
+        geom_rect(aes(xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, group=1), fill='white', alpha=.6, col='transparent', data=data.frame(a=1)) +
         scale_x_hours(4) +
-        labs(y='total GFP per cell (molecules)') +
-        theme(panel.margin = unit(0, "lines"), panel.border=element_blank()),
-
-      fc = ggplot() +
-        facet_grid(b_rank~., scales='free_y', as.table=FALSE, labeller=as_labeller(custom_labels)) +
-        # facets alternated background
-        geom_rect(aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf), alpha=.05, data=data.frame(b_rank=seq(0, 6, 2))) +
+        # scale_y_continuous(breaks=2:4, trans='log2') +
+        labs(y='total GFP per cell (molecules)'),
+      
+      fc = filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% 
+        mutate(time_sec=time_sec-2*3600, gfp_conc=gfp_nb/length_um) %>% 
+        plot_faceted_var_tracks(.var_col='gfp_conc', .show_all=TRUE, .show_cellid=TRUE, .facet_labeller=custom_labels) +
         # show medium bar
-        geom_rect(aes(xmin=t_start*60 - 2*3600, xmax=t_end*60 - 2*3600, ymin=fmin/2, ymax=fmax/2, fill=medium), size=0.2, data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, fmin=.fmin-.frange/2.5, fmax=.fmin-.frange/5)) +
-        geom_vline(aes(xintercept=t_start*60 - 2*3600), alpha=.2, size=.5, data=filter(condition_ts, condition==.cond, t_start>0)) +
-        geom_text(aes(x=60*(t_start+(t_end-t_start)/2-120), y=f/2, label=medium), col='white', data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, f=.fmin-.frange/3), size=2, hjust=0.5, vjust=0) +
-        # show divisions (lty='11' means densely dotted line using hex notation)
-        geom_segment(aes(x=time_sec - 2*3600, xend=time_secp - 2*3600, y=gfp_nb/length_um, yend=gfp_nbp/length_um, col=factor(id)), alpha=.3, lty='11', data=.df_div) + 
-        # show cell traces
-        geom_path(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff)) +
-        geom_text(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id), label=id), size=2, hjust=0, vjust=1,
-                  data=filter(.df, !discard_top) %>% group_by(id) %>% filter(row_number()==1) ) +
-        # show all traces in one panel
-        geom_path(aes(time_sec - 2*3600, gfp_nb/length_um, col=factor(id)), data=filter(.df, !discard_top, vertical_top>vertical_cutoff) %>% mutate(b_rank=-1)) +
-        # mask early frames (requires a dummy df!)
-        geom_rect(aes(xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, group=1), fill='white', alpha=.6, data=data.frame(a=1)) +
-        scale_colour_periodic_brewer(guide='none') + 
+        geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=fmin/2, ymax=fmax/2, fill=medium), size=0.2, data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, fmin=.fmin-.frange/2.5, fmax=.fmin-.frange/5)) +
+        geom_vline(aes(xintercept=t_start - 2*3600), alpha=.2, size=.5, data=filter(condition_ts, condition==.cond, t_start>0)) +
+        geom_text(aes(x=(t_start+(t_end-t_start)/2-120), y=f/2, label=medium), col='white', size=2, hjust=0.5, vjust=0, 
+                  data=filter(condition_ts, condition==.cond) %>% mutate(b_rank=-1, f=.fmin-.frange/3)) +
         scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
+        # mask early frames (requires a dummy df!)
+        geom_rect(aes(xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, group=1), fill='white', alpha=.6, col='transparent', data=data.frame(a=1)) +
         scale_x_hours(4) +
-        labs(y='GFP concentration (molecules/µm)') +
-        theme(panel.margin = unit(0, "lines"), panel.border=element_blank())
+        # scale_y_continuous(breaks=2:4, trans='log2') +
+        labs(y='total GFP per cell (molecules)') 
     )
   })(.))
 
 
-pdf('plots/switch_path_length.pdf', width=12, height=10)
+pdf('plots/switch_path_length_all.pdf', width=12, height=10)
 for (i in 1:dim(pls)[1]) {
   if ('l' %in% names(pls[[i, 'pll']]))
     plot(pls[[i, 'pll']] [['l']] + 
@@ -406,7 +357,7 @@ for (i in 1:dim(pls)[1]) {
 }
 dev.off()
 
-pdf('plots/switch_path_fluotot.pdf', width=12, height=10)
+pdf('plots/switch_path_fluotot_all.pdf', width=12, height=10)
 for (i in 1:dim(pls)[1]) {
   if ('ft' %in% names(pls[[i, 'pll']]))
   plot(pls[[i, 'pll']] [['ft']] + 
@@ -414,7 +365,7 @@ for (i in 1:dim(pls)[1]) {
 }
 dev.off()
 
-pdf('plots/switch_path_fluoconc.pdf', width=12, height=10)
+pdf('plots/switch_path_fluoconc_all.pdf', width=12, height=10)
 for (i in 1:dim(pls)[1]) {
   if ('fc' %in% names(pls[[i, 'pll']]))
   plot(pls[[i, 'pll']] [['fc']] + 
@@ -452,6 +403,4 @@ for (i in 1:dim(pls)[1])
   plot(plk[[i, 'pl']] + 
          labs(title=sprintf("%s  pos:%02d  GL:%02d", pls[[i, "date"]], pls[[i, "pos"]], pls[[i, "gl"]])))
 dev.off()
-
-
 
