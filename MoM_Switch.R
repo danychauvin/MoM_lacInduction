@@ -11,10 +11,12 @@ proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
 r_scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
                   "~/Documents/Biozentrum/Projects/vngWetLabR/ggplot")
 perl_scripts_path <- "~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
-data2preproc <- function(.d)
-  str_split(.d, .Platform$file.sep)[[1]] %>% 
-  str_match('^\\d{8}$') %>% na.omit %>% as.character %>% 
+data2preproc_dir <- function(.d)
+  str_match(.d, '20\\d{6}') %>% na.omit %>% as.character %>% 
   file.path('.', 'preproc', .)
+data2preproc_file <- function(.f)
+  basename(.f) %>% sub("ExportedCellStats_", "", .) %>% 
+  file_path_sans_ext %>% paste0("_frames.txt")
 
 # # local paths
 # proj_path <- "~/Downloads/january/MoM_Switch"
@@ -24,7 +26,7 @@ data2preproc <- function(.d)
 
 date_cond <- c("20150616"="glucose", "20150617"="glucose", 
                "20150624"="lactose", "20150630"="lactose", 
-               "20160318"="lactose_lowillum", 
+               "20160318"="lactose_lowillum", "20160427"="lactose_lowillum", 
                "20150703"="switch_4h", "20150708"="switch_4h",
                "20151204"="switch_6h",
                "20151207"="switch_iptg",
@@ -80,30 +82,29 @@ condition_ts <- condition_ts %>% group_by(condition) %>%
 mg_files <- list.files("./data_matthias/MG1655_glu_lac", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
 nc <- min(length(mg_files), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
 
-# load perl scripts output to dataframes (using multidplyr)
-mg_frames <- dplyr::data_frame(path=mg_files) %>%
-  group_by(path) %>%
-  # partition(path, cluster=mycluster[1:nc] %>%
-  #             cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
-  #             cluster_assign_obj(perl_scripts_path, dt, dl, vertical_cutoff) ) %>%
+mg_frames <- mg_files %>% # data2preproc %>% file.exists
+  # process exported files on the cluster if required
+  process_moma_data(.data2preproc=data2preproc, .scripts_path=perl_scripts_path, 
+                    .qsub_name="MMmg_pl", .force=FALSE) %>% 
+  dplyr::data_frame(path=.) %>% 
+  mutate(ppath=data2preproc(path)) %>% 
+  # load perl scripts output to dataframes (using multidplyr)
+  # group_by(path) %>%
+  partition(path, cluster=mycluster[1:nc] %>%
+              cluster_assign_func(load_moma_processed, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
+              cluster_assign_obj(dt, dl, vertical_cutoff)) %>%
   do((function(.df){
-    # browser()
-    .l <- try( load_timm_data(.df$path, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE))
-    if ('frames' %in% names(.l)) {
-      return( .l$frames %>%
-                mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
-                       discard_start=(time_sec < 2*3600)) %>%
-                # remove frames after touching the exit
-                group_by(id) %>%
-                mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
-                mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
-                mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
-                # remove daughters of cells that touched the exit
-                ungroup %>%
-                mutate(discard_top=which_to_progeny(discard_top, cid)) )
-    } else {
-      return (data.frame())
-    }
+    load_moma_processed(.df$ppath) %>% 
+      mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
+             discard_start=(time_sec < 2*3600)) %>%
+      # remove frames after touching the exit
+      group_by(id) %>%
+      mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
+      mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
+      mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
+      # remove daughters of cells that touched the exit
+      ungroup %>%
+      mutate(discard_top=which_to_progeny(discard_top, cid))
   })(.)) %>%
   collect() %>% 
   group_by(date, pos, gl, id) %>%
@@ -115,33 +116,32 @@ mg_frames <- dplyr::data_frame(path=mg_files) %>%
 # LOAD AS662 DATA ####
 asc_files <- c("./data_matthias/glucose", "./data_matthias/lactose", 
                "./data_matthias/glu_lac_switch", "./data_thomas/") %>% 
-  list.fils(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+  list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
 nc <- min(length(asc_files), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
 
-# load perl scripts output to dataframes (using multidplyr)
-myframes <- dplyr::data_frame(path=asc_files) %>%
-  group_by(path) %>%
-  # partition(path, cluster=mycluster[1:nc] %>%
-  #             cluster_assign_func(data2preproc, load_timm_data, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
-  #             cluster_assign_obj(perl_scripts_path, dt, dl, vertical_cutoff) ) %>%
+myframes <- asc_files %>%
+  # process exported files on the cluster if required
+  process_moma_data(.data2preproc=data2preproc, .scripts_path=perl_scripts_path, 
+                    .qsub_name="MMsw_pl", .force=FALSE) %>% 
+  dplyr::data_frame(path=.) %>% 
+  mutate(ppath=data2preproc(path)) %>% 
+  # load perl scripts output to dataframes (using multidplyr)
+  # group_by(path) %>%
+  partition(path, cluster=mycluster[1:nc] %>%
+              cluster_assign_func(load_moma_processed, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>% 
+              cluster_assign_obj(dt, dl, vertical_cutoff)) %>%
   do((function(.df){
-    # browser()
-    .l <- try( load_timm_data(.df$path, perl_scripts_path, .verbose=TRUE, .data2preproc=data2preproc, .force=FALSE))
-    if ('frames' %in% names(.l)) {
-      return( .l$frames %>%
-                mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
-                       discard_start=(time_sec < 2*3600)) %>%
-                # remove frames after touching the exit
-                group_by(id) %>%
-                mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
-                mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
-                mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
-                # remove daughters of cells that touched the exit
-                ungroup %>%
-                mutate(discard_top=which_to_progeny(discard_top, cid)) )
-    } else {
-      return (data.frame())
-    }
+    load_moma_processed(.df$ppath) %>% 
+      mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
+             discard_start=(time_sec < 2*3600)) %>%
+      # remove frames after touching the exit
+      group_by(id) %>%
+      mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
+      mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
+      mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
+      # remove daughters of cells that touched the exit
+      ungroup %>%
+      mutate(discard_top=which_to_progeny(discard_top, cid))
   })(.)) %>%
   collect() %>% 
   arrange(date, pos, gl, id, frame) %>%  # sort data after `partition()`
@@ -261,7 +261,7 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 rmarkdown::render_site('MoM_Switch_GFP_Estimation.Rmd')
 rmarkdown::render_site('MoM_Switch_Constant_Envts.Rmd')
 rmarkdown::render_site('MoM_Switch_Switching_Envts.Rmd')
-rmarkdown::render_site('MoM_Switch_FCM_Comparison.Rmd')
+# rmarkdown::render_site('MoM_Switch_FCM_Comparison.Rmd')
 
 
 
