@@ -414,16 +414,18 @@ mypairs_constant <- mycells %>% filter(condition %in% c('glucose', 'lactose')) %
 
 
 ggplot(filter(mypairs_constant, TRUE), aes(log(2)/logl_time_slope_1 / 60, log(2)/logl_time_slope_2 / 60, col=factor(rel))) +
+  # facet_wrap(~condition_1) +
   geom_point(alpha=.5, size=.5) +
   expand_limits(x=0, y=0)
 
 
 filter(mypairs_constant, TRUE) %>% 
   group_by(div_min, div_max) %>% 
+  # group_by(condition_1, div_min, div_max) %>% 
   summarise(r2=cor(log(2)/logl_time_slope_1 / 60,  log(2)/logl_time_slope_2 / 60, use="complete.obs", method="pearson")^2, n=n()) %>% 
   mutate(rel=(Vectorize(genealogy_ontology))(div_min, div_max)) %>% 
   (function(.df) ggplot(.df, aes(div_min, div_max)) +
-     # facet_grid(.~switch_idx) +
+     # facet_wrap(~condition_1) +
      geom_tile(aes(fill=r2), stat='identity', show.legend=FALSE) +
      geom_text(aes(label=sprintf("%s\nr2 = %.3f", rel, r2))) +
      geom_text(aes(y=div_max-.4, label=sprintf("(n = %d)", n))) +
@@ -451,29 +453,54 @@ ggplot(mypairs_constant, aes(dt_upstream, dt_downstream)) +
 The weaker correlation between mothers/daughters than between sisters suggests a finer analysis with 2 estimates per cell. Given that the instantaneous elongation rate is rather constant over the cell cycle (but when adjacent points before/after division are taken into account), I use one estimation at 25% of the cell cycle and another at 75% (outside of the +-5points fitting window for cell cycles longer than 60min).
 
 Cells are selected according to the following scheme:
+
 - pick all pairs of sisters with entire cell cycles
 - keep only if their mother also has an entire cell cycle
 - for these 3 cells, compute all combination of points involving 2 different cells
 - at the end, list all cells used in the table and add their internal points
+(estimate their growth rate using either instantaneour estimate based on 10 points at 25% and 75% of the cell cycle; or using an exponential fit over 1/2 the cell cycle)
 
 ```{r}
 mysubpairs_constant <- 
   (function() {
-    # select rates of all cells
-    myrates_25_75 <- myrates %>% filter(condition %in% c('glucose', 'lactose')) %>% 
-      mutate(cell_cycle=(time_sec-start_time)/(end_time-start_time)) %>% 
-      group_by(cell) %>% slice(c(which.min((cell_cycle-0.25)^2), which.min((cell_cycle-0.75)^2))) %>% 
-      group_by(cell) %>% mutate(cc=c(1, 2)) %>% 
-      select(cell, gl_id, cell, genealogy, cc, irate=islope_ll_time) %>% ungroup
+    # browser()
+    # # select rates of all cells
+    # myrates_25_75 <- myrates %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+    #   mutate(cell_cycle=(time_sec-start_time)/(end_time-start_time)) %>% 
+    #   group_by(cell) %>% slice(c(which.min((cell_cycle-0.25)^2), which.min((cell_cycle-0.75)^2))) %>% 
+    #   group_by(cell) %>% mutate(cc=c(1, 2)) %>% 
+    #   select(cell, gl_id, cell, genealogy, cc, irate=islope_ll_time) %>% ungroup
 
-    # myrates_25_75 %>% mutate(cc=paste0('ir', cc)) %>% spread(cc, irate) %>%
-      # ggplot(aes(ir1, ir2))+geom_point(alpha=.1) + geom_abline(col='red') + stat_smooth(method='lm')
+    myrates_halfcc <- myframes %>% 
+      # keep only frames of cells seen during their entire cell cycle
+      semi_join(filter(mycells, condition %in% c('glucose', 'lactose'))) %>% 
+      ungroup %>% 
+      mutate(cell_cycle=(time_sec-start_time)/(end_time-start_time),
+             cc=ifelse(cell_cycle<0.5, 1, 2)) %>% 
+      group_by(cell, cc,  gl_id, genealogy) %>% 
+      do((function(.df) {
+        .mod_ll_t <- fastLmPure( cbind(1, .df$time_sec), log(.df$length_um) )
+        data.frame(irate=.mod_ll_t$coefficients[2])
+      })(.) ) %>% 
+      # collect() %>% 
+      ungroup
+
     
+    # myrates_25_75 %>% mutate(cc=paste0('ir', cc)) %>% spread(cc, irate) %>%
+    # ggplot(aes(ir1, ir2))+geom_point(alpha=.1) + geom_abline(col='red') + stat_smooth(method='lm')
+    
+                   
     .rel_table <- combn(1:6, 2) %>% t %>% as.data.frame %>% slice(-c(1, 10, 15)) %>% 
       setNames(c('row1', 'row2')) %>% 
       mutate(rel_d=c("d10", "d15", "d10", "d15", "d5", "d10", "d5", "d10", "s5", "s10", "s10", "s15"),
              rel=substr(rel_d, 1, 1) %>% sub('d', 'daughter', .) %>% sub('s', 'sisters', .),
              dist=as.numeric(substring(rel_d, 2)))
+    # in the following, .rel_table assumes the following row order in my rates:
+    #             ----- -----
+    #  1      2  /  3     4
+    # ----- -----
+    #            \  5     6
+    #             ----- -----
     
     mypairs_constant %>% filter(condition_1 %in% c('glucose', 'lactose'), rel=='sisters') %>% 
       group_by(gl_id, ancestor) %>% 
@@ -481,7 +508,8 @@ mysubpairs_constant <-
       do( (function(.df){
         # extract data from cell pairs (only if mother has entire cell cycle)
         # browser()
-        .rates <- filter(myrates_25_75, gl_id==.df$gl_id, genealogy %in% c(.df$ancestor, .df$genealogy_1, .df$genealogy_2))
+        .rates <- filter(myrates_halfcc, gl_id==.df$gl_id, genealogy %in% c(.df$ancestor, .df$genealogy_1, .df$genealogy_2)) %>% 
+          arrange(genealogy, cc) # mind the rows order!
         if (dim(.rates)[1] < 6) return(data.frame())
         
         cbind(.rel_table %>% select(rel, dist),
@@ -489,12 +517,11 @@ mysubpairs_constant <-
               .rates %>% select(cell, cc, irate) %>% setNames(paste0(colnames(.), '_2')) %>% slice(.rel_table$row2))
       })(.) ) %>% 
       select(-ancestor) %>% 
-      # tmp %>% 
       # add data from within cells
       (function(.df){
         .cells <- .df %>% filter(rel=='sisters') %>% select(cell_1, cell_2) %>% unlist %>% unique # xxx this is shorter than 2 x nb of pairs !!
         bind_rows(.df, 
-                  filter(myrates_25_75, cell %in% .cells) %>% 
+                  filter(myrates_halfcc, cell %in% .cells) %>% 
                     mutate(cc=paste0('irate_', cc)) %>% spread(cc, irate) %>% 
                     mutate(rel='cell', dist=5, cell_1=cell, cell_2=cell, cc_1=1, cc_2=2) %>% 
                     select(-genealogy, -cell) )
@@ -508,8 +535,6 @@ mysubpairs_constant %>%
   spread(rel, r2)
 
 ```
-
-xxx fit along 1/2 cell cycles instead of irate.
 
 
 ## Fluo in lactose
@@ -958,6 +983,8 @@ myframes %>% filter(!discard_top, !discard_start, condition=='lactose',
 
 ### GFP production rate
 
+The instantaneous production rate $dGFP/dt$ can be estimated by discrete derivative. The instantaneous GFP production relative to the proteome ($dGFP/dL$) is estimated using the length predicted from the expoenntial elongation fit ($L_f$). Noticeably, $dGFP/dL_f = 1/r \times 1/L dGFP/dt$ where $r$ is the cell elongation rate.
+
 ```{r}
 myrates %>% filter(condition %in% 'lactose') %>% 
   group_by(cell) %>% filter(n()>10) %>% sample_n(3) %>% 
@@ -971,23 +998,24 @@ myrates %>% filter(condition %in% 'lactose') %>%
 ggplot(aes(y=..density..)) +
   geom_step_hist(aes(x=islope_g_t_per_l_std, col='1/L dGFP/dt'), binwidth=.1, position='identity') +
   geom_step_hist(aes(x=islope_g_l_std, col='dGFP/dL'), binwidth=.1, position='identity') +
-  # geom_step_hist(aes(x=gfp_deriv_per_l_std, col='1/L dGFP/dt raw'), binwidth=.1, position='identity') +
+  geom_step_hist(aes(x=gfp_deriv_per_l_std, col='1/L dGFP/dt\n(instantaneous)'), binwidth=.1, position='identity') +
   scale_y_log10() +
   xlim(-10, 10) + labs(x='z-value')
 
-  
 myrates %>% filter(condition %in% 'lactose') %>% 
   group_by(cell) %>% filter(n()>10) %>% sample_n(3) %>% 
   ungroup() %>% 
   filter(between(islope_g_l, quantile(islope_g_l, 1e-4), quantile(islope_g_l, 1-1e-4))) %>% 
-  mutate(islope_g_t_per_l = islope_g_time/length_predict, gfp_deriv_per_l = gfp_deriv/length_predict) %>% 
+  mutate(islope_g_t_per_l_cor = islope_g_time/length_predict / islope_ll_time,
+         gfp_deriv_per_l_cor = gfp_deriv/length_predict / islope_ll_time) %>% 
 ggplot(aes(y=..density..)) +
-  geom_step_hist(aes(x=islope_g_t_per_l, col='1/L dGFP/dt'), position='identity') +
+  xlim(-1e3, 2e4) +
+  geom_step_hist(aes(x=islope_g_t_per_l_cor, col='1/L dGFP/dt'), position='identity') +
   geom_step_hist(aes(x=islope_g_l, col='dGFP/dL'), position='identity') +
-  # geom_step_hist(aes(x=gfp_deriv_per_l_std, col='1/L dGFP/dt raw'), binwidth=.1, position='identity') +
-  scale_y_log10() +
-  labs(x='value')
-
+  geom_step_hist(aes(x=gfp_deriv_per_l_cor, col='1/L dGFP/dt raw'), position='identity') +
+  # scale_y_log10() +
+   labs(x='value', col='variable')
+  
 
 myrates %>% filter(condition %in% 'lactose') %>% 
   group_by(cell) %>% filter(n()>10) %>% sample_n(3) %>% 
@@ -1045,11 +1073,11 @@ ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose
   xlim(0, 200) +
   expand_limits(y=0)
 
-ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose'),
-       aes(x=(time_sec-start_time)/60)) +
-  stat_summary(aes(y=gfp_deriv/length_predict, col='predict'), fun.data=mean_sdl, geom="pointrange") +
-  stat_summary(aes(y=gfp_deriv/length_um, col='raw'), fun.data=mean_sdl, geom="pointrange") +
-  xlim(0, 200)
+# ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose'),
+#        aes(x=(time_sec-start_time)/60)) +
+#   stat_summary(aes(y=gfp_deriv/length_predict, col='predict'), fun.data=mean_sdl, geom="pointrange") +
+#   stat_summary(aes(y=gfp_deriv/length_um, col='raw'), fun.data=mean_sdl, geom="pointrange") +
+#   xlim(0, 200)
 
 ```
 
@@ -1075,6 +1103,79 @@ ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose
 
 ```
 
+
+Plot similar to Walker, Nghe & Tans 2016
+
+```{r}
+ggplot(myframes %>% filter(!discard_top, !discard_start, condition %in% 'lactose'),
+       aes(x=mycut(cell_cycle, seq(0, 1, length.out=30)))) +
+  stat_summary(aes(y=gfp_deriv), fun.y=mean, geom="point") +
+  labs(x="cell cycle") +
+  expand_limits(y=0)
+
+```
+
+Matteo suggests that tracks should be aligned by their estimated time at replication. phase C+D lasts ca. 60 min, hence extrapolate lr the average length 40 min before division (60 - 20 for 1/2 replication because locus at 47%). For each cell take the time at which the length is lr as the time origin.
+
+```{r}
+dt_lac <- filter(mycells, condition=='lactose')$logl_time_slope %>% 
+  (function(.x) log(2)/.x) %>% mean
+
+llr <- semi_join(myframes, filter(mycells, condition=='lactose')) %>% 
+  mutate(t_todiv=end_time-time_sec) %>% 
+  group_by(t_todiv) %>% summarise(llength_um=mean(log(length_um))) %>% 
+  lm(llength_um~t_todiv, data=.) %>% 
+  predict(data.frame(t_todiv=dt_lac-40*60))
+  
+myframes %>% 
+  semi_join(filter(mycells, condition=='lactose'), by='cell') %>% 
+  group_by(cell) %>% 
+  mutate(repl_idx=which.min(abs(log(length_predict)-llr)),
+         time_repl=time_sec[repl_idx]) %>% 
+ggplot(aes(x=(time_sec-time_repl)/60)) +
+  stat_summary(aes(y=gfp_deriv), fun.y=mean, geom="point") +
+  labs(x="time after GFP locus replication (min)") +
+  xlim(-70, 60) + expand_limits(y=0)
+
+myframes %>% 
+  semi_join(filter(mycells, condition=='lactose'), by='cell') %>% 
+  group_by(cell) %>% 
+  mutate(repl_idx=which.min(abs(log(length_predict)-llr)),
+         time_repl=time_sec[repl_idx], time_sync=time_sec-time_repl) %>% 
+  ungroup %>% group_by(time_sync) %>% 
+  summarise(n=sum(!is.na(gfp_deriv)), gfp_deriv=mean(gfp_deriv, na.rm=TRUE)) %>% 
+  filter(between(time_sync/60, -70, 60)) %>% 
+ggplot(aes(x=time_sync/60)) +
+  geom_point(aes(y=gfp_deriv, alpha=n)) +
+  # stat_summary(aes(y=gfp_deriv), fun.y=mean, geom="point") +
+  labs(x="time after GFP locus replication (min)") +
+  expand_limits(y=0)
+
+
+```
+
+
+Erik has different expectation: the instantaneous production relative to the whole proteome should be 
+
+```{r}
+myframes %>% 
+  semi_join(filter(mycells, condition=='lactose'), by='cell') %>% 
+  left_join(myrates %>% select(cell, time_sec, islope_ll_time, islope_g_l)) %>% 
+  group_by(cell) %>% 
+  mutate(repl_idx=which.min(abs(log(length_predict)-llr)),
+         time_repl=time_sec[repl_idx], time_sync=time_sec-time_repl) %>% 
+  ungroup %>% group_by(time_sync) %>% 
+  summarise(n=sum(!is.na(gfp_deriv)), islope_g_l=mean(islope_g_l, na.rm=TRUE),
+            gfp_deriv_per_length=mean(gfp_deriv/length_predict, na.rm=TRUE)) %>% 
+  filter(between(time_sync/60, -45, 60)) %>% 
+ggplot(aes(x=time_sync/60)) +
+  # geom_point(aes(y= gfp_deriv_per_length, alpha=n)) +
+  geom_point(aes(y= islope_g_l, alpha=n)) +
+  # stat_summary(aes(y=gfp_deriv), fun.y=mean, geom="point") +
+  labs(x="time after GFP locus replication (min)") +
+  expand_limits(y=0)
+
+```
 
 
 ```{r eval=FALSE}
