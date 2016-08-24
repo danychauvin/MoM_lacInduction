@@ -1,5 +1,5 @@
 ---
-title: "Switching environment"
+title: "Growth and *lac* induction in switching environments"
 author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---

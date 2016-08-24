@@ -1,5 +1,6 @@
 output_dir: "html"
 exclude: ["*"]
+include: ["material/*.png"]
 
 output:
   html_document:
@@ -15,10 +16,12 @@ navbar:
       menu:
         - text: "GFP Estimation"
           href: MoM_Switch_GFP_Estimation.html
-        - text: "Constant environments"
-          href: MoM_Switch_Constant_Envts.html
+        - text: "Growth in constant environments"
+          href: MoM_Switch_Constant_Envts_Growth.html
+        - text: "*lac* promoter activity"
+          href: MoM_Switch_Constant_Envts_GFPprod.html
         - text: "Switching environments"
           href: MoM_Switch_Switching_Envts.html
-        - text: "Comparison with Flow Cytometry"
-          href: MoM_Switch_FCM_Comparison.html
+#        - text: "Comparison with Flow Cytometry"
+#          href: MoM_Switch_FCM_Comparison.html
 

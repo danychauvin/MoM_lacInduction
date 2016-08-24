@@ -26,39 +26,6 @@ data2preproc <- function(.f)
 #                   "~/Downloads/january/vngWetLabR/ggplot")
 # perl_scripts_path <- "~/Downloads/january/vngWetLabR/mother_machine"
 
-date_cond <- c("20150616"="glucose", "20150617"="glucose", 
-               "20150624"="lactose", "20150630"="lactose", 
-               "20160318"="lactose_lowillum", "20160427"="lactose_lowillum", 
-               "20150703"="switch_04h", "20150708"="switch_04h",
-               "20151204"="switch_06h",
-               "20151218"="switch_08h",
-               "20160526"="switch_12h",
-               "20151207"="switch_iptg",
-               "20151221"="switch_m9" )
-
-condition_ts <- rbind(data.frame(duration=1560, medium='glucose', condition='glucose'),
-                      data.frame(duration=1560, medium='lactose', condition='lactose'),
-                      data.frame(duration=1560, medium='lactose', condition='lactose_lowillum'),
-                      data.frame(duration=c(360, 240, 240, 240, 240, 240),
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-                                 condition='switch_04h'),
-                      data.frame(duration=c(360, 240, 360, 240, 360, 240), 
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-                                 condition='switch_06h'),
-                      data.frame(duration=c(360, 240, 480, 240, 480, 240), 
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-                                 condition='switch_08h'),
-                      data.frame(duration=c(240, 240, 720, 360), 
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose'),
-                                 condition='switch_12h'),
-                      data.frame(duration=c(360, 240, 240, 240, 240, 240),
-                                 medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
-                                 condition='switch_iptg'),
-                      data.frame(duration=c(360, 120, 360, 720, 360, 240), 
-                                 medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
-                                 condition='switch_m9') 
-)
-
 
 # SET ENVIRONMENT
 invisible(sapply(
@@ -78,55 +45,56 @@ for (.l in mylibs) { mycluster %>% cluster_library(.l) }
 # myvars <- ls(all.names = TRUE)
 # save(list=myvars[which(myvars!='pls')], file=".RData", envir=.GlobalEnv)
 
-condition_ts <- condition_ts %>% group_by(condition) %>% 
+
+# DEFINE EXPERIMENTAL CONDITIONS ####
+date_cond <- c("20150812"="mg1655",
+               "20150616"="glucose", "20150617"="glucose", 
+               "20150624"="lactose", "20150630"="lactose", 
+               "20160318"="lactose_lowillum", "20160427"="lactose_lowillum", 
+               "20150703"="switch_04h", "20150708"="switch_04h",
+               "20151204"="switch_06h",
+               "20151218"="switch_08h",
+               "20160526"="switch_12h",
+               "20151207"="switch_iptg",
+               "20151221"="switch_m9" )
+
+condition_ts <- rbind(data.frame(condition='mg1655', duration=c(720, 720), medium=c('glucose', 'lactose')),
+                      data.frame(condition='glucose', duration=1560, medium='glucose'),
+                      data.frame(condition='lactose', duration=1560, medium='lactose'),
+                      data.frame(condition='lactose_lowillum', duration=1560, medium='lactose'),
+                      data.frame(condition='switch_04h',
+                                 duration=c(360, 240, 240, 240, 240, 240),
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose')),
+                      data.frame(duration=c(360, 240, 360, 240, 360, 240), 
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+                                 condition='switch_06h'),
+                      data.frame(condition='switch_08h', 
+                                 duration=c(360, 240, 480, 240, 480, 240), 
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose')),
+                      data.frame(condition='switch_12h', duration=c(240, 240, 720, 360), 
+                                 medium=c('glucose', 'lactose', 'glucose', 'lactose')),
+                      data.frame(condition='switch_iptg', duration=c(360, 240, 240, 240, 240, 240),
+                                 medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG')),
+                      data.frame(condition='switch_m9',
+                                 duration=c(360, 120, 360, 720, 360, 240), 
+                                 medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9')) 
+) %>% 
+  group_by(condition) %>% 
   mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
          t_end=cumsum(duration) * 60 - 1e-5,
          m_cycle=value_occurence_index(medium))
 
 
-# LOAD MG1655 DATA (no GFP) ####
-mg_files <- list.files("./data_matthias/MG1655_glu_lac", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-nc <- min(length(mg_files), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
-
-mg_frames <- mg_files %>% # data2preproc %>% file.exists
-  # process exported files on the cluster if required
-  process_moma_data(.data2preproc=data2preproc, .scripts_path=perl_scripts_path, 
-                    .qsub_name="MMmg_pl", .force=FALSE) %>% 
-  dplyr::data_frame(path=.) %>% 
-  mutate(ppath=data2preproc(path)) %>% 
-  # load perl scripts output to dataframes (using multidplyr)
-  # group_by(path) %>%
-  partition(path, cluster=mycluster[1:nc] %>%
-              cluster_assign_func(load_moma_processed, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
-              cluster_assign_obj(dt, dl, vertical_cutoff)) %>%
-  do((function(.df){
-    load_moma_processed(.df$ppath) %>% 
-      mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
-             discard_start=(time_sec < 2*3600)) %>%
-      # remove frames after touching the exit
-      group_by(id) %>%
-      mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
-      mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
-      mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
-      # remove daughters of cells that touched the exit
-      ungroup %>%
-      mutate(discard_top=which_to_progeny(discard_top, cid))
-  })(.)) %>%
-  collect() %>% 
-  group_by(date, pos, gl, id) %>%
-  mutate(start_time=first(time_sec), end_time=last(time_sec),
-         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)),
-         cell=paste(date, pos, gl, id, sep='.'))
-
-
-# LOAD AS662 DATA ####
-asc_files <- c("./data_matthias/glucose", "./data_matthias/lactose", 
-               "./data_matthias/glu_lac_switch", "./data_thomas/") %>% 
+# LOAD MoMA DATA ####
+# myfiles <- c("./data_matthias/MG1655_glu_lac",
+#              "./data_matthias/glucose", "./data_matthias/lactose", 
+#              "./data_matthias/glu_lac_switch", "./data_thomas/") %>% 
+#   list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
+myfiles <- c("./data_matthias/MG1655_glu_lac", "./data_copy") %>% 
   list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-asc_files <- list.files("./data_copy", ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-nc <- min(length(asc_files), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
+nc <- min(length(myfiles), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
 
-myframes <- asc_files %>%
+myframes <- myfiles %>%
   # process exported files on the cluster if required
   process_moma_data(.data2preproc=data2preproc, .scripts_path=perl_scripts_path, 
                     .qsub_name="MMsw_pl", .force=FALSE) %>% 
@@ -166,21 +134,22 @@ myframes <- asc_files %>%
   do((function(.df){
     .ts <- filter(condition_ts, condition==unique(.df$condition))
     .idx <- find_unique_interval(.df$time_sec, .ts$t_start, .ts$t_end)
-    mutate(.df, medium=.ts$medium[.idx], m_start=.ts$t_start[.idx], m_cycle=.ts$m_cycle[.idx])
+    mutate(.df, medium=.ts$medium[.idx], m_start=.ts$t_start[.idx], m_end=.ts$t_end[.idx], m_cycle=.ts$m_cycle[.idx])
   })(.))  
 
 
 
 # RENDER ANALYSIS FILES ####
 # calling `render()` or `render_site()` from the command line allows to execute the function 
-# in the global env() (hence inheriting existing variables and keeping newly created ones)...
+# in the global envt (hence inheriting existing variables and keeping the newly created ones)...
 
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 # rmarkdown::clean_site()
 
 # rmarkdown::render_site('index.Rmd')
 rmarkdown::render_site('MoM_Switch_GFP_Estimation.Rmd')
-rmarkdown::render_site('MoM_Switch_Constant_Envts.Rmd')
+rmarkdown::render_site('MoM_Switch_Constant_Envts_Growth.Rmd')
+rmarkdown::render_site('MoM_Switch_Constant_Envts_GFPprod.Rmd')
 rmarkdown::render_site('MoM_Switch_Switching_Envts.Rmd')
 # rmarkdown::render_site('MoM_Switch_FCM_Comparison.Rmd')
 
