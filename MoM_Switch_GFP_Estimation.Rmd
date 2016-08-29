@@ -194,7 +194,8 @@ Let's first look at fluorescence decay for cells in a given lane. The slopes are
 p_decayGFP_lin <- myframes %>% 
   filter(!discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
-  mutate(glid=paste(date, pos, gl, sep='.')) %>% filter(glid %in% nth(unique(glid), 11)) %>%
+  # ungroup %>% filter(gl_id %in% nth(unique(gl_id), 11)) %>% # workaround a dplyr 0.5 bug
+  ungroup %>% filter(gl_id %in% (unique(gl_id)[[11]]) ) %>%
   group_by(date, pos, gl, id) %>% 
   filter(m_cycle==first(m_cycle)) %>% # discard cells spanning several switches
   filter(mean(fluogfp_amplitude) > mean(autofluo_predict(length_um))) %>% # discard cells with fluo lower than avg autofluo
@@ -214,7 +215,8 @@ p_decayGFP_exp <- p_decayGFP_lin +
 bleaching_fits <- myframes %>% 
   filter(!discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
-  mutate(glid=paste(date, pos, gl, sep='.')) %>% #filter(glid %in% nth(unique(glid), 11)) %>%
+  # # ungroup %>% filter(gl_id %in% nth(unique(gl_id), 11)) %>% # workaround a dplyr 0.5 bug
+  # ungroup %>% filter(gl_id %in% (unique(gl_id)[[11]]) ) %>%
   # group_by(date, pos, gl, id) %>% 
   partition(date, pos, gl, id,
             cluster=mycluster %>% cluster_assign_func(autofluo_predict)) %>%
@@ -320,7 +322,8 @@ Reassuringly, while the daughters sum is systematically lower than their mother 
 filter(myframes, !discard_start, !discard_top, condition=='switch_04h') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>=m_start+30*60, time_sec<=m_end-30*60) %>%
   filter(cell_num_in_lane < total_cell_in_lane) %>% # discard bottom cells
-  ungroup %>% filter(gl_id %in% nth(unique(gl_id), 10)) %>%
+  # ungroup %>% filter(gl_id %in% nth(unique(gl_id), 10)) %>% # workaround a dplyr 0.5 bug
+  ungroup %>% filter(gl_id %in% (unique(gl_id)[[10]]) ) %>%
   group_by(date, pos, gl, id) %>% 
   mutate(npoints=sum(fluogfp_amplitude>0)) %>%
   filter(npoints>10) %>%

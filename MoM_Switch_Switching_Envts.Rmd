@@ -10,7 +10,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 gl_idx <- 13
 
 filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>%
-  ungroup %>% filter(gl_id %in% nth(unique(gl_id), gl_idx)) %>% 
+  ungroup %>% filter(gl_id %in% (unique(gl_id)[[gl_idx]]) ) %>% 
   ggplot(aes(time_sec - 2*3600, length_um, col=cell)) +
   geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=0, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
   geom_path(alpha=0.6) +
@@ -35,7 +35,7 @@ Plot GFP tracks of the switch_04h condition:
 ```{r}
 filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
   mutate(glid=paste(date, pos, gl, sep='.')) %>% 
-  ungroup %>% filter(glid %in% nth(unique(glid), gl_idx)) %>% 
+  ungroup %>% filter(glid %in% (unique(glid)[[gl_idx]]) ) %>% 
 ggplot(aes(time_sec - 2*3600, gfp_nb / length_um, col=cell)) +
   geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
   geom_path(alpha=0.6) +
@@ -47,7 +47,7 @@ ggplot(aes(time_sec - 2*3600, gfp_nb / length_um, col=cell)) +
 
 filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
   mutate(glid=paste(date, pos, gl, sep='.')) %>% 
-  ungroup %>% filter(glid %in% nth(unique(glid), gl_idx)) %>% 
+  ungroup %>% filter(glid %in% (unique(glid)[[gl_idx]]) ) %>% 
 ggplot(aes(time_sec - 2*3600, gfp_nb , col=cell)) +
   geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
   geom_path(alpha=0.6) +
@@ -96,8 +96,8 @@ ggplot(data=filter(myframes_switching, T), aes(time_sec - 2*3600, gfp_nb, col=ce
 # ggsave('plots/asc_gfp_induction_facetcond.pdf', width=7, height=4)
 
 mycells_switching <- myframes_switching %>%
-  group_by(condition, cell) %>%
-  # partition(condition, cell, cluster=mycluster %>% cluster_assign_func(compute_growth_lag) %>% cluster_assign_obj(dt)) %>%
+  # group_by(condition, cell) %>%
+  partition(condition, cell, cluster=mycluster %>% cluster_assign_func(compute_growth_lag) %>% cluster_assign_obj(dt)) %>%
   # filter out cells that last more than 8h
   filter(end_time-start_time<8*3600) %>% 
   do((function(.df){
@@ -117,8 +117,8 @@ mycells_switching <- myframes_switching %>%
     # .ts <- ts[[unique(.df$condition)]]
     .time_switch <- filter(.df, is_lac)$time_sec %>% min
     .switch_idx <- filter(.df, is_lac)$m_cycle %>% min
-    .t_200 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+200)$time %>% first
-    .t_200_fail <- filter(.df, time_sec>.t_200, gfp_nb < .preswitch_gfp+200)$time %>% first
+    .t_200 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+200)$time_sec %>% first
+    .t_200_fail <- filter(.df, time_sec>.t_200, gfp_nb < .preswitch_gfp+200)$time_sec %>% first
     # if (.switch_idx==2) browser()
     return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), time_switch=.time_switch,
                       cell_num_from_top=mean(.df$cell_num_in_lane), cell_num_from_bottom=mean(.df$total_cell_in_lane-.df$cell_num_in_lane),
@@ -488,9 +488,10 @@ ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')),
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
 # ggsave('plots/asc_gfp_lag200_gfpini_facetcond.pdf', width=7, height=4)
 
-mycells_switching %>% mutate(switch_idx2=ifelse(switch_idx==2 & gfp_ini<190, '2_low', as.character(switch_idx))) %>% 
-  group_by(condition, switch_idx2) %>% 
-  summarise(r2 = cor(gfp_ini, lag_200, use="complete.obs", method="pearson")^2)
+# # todo: fix this: there should be complete element pairs
+# mycells_switching %>% mutate(switch_idx2=ifelse(switch_idx==2 & gfp_ini<190, '2_low', as.character(switch_idx))) %>%
+#   group_by(condition, switch_idx2) %>%
+#   summarise(r2 = cor(gfp_ini, lag_200, use="complete.obs", method="pearson")^2)
 
 # cor_df <- function(.df, .x, .y, ...) {
 #   .df <- .df %>%
@@ -507,7 +508,7 @@ NB: check the history of cells with low initial GFP at second switch:
 ```{r}
 mycells_switching %>% 
   filter(condition=='switch_04h', switch_idx==2, gfp_ini<190) %>% 
-  select(gl_id, switch_cell=cell, genealogy) %>% distinct %>% 
+  select(gl_id, switch_cell=cell, genealogy) %>% ungroup %>% distinct %>% 
   group_by(gl_id, switch_cell) %>% 
   do((function(.df){
     data.frame(genealogy=c(.df$genealogy, get_all_parents_cid(.df$genealogy)))
@@ -529,6 +530,7 @@ mycells_switching %>%
 Does the induction lag depends on the cell cycle state at the switch?
 
 ```{r}
+# todo: add mycells to get average growth rate
 glc_dt <- filter(mycells, condition=='glucose') %>% 
   mutate(dt=time_div-time_birth) %>% 
   .[['dt']] %>% mean
@@ -892,7 +894,7 @@ ggsave('Rplot.pdf', width=3, height=2.5)
 ```{r}
 myframes %>% 
   filter(str_detect(condition, 'switch_[0-9]+h')) %>% 
-  filter(!discard_start, bottom_cell=cell_num_in_lane==total_cell_in_lane) %>% 
+  filter(!discard_start, cell_num_in_lane==total_cell_in_lane) %>% # bottom_cell
   ggplot() +
   facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
   geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=15e3, ymax=Inf, fill=medium, group=1), size=0.2, data=filter(condition_ts, str_detect(condition, 'switch_[0-9]+h')) ) +
@@ -906,7 +908,7 @@ myframes %>%
 mymothers_switching <- myframes %>% 
   # filter(cell=='20150708.0.11.82') %>% 
   filter(str_detect(condition, 'switch_[0-9]+h')) %>% 
-  filter(!discard_start, bottom_cell=cell_num_in_lane==total_cell_in_lane) %>% 
+  filter(!discard_start, cell_num_in_lane==total_cell_in_lane) %>% # bottom_cell
   ungroup %>% select(gl_id, cell) %>% distinct %>% 
   inner_join(mycells_switching)
 

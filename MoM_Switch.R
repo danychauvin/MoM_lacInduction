@@ -27,115 +27,128 @@ data2preproc <- function(.f)
 # perl_scripts_path <- "~/Downloads/january/vngWetLabR/mother_machine"
 
 
+# EXPERIMENTAL CONDITIONS AND DATA PATHS
+myconditions <- list(
+  list(condition='mg1655', duration=c(720, 720), medium=c('glucose', 'lactose'),
+       paths=c("./data_matthias/MG1655_glu_lac")),
+  list(condition='glucose', duration=1560, medium='glucose',
+       paths=c("./data_copy/20150616", "./data_copy/20150617")),
+  list(condition='lactose', duration=1560, medium='lactose',
+       paths=c("./data_copy/20150624", "./data_copy/20150630")),
+  list(condition='lactose_lowillum', duration=1560, medium='lactose',
+       paths=c("./data_copy/20160318", "./data_copy/20160427")),
+  list(condition='switch_04h',
+       duration=c(360, 240, 240, 240, 240, 240),
+       medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_copy/20150703", "./data_copy/20150708")),
+  list(condition='switch_06h',
+       duration=c(360, 240, 360, 240, 360, 240), 
+       medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_copy/20151204")),
+  list(condition='switch_08h', 
+       duration=c(360, 240, 480, 240, 480, 240), 
+       medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_copy/20151218")),
+  list(condition='switch_12h', duration=c(240, 240, 720, 360), 
+       medium=c('glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_copy/20160526")),
+  list(condition='switch_iptg', duration=c(360, 240, 240, 240, 240, 240),
+       medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
+       paths=c("./data_copy/20151207")),
+  list(condition='switch_m9',
+       duration=c(360, 120, 360, 720, 360, 240), 
+       medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
+       paths=c("./data_copy/20151221")) 
+)
+
 # SET ENVIRONMENT
 invisible(sapply(
   list.files(r_scripts_path, pattern="\\.[Rr]$", full.names=TRUE, ignore.case=TRUE), 
   source, .GlobalEnv))
+
 setwd(proj_path)
+dir.create("qlogs", showWarnings=FALSE) # create a directory to store logs from the queue
 
-library(parallel)
-numCores <- min(30, detectCores()-1) # do not use more than 30 cores
-
+# set a parallel environment to run multidplyr
 library(multidplyr)
+numCores <- min(30, parallel::detectCores()-1) # do not use more than 30 cores
 mycluster <- create_cluster(numCores)
-for (.l in mylibs) { mycluster %>% cluster_library(.l) }
-# set_default_cluster(mycluster)
+for (.l in mylibs) { mycluster %>% cluster_library(.l) } # load all libraries on each core
 
-# SAVE ENVIRONMENT (but `pls`)
+# # SAVE ENVIRONMENT (but `pls`)
 # myvars <- ls(all.names = TRUE)
 # save(list=myvars[which(myvars!='pls')], file=".RData", envir=.GlobalEnv)
 
 
-# DEFINE EXPERIMENTAL CONDITIONS ####
-date_cond <- c("20150812"="mg1655",
-               "20150616"="glucose", "20150617"="glucose", 
-               "20150624"="lactose", "20150630"="lactose", 
-               "20160318"="lactose_lowillum", "20160427"="lactose_lowillum", 
-               "20150703"="switch_04h", "20150708"="switch_04h",
-               "20151204"="switch_06h",
-               "20151218"="switch_08h",
-               "20160526"="switch_12h",
-               "20151207"="switch_iptg",
-               "20151221"="switch_m9" )
+# LOAD MoMA DATA ####
+# find raw data files from myconditions and store them in a dataframe
+myfiles <- myconditions %>% 
+  # convert the relevant list items to a dataframe
+  lapply(function(.l) .l[ - which(names(.l) %in% c("duration", "medium"))] %>% 
+           as.data.frame(stringsAsFactors=FALSE) ) %>% 
+  do.call(rbind, .) %>% 
+  rename(data_path=paths) %>%
+  # for each path, find all files matched by the pattern .*\\d+\\.csv (e.g. *20151023.csv)
+  group_by(condition, data_path) %>% 
+  do((function(.df)
+    list.files(.df$data_path, ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE) %>% data.frame(path=., stringsAsFactors=FALSE) )(.))  
 
-condition_ts <- rbind(data.frame(condition='mg1655', duration=c(720, 720), medium=c('glucose', 'lactose')),
-                      data.frame(condition='glucose', duration=1560, medium='glucose'),
-                      data.frame(condition='lactose', duration=1560, medium='lactose'),
-                      data.frame(condition='lactose_lowillum', duration=1560, medium='lactose'),
-                      data.frame(condition='switch_04h',
-                                 duration=c(360, 240, 240, 240, 240, 240),
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose')),
-                      data.frame(duration=c(360, 240, 360, 240, 360, 240), 
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-                                 condition='switch_06h'),
-                      data.frame(condition='switch_08h', 
-                                 duration=c(360, 240, 480, 240, 480, 240), 
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose')),
-                      data.frame(condition='switch_12h', duration=c(240, 240, 720, 360), 
-                                 medium=c('glucose', 'lactose', 'glucose', 'lactose')),
-                      data.frame(condition='switch_iptg', duration=c(360, 240, 240, 240, 240, 240),
-                                 medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG')),
-                      data.frame(condition='switch_m9',
-                                 duration=c(360, 120, 360, 720, 360, 240), 
-                                 medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9')) 
-) %>% 
+# create condition_ts (describing each temporal change of each condition) from myconditions 
+condition_ts <- myconditions %>% 
+  # convert the relevant list items to a dataframe
+  lapply(function(.l) .l[ - which(names(.l) == "paths")] %>% as.data.frame ) %>% 
+  do.call(rbind, .) %>% 
+  # add useful variables for each condition step
   group_by(condition) %>% 
   mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
          t_end=cumsum(duration) * 60 - 1e-5,
          m_cycle=value_occurence_index(medium))
 
-
-# LOAD MoMA DATA ####
-# myfiles <- c("./data_matthias/MG1655_glu_lac",
-#              "./data_matthias/glucose", "./data_matthias/lactose", 
-#              "./data_matthias/glu_lac_switch", "./data_thomas/") %>% 
-#   list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-myfiles <- c("./data_matthias/MG1655_glu_lac", "./data_copy") %>% 
-  list.files(".*\\d+\\.csv", recursive=TRUE, full.names=TRUE)
-nc <- min(length(myfiles), length(mycluster)) # this is a dirty hack because multiplyr crashes with less shards than cores
-
-myframes <- myfiles %>%
-  # process exported files on the cluster if required
-  process_moma_data(.data2preproc=data2preproc, .scripts_path=perl_scripts_path, 
-                    .qsub_name="MMsw_pl", .force=FALSE) %>% 
-  dplyr::data_frame(path=.) %>% 
-  mutate(ppath=data2preproc(path)) %>% 
-  # load perl scripts output to dataframes (using multidplyr)
-  # group_by(path) %>%
-  partition(path, cluster=mycluster[1:nc] %>%
-              cluster_assign_func(load_moma_processed, parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
+# load perl scripts output to dataframes (using parallel dplyr)
+nc <- min(nrow(myfiles), length(mycluster)) # this is a dirty hack because multidplyr crashes with less shards than cores
+myframes <- myfiles %>% 
+  # process exported files on the cluster if required (otherwise return the list of paths)
+  ungroup %>% 
+  mutate(ppath=process_moma_data(path, .data2preproc=data2preproc, 
+                                 .scripts_path=perl_scripts_path, .qsub_name="MMex_pl", .force=FALSE) ) %>% 
+  # load perl scripts output to dataframes (in parallel, using multidplyr)
+  partition(condition, path, cluster=mycluster[1:nc] %>%
+              cluster_assign_func(parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
               cluster_assign_obj(dt, dl, vertical_cutoff)) %>%
+  # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
-    load_moma_processed(.df$ppath) %>% 
+    parse_frames_stats(.df$ppath) %>% 
       mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
              discard_start=(time_sec < 2*3600)) %>%
       # remove frames after touching the exit
       group_by(id) %>%
       mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
       mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
-      mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type
+      mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type to exit for cells which have touched the vertical cutoff
       # remove daughters of cells that touched the exit
       ungroup %>%
       mutate(discard_top=which_to_progeny(discard_top, cid))
   })(.)) %>%
   collect() %>% 
-  arrange(date, pos, gl, id, frame) %>%  # sort data after `partition()`
-  group_by(date, pos, gl, id) %>%
-  mutate(start_time=first(time_sec), end_time=last(time_sec),
-         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane))) %>% 
-  #   filter(discard_top==FALSE) %>%
+  # append useful variables (per row)
   ungroup %>% 
-  mutate(condition=date_cond[as.character(date)],
-         vertical_center=(vertical_bottom + vertical_top)/2,
+  extract(path, c("date", "pos", "gl"), ".*(\\d{8})_.*pos(\\d+).*_GL(\\d+).*", remove=FALSE, convert=TRUE) %>%
+  # mutate_at(vars(date, pos, gl), factor) %>% # convert to factors (ad libidum)
+  mutate(cell=paste(date, pos, gl, id, sep='.'),
          gl_id=paste(date, pos, gl, sep='.'),
-         cell=paste(gl_id, id, sep='.')) %>% 
+         vertical_center=(vertical_bottom + vertical_top)/2) %>% 
   # propagate medium info
   group_by(condition) %>% 
   do((function(.df){
     .ts <- filter(condition_ts, condition==unique(.df$condition))
     .idx <- find_unique_interval(.df$time_sec, .ts$t_start, .ts$t_end)
     mutate(.df, medium=.ts$medium[.idx], m_start=.ts$t_start[.idx], m_end=.ts$t_end[.idx], m_cycle=.ts$m_cycle[.idx])
-  })(.))  
+  })(.)) %>% 
+  # sort and append useful variables (per cell)
+  arrange(date, pos, gl, id, frame) %>%  # sort data after `partition()`
+  group_by(date, pos, gl, id) %>%
+  mutate(start_time=first(time_sec), end_time=last(time_sec),
+         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)))
 
 
 
