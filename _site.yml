@@ -1,6 +1,6 @@
 output_dir: "html"
 exclude: ["*"]
-include: ["material/*.png"]
+include: []
 
 output:
   html_document:

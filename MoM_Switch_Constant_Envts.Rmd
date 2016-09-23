@@ -536,3 +536,41 @@ mysubpairs_constant %>%
 
 ```
 
+
+## Fluo in lactose
+
+Plot an example of GFP traces:
+
+```{r}
+filter(myframes, date=='20150624', pos==0, gl==4) %>% 
+  filter(!discard_top, !discard_start, b_rank<4) %>% 
+  mutate(time_sec=time_sec-2*3600) %>% 
+  plot_faceted_var_tracks(.var_col='gfp_nb', .col='darkgreen') +
+  scale_x_hours(4) +
+  scale_y_continuous(breaks=c(0, 5000, 10000)) +
+  expand_limits(y=0) +
+  labs(y='total GFP per cell (molecules)') +
+  theme(strip.background = element_blank(), strip.text = element_blank())
+# ggsave('plots/asc_lac_gfp_time.pdf', width=4, height=3.5)
+
+filter(myframes, date=='20150624', pos==0, gl==4) %>% 
+  filter(!discard_top, !discard_start, b_rank<4) %>% 
+  mutate(time_sec=time_sec-2*3600) %>% 
+  plot_faceted_var_tracks(.var_col='gfp_nb', .log=TRUE, .col='darkgreen') +
+  scale_x_hours(4) +
+  scale_y_continuous(trans='log', breaks=c(3000, 6000, 12000)) +
+  labs(y='total GFP per cell (molecules)') +
+  theme(strip.background = element_blank(), strip.text = element_blank())
+# ggsave('plots/asc_lac_loggfp_time.pdf', width=8, height=5)
+
+filter(myframes, date=='20150624', pos==0, gl==4) %>% 
+  filter(!discard_top, !discard_start, b_rank<4) %>% 
+  mutate(time_sec=time_sec-2*3600) %>% 
+  plot_faceted_var_tracks(.var_col='length_um', .log=TRUE, .col='gray15') +
+  scale_x_hours(4) +
+  scale_y_continuous(trans='log2') +
+  labs(y='cell length (µm)') +
+  theme(strip.background = element_blank(), strip.text = element_blank())
+# ggsave('plots/asc_lac_length_time.pdf', width=4, height=3.5)
+
+```

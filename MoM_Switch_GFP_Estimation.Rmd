@@ -217,9 +217,9 @@ bleaching_fits <- myframes %>%
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
   # # ungroup %>% filter(gl_id %in% nth(unique(gl_id), 11)) %>% # workaround a dplyr 0.5 bug
   # ungroup %>% filter(gl_id %in% (unique(gl_id)[[11]]) ) %>%
-  # group_by(date, pos, gl, id) %>% 
-  partition(date, pos, gl, id,
-            cluster=mycluster %>% cluster_assign_func(autofluo_predict)) %>%
+  group_by(date, pos, gl, id) %>%
+  # partition(date, pos, gl, id,
+  #           cluster=mycluster %>% cluster_assign_func(autofluo_predict)) %>%
   filter(m_cycle==first(m_cycle)) %>% # discard cells spanning several switches
   filter(mean(fluogfp_amplitude) > mean(autofluo_predict(length_um))) %>% # discard cells with fluo lower than avg autofluo
   mutate(npoints=sum(fluogfp_amplitude>0)) %>%
@@ -289,13 +289,17 @@ p_decayfit_exp <- ggplot(filter(bleaching_fits, exp_slope<1e-4), aes(fluogfp_amp
 
 ```
 
-We compute the average decay by taking the slope errors into account:
+Although, it is appealing to take the slope errors into account in order to compute the average decay, this corresponds to a model in which each cell has the same true decay rate and errors are domintaed by experimental measurements; this is clearly not the case here (because the error bars are much smaller than the spread of the slopes distribution). Hence, we rather use a model in which the variance is dominated by the variance of the gaussian from which the slopes are drawn (hence assuming than the variance accounting for the measurement errors in each cell is small relative to this).
 
 ```{r}
 bleaching_rate <- bleaching_fits %>%
   ungroup %>%
-  summarise(mean=-sqrt( sum(exp_slope^2/exp_slope.sd^2) / sum(1/exp_slope.sd^2) ), 
-            sd=1 / sqrt(sum(1/exp_slope.sd^2)))
+  # summarise(mean=-sqrt( sum(exp_slope^2/exp_slope.sd^2) / sum(1/exp_slope.sd^2) ), 
+  #           sd=1 / sqrt(sum(1/exp_slope.sd^2)))
+  summarise(mean=mean(exp_slope),
+            sd=sqrt(var(exp_slope)/n()),
+            mean_weighted=sum(exp_slope/exp_slope.sd^2) / sum(1/exp_slope.sd^2), 
+            sd_weighted=1 / sqrt(sum(1/exp_slope.sd^2)) )
 
 ggplot(data = bleaching_fits) +
   geom_histogram(aes(exp_slope), fill='gray35') +
