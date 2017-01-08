@@ -19,24 +19,6 @@ myframes <- myframes %>%
   # convert to gfp units (after subtracting autofluorescence)
   mutate(gfp_nb = fluogfp_amplitude * fp_per_dn)
 
-## low illumination experiments
-lac_fluoampl_birth <- myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% 'lactose' ) %>% 
-  filter(time_sec==start_time) %>% 
-  .[['fluo_amplitude']] %>% mean
-
-laclowillum_fluoampl_birth <- myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% 'lactose_lowillum') %>% 
-  filter(!(date=='20160427' & time_sec>7e4)) %>%  # remove dilution step at the end of expt
-  filter(time_sec==start_time) %>% 
-  group_by(date) %>% 
-  summarise(fluo_amplitude_conv=mean(fluo_amplitude)/lac_fluoampl_birth)
-
-myframes <- myframes %>% left_join(laclowillum_fluoampl_birth) %>% 
-    mutate(fluogfp_amplitude = ifelse(is.na(fluo_amplitude_conv),  fluogfp_amplitude,
-                                      (fluo_amplitude - autofluo_predict(length_um)*fluo_amplitude_conv) / fluo_amplitude_conv ),
-           gfp_nb = fluogfp_amplitude * fp_per_dn)
-
 ```
 
 
@@ -192,14 +174,15 @@ Let's first look at fluorescence decay for cells in a given lane. The slopes are
 # te <- filter(condition_ts, condition=='switch_04h', medium=='glucose')$t_end
 
 p_decayGFP_lin <- myframes %>% 
-  filter(!discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
+  filter(!discard_start, !discard_top, end_type=='div') %>% 
+  # filter(condition=='switch_04h') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
   # ungroup %>% filter(gl_id %in% nth(unique(gl_id), 11)) %>% # workaround a dplyr 0.5 bug
   ungroup %>% filter(gl_id %in% (unique(gl_id)[[11]]) ) %>%
   group_by(date, pos, gl, id) %>% 
   filter(m_cycle==first(m_cycle)) %>% # discard cells spanning several switches
   filter(mean(fluogfp_amplitude) > mean(autofluo_predict(length_um))) %>% # discard cells with fluo lower than avg autofluo
-  filter(n() > 10) %>% # discard cells with less than 3 points
+  filter(n() > 10) %>% # discard cells with less than 10 points
   mutate(time_sec_ini=first(time_sec)) %>% 
   ggplot(aes(time_sec-time_sec_ini, fluogfp_amplitude, col=cell)) +
   geom_path(alpha=0.6) +
@@ -207,19 +190,21 @@ p_decayGFP_lin <- myframes %>%
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours(0.5, name='time after switch / birth (h)') +
   labs(y='GFP level (AU)') +
+  scale_y_log10() +
   theme_classic()
   
 p_decayGFP_exp <- p_decayGFP_lin +
   scale_y_continuous(trans='log10', breaks=c(5e3, 1e4, 2e4, 4e4))
 
 bleaching_fits <- myframes %>% 
-  filter(!discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
+  filter(!discard_start, !discard_top, end_type=='div') %>% 
+  # filter(condition=='switch_04h') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
   # # ungroup %>% filter(gl_id %in% nth(unique(gl_id), 11)) %>% # workaround a dplyr 0.5 bug
   # ungroup %>% filter(gl_id %in% (unique(gl_id)[[11]]) ) %>%
-  group_by(date, pos, gl, id) %>%
-  # partition(date, pos, gl, id,
-  #           cluster=mycluster %>% cluster_assign_func(autofluo_predict)) %>%
+  # group_by(condition, date, pos, gl, id) %>%
+  partition(condition, date, pos, gl, id,
+            cluster=mycluster %>% cluster_assign_func(autofluo_predict)) %>%
   filter(m_cycle==first(m_cycle)) %>% # discard cells spanning several switches
   filter(mean(fluogfp_amplitude) > mean(autofluo_predict(length_um))) %>% # discard cells with fluo lower than avg autofluo
   mutate(npoints=sum(fluogfp_amplitude>0)) %>%
@@ -244,11 +229,24 @@ We fit the decay (accounting for the cell autofluorescence) for each cell observ
 
 ```{r}
 p_decayfit_r2_ecdf <- ggplot(data = bleaching_fits) +
+  facet_grid(condition~., margins=TRUE) +
   stat_ecdf(aes(r2, col='linear')) +
   stat_ecdf(aes(exp_r2, col='exponential')) +
   xlim(0, 1) +
   labs(col='fit', x='Pearson correlation decay fit', y='fraction cell cycles') +
-  theme_classic() + theme(legend.position=c(0.2, 0.85))
+  theme_classic() + 
+  theme(legend.justification=c(0,1), legend.position=c(0, 1))
+
+
+bleaching_fits %>% 
+  gather(variable, value, r2, exp_r2) %>% 
+  ggplot() +
+  facet_grid(condition~variable, margins='condition') +
+  geom_point(aes(fluogfp_amplitude_ini, value, col=variable), alpha=0.2, size=1) +
+  # xlim(0, 1) +
+  labs(col='fit', y='Pearson correlation decay fit') +
+  theme_classic() # + theme(legend.position=c(0.2, 0.85))
+
 
 # .bw <- .1
 # ggplot(data = filter(bleaching_fits, r2>.8)) +
@@ -256,23 +254,69 @@ p_decayfit_r2_ecdf <- ggplot(data = bleaching_fits) +
 #   geom_step_hist(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'), binwidth=.bw)
 
 ggplot(data = filter(bleaching_fits, r2>.8)) +
+  facet_grid(condition~., margins=TRUE) +
   stat_ecdf(aes(slope/mean(slope), col='lin')) +
-  stat_ecdf(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp'))
+  stat_ecdf(aes(exp_slope/mean(exp_slope, na.rm=T), col='exp')) +
+  scale_x_continuous(trans='log2', limits=c(0.5, 2))
 
 ```
+
+```{r eval=FALSE}
+# estimation of GFP measurement errors from decay fits
+bleaching_fits %>% 
+  filter(exp_r2 > 0.8, condition !='switch_iptg') %>% 
+  left_join(myframes) %>% 
+  group_by(date, pos, gl, id) %>% 
+  filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
+  mutate(time_sec_ini=first(time_sec),
+         fluogfp_predict=mod_exp %>% first %>% predict %>% exp) %>% 
+  filter(fluogfp_predict<5e4) %>% 
+  # ungroup %>% sample_n(2000) %>%
+  ggplot(aes(fluogfp_predict, ((fluogfp_amplitude-fluogfp_predict)/fluogfp_predict) %>% abs)) +
+  # geom_point(size=.1, alpha=.2) +
+  # stat_summary(aes(mycut(1/fluogfp_predict, seq(0, 2e-3, by=2e-5))), 
+  stat_summary(aes(mycut(fluogfp_predict, seq(0, 1e5, by=1e3))),
+               fun.data=mean_se, geom='pointrange', col='red') +
+  labs(x='GFP level (AU)') + expand_limits(y=0)
+
+bleaching_fits %>% 
+  filter(exp_r2 > 0.8, condition !='switch_iptg') %>% 
+  left_join(myframes) %>% 
+  filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
+  group_by(date, pos, gl, id) %>% 
+  mutate(time_sec_ini=first(time_sec)) %>% 
+  mutate(fluogfp_predict=mod_exp %>% first %>% predict %>% exp,
+         fluogfp_rel_err=(fluogfp_amplitude-fluogfp_predict)/fluogfp_predict) %>% 
+  ungroup %>% 
+  mutate(fluogfp_class=Hmisc::cut2(fluogfp_predict, seq(min(fluogfp_predict), max(fluogfp_predict), by=1000)) ) %>% 
+  group_by(fluogfp_class) %>% 
+  summarise(mean=mean(fluogfp_amplitude), sd=sd(fluogfp_amplitude), var=var(fluogfp_amplitude), cov=sd/mean, n=n()) %>% 
+  ungroup %>% filter(mean<5e4) %>% 
+  # ggplot(aes(1/mean, cov)) +
+  ggplot(aes(mean, var)) +
+  # geom_point() +
+  geom_line(aes(alpha=n)) +
+  scale_alpha_continuous(limits=c(10, NA), na.value=0) +
+  labs(x='GFP level (AU)', alpha='sample size') +
+  expand_limits(y=0)
+
+```
+
 
 This can be explained by the fact that each cell spans a relatively narrow range of fluorescence (where linear and exponential decay are comparable) during its cell cycle. Hence the quality of the fit is dominated by experimental errors rather than by the overall shape. Moreover the broader distribution of slopes with the linear model can be explained by the fact that the slope scales with the total fluorescence in the linear model while the decay rate doesn't.
 
 ```{r}
 p_decayfit_lin <- ggplot(bleaching_fits, aes(fluogfp_amplitude_ini, slope)) +
-    geom_errorbar(aes(ymin=slope-slope.sd/sqrt(npoints), ymax=slope+slope.sd/sqrt(npoints)), col=brewer_cols[1], alpha=.2, size=.2) +
+  facet_grid(condition~., margins=TRUE) +
+  geom_errorbar(aes(ymin=slope-slope.sd/sqrt(npoints), ymax=slope+slope.sd/sqrt(npoints)), col=brewer_cols[1], alpha=.2, size=.2) +
   geom_point(col=brewer_cols[1], alpha=.2, size=1) + 
   geom_line(stat='smooth', method='lm', se=FALSE, col='black', alpha=.5) +
   labs(x='GFP level at birth (AU)', y='decay slope (linear fit)') +
   theme_classic()
 
 p_decayfit_exp <- ggplot(filter(bleaching_fits, exp_slope<1e-4), aes(fluogfp_amplitude_ini, exp_slope)) +
-    geom_errorbar(aes(ymin=exp_slope-exp_slope.sd/sqrt(npoints), ymax=exp_slope+exp_slope.sd/sqrt(npoints)), col=brewer_cols[2], alpha=.2, size=.2) +
+  facet_grid(condition~., margins=TRUE) +
+  geom_errorbar(aes(ymin=exp_slope-exp_slope.sd/sqrt(npoints), ymax=exp_slope+exp_slope.sd/sqrt(npoints)), col=brewer_cols[2], alpha=.2, size=.2) +
   geom_point(col=brewer_cols[2], alpha=.2, size=1) + 
   stat_smooth(method='lm', se=FALSE, geom='line', col='black', alpha=.5) + # , aes(weight=(exp_slope.sd/sqrt(npoints))^(-2))
   scale_y_continuous(labels = comma) +
@@ -614,66 +658,4 @@ myframes %>%
 
 ```
 
-
-## Case of low illumination
-
-The variable `gfp_nb` must be corrected to account for the lower illumination.
-
-Before:
-
-```{r}
-myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% 'lactose_lowillum') %>% 
-  filter(!(date=='20160427' & time_sec>7e4)) %>% 
-  ggplot(aes(time_sec, fluo_amplitude)) +
-  geom_path(aes(col=factor(date), group=cell))
-
-myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% c('lactose', 'lactose_lowillum') ) %>% 
-  filter(!(date=='20160427' & time_sec>7e4)) %>% 
-  filter(time_sec==start_time) %>% 
-  group_by(date) %>% 
-  mutate(fluo_amplitude_norm=fluo_amplitude/mean(fluo_amplitude),
-         fluo_amplitude_z=(fluo_amplitude-mean(fluo_amplitude))/sd(fluo_amplitude)) %>% 
-  ggplot(aes(fluo_amplitude_norm, ..density..)) +
-  geom_step_hist(aes(col=factor(date)), position='identity') +
-  scale_y_log10()
-
-
-```
-
-```{r}
-## fix the gfp_nb variable
-# fluo_amplitude is kept untouched
-lac_fluoampl_birth <- myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% 'lactose' ) %>% 
-  filter(time_sec==start_time) %>% 
-  .[['fluo_amplitude']] %>% mean
-
-laclowillum_fluoampl_birth <- myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% 'lactose_lowillum') %>% 
-  filter(!(date=='20160427' & time_sec>7e4)) %>%  # remove dilution step at the end of expt
-  filter(time_sec==start_time) %>% 
-  group_by(date) %>% 
-  summarise(fluo_amplitude_conv=mean(fluo_amplitude)/lac_fluoampl_birth)
-
-myframes <- myframes %>% left_join(laclowillum_fluoampl_birth) %>% 
-    mutate(fluogfp_amplitude = ifelse(is.na(fluo_amplitude_conv),  fluogfp_amplitude,
-                                      (fluo_amplitude - autofluo_predict(length_um)*fluo_amplitude_conv) / fluo_amplitude_conv ),
-           gfp_nb = fluogfp_amplitude * fp_per_dn)
-
-```
-
-After:
-
-```{r}
-myframes %>% 
-  filter(!discard_top, !discard_start, condition %in% c('lactose', 'lactose_lowillum') ) %>% 
-  filter(!(date=='20160427' & time_sec>7e4)) %>% 
-  filter(time_sec==start_time) %>% 
-  ggplot(aes(gfp_nb, ..density..)) +
-  geom_step_hist(aes(col=factor(date)), position='identity') +
-  scale_y_log10()
-
-```
 

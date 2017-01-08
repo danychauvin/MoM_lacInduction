@@ -4,35 +4,11 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
-## Growth in constant environments
-
-```{r}
-myframes <- myframes %>% 
-  # group_by(date, pos, gl, id) %>% 
-  partition(date, pos, gl, id, cluster=mycluster) %>%
-  do((function(.df){
-    .n <- dim(.df)[1]
-    .cell_cycle <- NA
-    if (!any(.df$discard_start) && unique(.df$end_type)=='div')
-      .cell_cycle <- ((1:.n)-.5) / .n
-    .logl <- NA
-    if (unique(.df$condition) %in% c('glucose', 'lactose', 'lactose_lowillum')  &&  .n > 4) {
-      .mod_ll_t <- lm( log(length_um)~time_sec, .df)  # use lm() for predict with se
-      .pred_ll <- predict(.mod_ll_t, se.fit=TRUE)
-      .logl <- .pred_ll$fit
-    }
-    mutate(.df, cell_cycle=.cell_cycle, length_predict=exp(.logl),
-          gfp_deriv=(gfp_nb-lag(gfp_nb))/(time_sec-lag(time_sec)))
-  })(.)) %>% 
-  collect()
-
-```
-
 
 Let's compute stats over the cell cycle for each cell.
 
 ```{r}
-mycells <- filter(myframes, condition %in% c('glucose', 'lactose', 'lactose_lowillum'), !discard_top) %>%
+mycells_constant <- filter(myframes, condition %in% c('glucose', 'lactose'), !discard_top) %>%
   filter(!(date=='20160427' & time_sec>7e4)) %>%  # remove dilution step at the end of expt
   # group_by(condition, date, pos, gl, id, cell, parent_id, genealogy) %>%
   partition(condition, date, pos, gl, id, cell, parent_id, genealogy, cluster=mycluster) %>%
@@ -74,6 +50,76 @@ mycells <- filter(myframes, condition %in% c('glucose', 'lactose', 'lactose_lowi
   arrange(condition, date, pos, gl, id) %>% 
   mutate(gl_id=gsub('\\.[0-9]+$', '', cell))
 
+myframes_constant <- semi_join(myframes, mycells_constant) %>% 
+  # group_by(date, pos, gl, id) %>% 
+  partition(date, pos, gl, id, cluster=mycluster) %>%
+  do((function(.df){
+    .n <- dim(.df)[1]
+      .cell_cycle <- ((1:.n)-.5) / .n
+      .mod_ll_t <- lm( log(length_um)~time_sec, .df)  # use lm() for predict with se
+      .pred_ll <- predict(.mod_ll_t, se.fit=TRUE)
+      .logl <- .pred_ll$fit
+    mutate(.df, cell_cycle=.cell_cycle, length_predict=exp(.logl))
+  })(.)) %>% 
+  collect()
+
+```
+
+
+```{r}
+mycells_constant <- mycells_constant %>% 
+  mutate(alpha=logl_time_slope, dt=log(2)/alpha, 
+         l_birth=exp(loglength_start), l_div=exp(loglength_end),
+         c_birth=g_first/l_birth, c_div=g_last/l_div)
+
+mypairs_constant <- mycells_constant %>% 
+  # group_by(str_cond, gl_id) %>%
+  partition(condition, date, gl_id, 
+            cluster=mycluster %>% cluster_assign_func(genealogy_relationship, genealogy_ontology) ) %>% 
+  do((function(.df) {
+    # browser()
+    if (nrow(.df)<2) 
+      return(data.frame())
+    return( combn(.df$genealogy, 2, simplify=FALSE) %>% 
+      lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>% 
+      do.call(rbind, .) )
+  })(.)) %>% 
+  collect() %>% 
+  left_join(mycells_constant %>% ungroup %>% 
+              select(gl_id, genealogy, alpha, dt, l_birth, l_div, c_birth, c_div) %>%
+              rename(genealogy_1=genealogy) %>% 
+              gather(variable, value_1, -gl_id, -genealogy_1) ) %>% 
+  left_join(mycells_constant %>% ungroup %>% 
+              select(gl_id, genealogy, alpha, dt, l_birth, l_div, c_birth, c_div) %>%
+              rename(genealogy_2=genealogy) %>% 
+              gather(variable, value_2, -gl_id, -genealogy_2) ) %>% 
+  mutate(variable=factor(variable, levels=unique(variable)),
+         rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece")))
+
+# ggplot(mycellpairs %>% ungroup %>% sample_n(1e5), aes(value_1, value_2, col=factor(rel))) +
+#   facet_wrap(~str_cond+variable, scales='free') +
+#   geom_point(alpha=.5, size=.5) +
+#   expand_limits(x=0, y=0)
+
+mypairs_constant %>% 
+group_by(condition, variable, div_min, div_max) %>% 
+  summarise(r2=cor(value_1,  value_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  mutate(rel=(Vectorize(genealogy_ontology))(div_min, div_max)) %>% 
+  (function(.df) ggplot(.df, aes(div_min, div_max)) +
+     facet_grid(condition~variable) +
+     geom_tile(aes(fill=r2), stat='identity', show.legend=FALSE) +
+     geom_text(aes(label=sprintf("%s\nr2 = %.3f", rel, r2)), size=2) +
+     geom_text(aes(y=div_max-.4, label=sprintf("(n = %d)", n)), size=1.5) +
+     # scale_fill_gradient(high=plotwidgets::modCol('red', darken=-.3), low=plotwidgets::modCol('blue', darken=-.3)) +
+     scale_fill_distiller(palette="Spectral", direction=-1) +
+     scale_x_continuous(breaks=0:10, expand=c(0,0)) + scale_y_continuous(trans="reverse", breaks=0:10, expand=c(0,0)) +
+     expand_limits(fill=0) + coord_fixed() +
+     labs(x='divs since common ancestor (cell 1)', y='div since common ancestor (cell 2)')
+  )
+
+last_plot() +
+  scale_fill_distiller(palette="Spectral", limits=c(0, .5), direction=-1, na.value="grey95")
+# ggsave('Rplot.pdf', width=10, height=8)
 
 ```
 
@@ -87,8 +133,8 @@ myrates <- semi_join(myframes, mycells, by='cell') %>%  # keep only full cells i
   # loop on all cells
   # group_by(condition, date, pos, gl, id, cell) %>%
   partition(condition, date, pos, gl, id, cell,
-            cluster=mycluster %>% cluster_assign_obj(dt) %>% cluster_assign_obj(rate_hw) %>%
-              cluster_assign_func(get_parent_cid) %>% cluster_assign_func(get_daughters_cid)) %>%
+            cluster=mycluster %>% cluster_assign_obj(dt) %>% cluster_assign_obj(rate_hw)) %>%
+              # cluster_assign_func(get_parent_cid) %>% cluster_assign_func(get_daughters_cid)) %>%
   do( (function(.dfc){
     .dfc %>% 
       group_by(time_sec) %>% 
@@ -118,6 +164,8 @@ myrates <- myrates %>%
 
 ```
 
+
+## Growth in constant environments
 
 ### Cell elongation dynamics over the experiment
 
@@ -169,8 +217,9 @@ ggplot(filter(myframes, condition %in% c('glucose', 'lactose'), !discard_top),
 
 
 ```{r}
-# table(mycells %>% filter(condition %in% c('glucose', 'lactose'))$Rsize_vs_time^2>.95)
-mycells %>% filter(condition %in% c('glucose', 'lactose'), logl_time_r2>.95) %>% 
+# mycells_constant %>% filter(condition %in% c('glucose', 'lactose')) %>% with(logl_time_r2>.95) %>% table
+mycells_constant %>% 
+  # filter(logl_time_r2>.95) %>% 
   ( function(.df)
     ggplot(.df, aes(time_div - 2*3600, log(2)/logl_time_slope / 60, col=condition)) +
       geom_point(alpha=0.2, size=1) +
@@ -189,16 +238,33 @@ mycells %>% filter(condition %in% c('glucose', 'lactose'), logl_time_r2>.95) %>%
 Let's look at the distribution of doubling times.
 
 ```{r}
-ggplot(mycells %>% filter(condition %in% c('glucose', 'lactose')), 
-       # %>% filter(Rsize_vs_time^2>.98),
-       aes(log(2)/logl_time_slope / 60)) +
+mycells_constant %>% 
+  filter(logl_time_r2>.98) %>%
+  ggplot(aes(log(2)/logl_time_slope / 60)) +
   stat_bin(aes(y=..density.., fill=condition), geom='bar', position='identity', col='transparent', alpha=.2) + 
   geom_step_hist(aes(y=..density.., col=condition), position='identity') +
-    # stat_ecdf() +
+  # stat_ecdf() +
   xlim(0, 300) +
   labs(x='doubling time (min)') +
   theme(legend.justification=c(1, 1), legend.position=c(1, 1))
 # ggsave('plots/asc_dt.pdf', width=3.5, height=3.5)
+
+mycells_constant %>% 
+  filter(logl_time_r2>.98) %>%
+  ggplot(aes(logl_time_slope*3600)) +
+  stat_bin(aes(y=..density.., fill=condition), geom='bar', position='identity', col='transparent', alpha=.2, binwidth=2e-2) + 
+  geom_step_hist(aes(y=..density.., col=condition), position='identity', binwidth=2e-2) +
+  expand_limits(x=0) +
+  # labs(x='doubling time (min)') +
+  theme(legend.justification=c(1, 1), legend.position=c(1, 1))
+
+mycells_constant %>% 
+  # filter(logl_time_r2>.98) %>% 
+  group_by(condition) %>% 
+  # summarise(n=n(), m=mean(logl_time_r2), s=sd(logl_time_r2), cv=s/m)
+  summarise(n=n(), m=mean(logl_time_slope), s=sd(logl_time_slope), cv=s/m)
+
+
 
 ```
 
@@ -384,11 +450,32 @@ mycells %>%
 
 ### Growth rate inheritance 
 
+```{r}
+mypairs_constant %>% 
+  filter(variable %in% c('alpha', 'dt')) %>% 
+  group_by(condition, variable, div_min, div_max) %>% 
+  summarise(r2=cor(value_1,  value_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  mutate(rel=(Vectorize(genealogy_ontology))(div_min, div_max)) %>% 
+  (function(.df) ggplot(.df, aes(div_min, div_max)) +
+     facet_grid(condition~variable) +
+     geom_tile(aes(fill=r2), stat='identity', show.legend=FALSE) +
+     geom_text(aes(label=sprintf("%s\nr2 = %.3f", rel, r2)), size=2) +
+     geom_text(aes(y=div_max-.4, label=sprintf("(n = %d)", n)), size=1.5) +
+     # scale_fill_gradient(high=plotwidgets::modCol('red', darken=-.3), low=plotwidgets::modCol('blue', darken=-.3)) +
+     scale_fill_distiller(palette="Spectral", direction=-1) +
+     scale_x_continuous(breaks=0:10, expand=c(0,0)) + scale_y_continuous(trans="reverse", breaks=0:10, expand=c(0,0)) +
+     expand_limits(fill=0) + coord_fixed() +
+     labs(x='divs since common ancestor (cell 1)', y='div since common ancestor (cell 2)')
+  )
+```
+
+
+
 Is there a genealogical signal on growth rate in constant environment?
-NB: Growth rate is show in doubling time units…
+NB: Growth rate is shown in doubling time units…
 
 ```{r}
-mypairs_constant <- mycells %>% filter(condition %in% c('glucose', 'lactose')) %>% 
+mypairs_constant <- mycells_constant %>% 
   # group_by(gl_id) %>% 
   partition(gl_id, cluster=mycluster %>% cluster_assign_func(genealogy_relationship) %>% cluster_assign_func(genealogy_ontology)) %>% 
   do((function(.df) {
@@ -401,9 +488,9 @@ mypairs_constant <- mycells %>% filter(condition %in% c('glucose', 'lactose')) %
   })(.)) %>% 
   collect() %>% 
   # mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>% 
-  left_join(mycells %>% ungroup %>% 
+  left_join(mycells_constant %>% ungroup %>% 
               setNames(., paste(names(.), "1", sep="_")) %>% rename(gl_id=gl_id_1) ) %>% 
-  left_join(mycells %>% ungroup %>% 
+  left_join(mycells_constant %>% ungroup %>% 
               setNames(., paste(names(.), "2", sep="_")) %>% rename(gl_id=gl_id_2) ) %>% 
   # compute "ordered" doubling times
   group_by(div_min, div_max) %>% 
@@ -574,3 +661,24 @@ filter(myframes, date=='20150624', pos==0, gl==4) %>%
 # ggsave('plots/asc_lac_length_time.pdf', width=4, height=3.5)
 
 ```
+
+
+### Heritability
+
+```{r}
+
+mypairs_constant %>% 
+  filter(div_min==div_max) %>% 
+  group_by(condition, variable, rel) %>% 
+  summarise(r2=cor(value_1,  value_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  ggplot(aes(variable, r2)) +
+  facet_wrap(~condition) +
+  geom_bar(aes(fill=rel), stat='identity', pos='dodge') +
+  geom_text(aes(y=1, label=sprintf("(n = %d)", n), group=rel), 
+            angle=90, hjust=1, pos=position_dodge(width=0.8)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1),
+        legend.position='top')
+ggsave('Rplot.pdf', width=7, height=5)
+
+```
+

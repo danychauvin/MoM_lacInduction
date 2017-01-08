@@ -21,44 +21,61 @@ data2preproc <- function(.f)
   file.path(data2preproc_dir(.f), data2preproc_file(.f))
   
 # # local paths
-# proj_path <- "~/Downloads/january/MoM_Switch"
-# r_scripts_path <- c("~/Downloads/january/vngWetLabR/mother_machine",
-#                   "~/Downloads/january/vngWetLabR/ggplot")
-# perl_scripts_path <- "~/Downloads/january/vngWetLabR/mother_machine"
+# proj_path <- "~/Downloads/thursday/MoM_Switch/"
+# r_scripts_path <- c("/Users/julou/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
+#                     "/Users/julou/Documents/Biozentrum/Projects/vngWetLabR/ggplot")
 
 
 # EXPERIMENTAL CONDITIONS AND DATA PATHS
 myconditions <- list(
   list(condition='mg1655', duration=c(720, 720), medium=c('glucose', 'lactose'),
-       paths=c("./data_matthias/MG1655_glu_lac")),
+       paths=c("./data_MoM_ms/MG1655_glu_lac")),
   list(condition='glucose', duration=1560, medium='glucose',
-       paths=c("./data_copy/20150616", "./data_copy/20150617")),
+       paths=c("./data_MoM_ms/glucose")),
   list(condition='lactose', duration=1560, medium='lactose',
-       paths=c("./data_copy/20150624", "./data_copy/20150630")),
-  list(condition='lactose_lowillum', duration=1560, medium='lactose',
-       paths=c("./data_copy/20160318", "./data_copy/20160427")),
+       paths=c("./data_MoM_ms/lactose")),
+  # list(condition='lactose_lowillum', duration=1560, medium='lactose',
+  #      paths=c("./data_copy/20160318", "./data_copy/20160427")),
+  list(condition='switch_long_lac',
+       duration=c(360, 1800),
+       medium=c('glucose', 'lactose'),
+       paths=c("./data_thomas/20161104/20161104_curated")),
+  list(condition='switch_lac_withIPTG1uM',
+       duration=c(360, 240),
+       medium=c('glucose+IPTG', 'lactose+IPTG'),
+       paths=c("./data_thomas/20161130/20161130_switch_IPTG1uM_curated")),
+  list(condition='switch_lac_withIPTG5uM',
+       duration=c(360, 240),
+       medium=c('glucose+IPTG', 'lactose+IPTG'),
+       paths=c("./data_thomas/20161207/20161207_curated")),
   list(condition='switch_04h',
        duration=c(360, 240, 240, 240, 240, 240),
        medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-       paths=c("./data_copy/20150703", "./data_copy/20150708")),
+       paths=c("./data_MoM_ms/glu_lac_switch")),
   list(condition='switch_06h',
        duration=c(360, 240, 360, 240, 360, 240), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-       paths=c("./data_copy/20151204")),
+       paths=c("./data_thomas/20151204/20151204_switch6h_curated")),
   list(condition='switch_08h', 
        duration=c(360, 240, 480, 240, 480, 240), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
-       paths=c("./data_copy/20151218")),
+       paths=c("./data_thomas/20151218/20151218_switch8h_curated")),
   list(condition='switch_12h', duration=c(240, 240, 720, 360), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose'),
-       paths=c("./data_copy/20160526")),
+       paths=c("./data_thomas/20160526/20160526_curated")),
+  list(condition='switch_16h', duration=c(360, 240, 960, 360), 
+       medium=c('glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_thomas/20160912/20160912_curated")),
+  list(condition='switch_24h', duration=c(360, 240, 1440, 360), 
+       medium=c('glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_thomas/20161007/20161007_curated")),
   list(condition='switch_iptg', duration=c(360, 240, 240, 240, 240, 240),
        medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
-       paths=c("./data_copy/20151207")),
-  list(condition='switch_m9',
-       duration=c(360, 120, 360, 720, 360, 240), 
-       medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
-       paths=c("./data_copy/20151221")) 
+       paths=c("./data_thomas/20151207/20151207_switch_iptg_curated")) #,
+  # list(condition='switch_m9',
+  #      duration=c(360, 120, 360, 720, 360, 240), 
+  #      medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
+  #      paths=c("./data_thomas/20151221")) 
 )
 
 # SET ENVIRONMENT
@@ -87,7 +104,9 @@ myfiles <- myconditions %>%
   # for each path, find all files matched by the pattern .*\\d+\\.csv (e.g. *20151023.csv)
   group_by(condition, data_path) %>% 
   do((function(.df)
-    list.files(.df$data_path, ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE) %>% data.frame(path=., stringsAsFactors=FALSE) )(.))  
+    # list.files(.df$data_path, ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE) %>% 
+    find.files(.df$data_path, "ExportedCellStats_*.csv") %>% 
+      data.frame(path=., stringsAsFactors=FALSE) )(.))  
 
 # create condition_ts (describing each temporal change of each condition) from myconditions 
 condition_ts <- myconditions %>% 
@@ -128,7 +147,7 @@ myframes <- myfiles %>%
   collect() %>% 
   # append useful variables (per row)
   ungroup %>% 
-  extract(path, c("date", "pos", "gl"), ".*(\\d{8})_.*pos(\\d+).*_GL(\\d+).*", remove=FALSE, convert=TRUE) %>%
+  extract(path, c("date", "pos", "gl"), ".*(\\d{8})_.*[Pp]os(\\d+).*_GL(\\d+).*", remove=FALSE, convert=TRUE) %>%
   # mutate_at(vars(date, pos, gl), factor) %>% # convert to factors (ad libidum)
   mutate(cell=paste(date, pos, gl, id, sep='.'),
          gl_id=paste(date, pos, gl, sep='.'),
@@ -153,13 +172,14 @@ myframes <- myfiles %>%
 # in the global envt (hence inheriting existing variables and keeping the newly created ones)...
 
 # render control plots of each GC
-source('MoM_Switch_GCplots.R')
+# source('MoM_Switch_GCplots.R')
 
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 # rmarkdown::clean_site()
 
 # rmarkdown::render_site('index.Rmd')
 rmarkdown::render_site('MoM_Switch_GFP_Estimation.Rmd')
+# rmarkdown::render_site('MoM_Switch_Constant_Envts.Rmd')
 rmarkdown::render_site('MoM_Switch_Switching_Envts.Rmd')
 # rmarkdown::render_site('MoM_Switch_FCM_Comparison.Rmd')
 

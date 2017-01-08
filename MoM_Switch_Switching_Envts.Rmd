@@ -4,150 +4,158 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
-## Growth lag
+## Growth lag and fluo induction lags estimation
 
-```{r}
-gl_idx <- 13
+First, let's select the cells that undergo a switch (i.e. the first frame occured before a switch to lactose, and the last frame after (or at) the switch). We "prolonge" each cell by summing the variables (length and total GFP) of its two daughters, and discard cells for which the acquisition stopped less than 30' after the switch (10 points; it is difficult to distinguish growth from lag on shorter traces).
 
-filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>%
-  ungroup %>% filter(gl_id %in% (unique(gl_id)[[gl_idx]]) ) %>% 
-  ggplot(aes(time_sec - 2*3600, length_um, col=cell)) +
-  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=0, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
-  geom_path(alpha=0.6) +
-  scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(4) +
-  scale_y_continuous(trans='log2') +
-  labs(y='length (µm)') +
-  expand_limits(x=0, y=0)
-# ggsave('plots/asc_switch_length.pdf', width=8, height=3)
+Based on the log of the length traces, the growth lag is computed by fitting a flat lag followed by a linear increase to the subset of each trace where the length is smaller than 3 times the length at the switch (note that the cells do more than doubling because daughters' lengths are summed).
 
-# xxx average before switch
-# select cells that exist at switch and divide more than 50' after
-# normalize by avg length around the switch
+Estimating the induction lag is more cumbersome because GFP traces do not follow a general shape. We compute two lag estimates:
 
-
-```
-
-## Fluo induction
-
-Plot GFP tracks of the switch_04h condition:
-
-```{r}
-filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
-  mutate(glid=paste(date, pos, gl, sep='.')) %>% 
-  ungroup %>% filter(glid %in% (unique(glid)[[gl_idx]]) ) %>% 
-ggplot(aes(time_sec - 2*3600, gfp_nb / length_um, col=cell)) +
-  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
-  geom_path(alpha=0.6) +
-  scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(4) +
-  labs(y='fluorescence concentration (GFP molecules / µm)') +
-  expand_limits(x=0, y=0)
-# ggsave('plots/asc_switch_fluoconc.pdf', width=8, height=3)
-
-filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% 
-  mutate(glid=paste(date, pos, gl, sep='.')) %>% 
-  ungroup %>% filter(glid %in% (unique(glid)[[gl_idx]]) ) %>% 
-ggplot(aes(time_sec - 2*3600, gfp_nb , col=cell)) +
-  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), size=0.2, col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
-  geom_path(alpha=0.6) +
-  scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(4) +
-  labs(y='total fluorescence (GFP molecules)') +
-  expand_limits(x=0, y=0)
-# ggsave('plots/asc_switch_fluotot.pdf', width=8, height=3)
-
-
-filter(myframes, !discard_start, !discard_top, condition=='switch_04h', end_type=='div') %>% head(1e4) %>% 
-  ggplot(aes(time_sec - 2*3600, gfp_nb, col=cell)) +
-  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch_04h', medium=='lactose')) +
-  geom_path(alpha=0.5) +
-  scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours(5) +
-  labs(y='total fluorescence (GFP molecules)') +
-  expand_limits(x=0, y=0)
-
-
-```
-
-Distribution of induction times:
-- Plot GFP tracks selected for lag analysis
-- I checked visually that no induction happens in the first 10' after the switch (for all 3 switches)
-
+- the GFP lag is computed by fitting a flat lag followed by a linear increase to the subset of each GFP trace where it is lower than the GFP at the switch plus 1000 GFP molecules (NB: the typical value at the switch is 100 molecules while fully induced cells have ca. 4000 moecules in average).
+- the lag\_200 is computed by finding the delay until the cell increases its GFP by 200 molecules after the switch. If the GFP becomes lower than this value after this delay, then lag\_200 is undefined.
 
 ```{r fig.height=21}
 myframes_switching <- myframes %>% 
-  filter(!(condition %in% c('glucose', 'lactose', 'lactose_lowillum'))) %>% 
+  filter(!(condition %in% c('glucose', 'lactose', 'mg1655'))) %>% 
   filter(!discard_start, !discard_top) %>%
   group_by(date, pos, gl, id) %>%
+  # partition(date, pos, gl, id, cluster=mycluster) %>%
+  select(condition, date, pos, gl, id, genealogy, start_time, end_time, end_type, 
+         time_sec, medium, m_start, m_end, gfp_nb, length_um, m_cycle, cell_num_in_lane, total_cell_in_lane) %>% 
   mutate(is_lac=str_detect(medium, 'lactose') | str_detect(medium, 'lactose+IPTG'), 
-         t_lac_switch=min(m_start[is_lac])) %>% 
-  filter(!first(is_lac) & any(is_lac) & last(time_sec)>unique(t_lac_switch)+30*60) %>% 
-  mutate(nframes=n(), pre_switch=(time_sec>t_lac_switch+60 & time_sec<t_lac_switch+10*60))
+         t_lac_switch=min(m_start[is_lac]), t_lac_end=min(m_end[is_lac])) %>% 
+  filter(first(time_sec)<t_lac_switch & last(time_sec)>=unique(t_lac_switch)) %>% 
+  # prolonge traces with daughters' data
+  (function(.df) bind_rows(
+    mutate(.df, type='cell'),
+    .df %>% 
+      group_by(date, pos, gl, id) %>% slice(1L) %>% 
+      (function(.df)
+        # find the genealogy of the daughters and extract the corresponding rows from myframes
+        bind_rows(mutate(.df, join_gen=paste0(genealogy, 'B')),
+                  mutate(.df, join_gen=paste0(genealogy, 'T')) ) %>% 
+         semi_join(myframes %>% filter(!discard_top, !discard_start) %>% mutate(join_gen=genealogy),
+                   ., by=c('date', 'pos', 'gl', 'join_gen')) ) %>%
+      ungroup %>% mutate(genealogy=get_parent_cid(genealogy)) %>% 
+      select(condition, date, pos, gl, id, genealogy, 
+             time_sec, medium, m_start, m_end, gfp_nb, length_um) %>% 
+      # group by time, compute the stat of both daughters' and keep only the first row
+      # compared to summarise, this keeps all other variables
+      group_by(date, pos, gl, genealogy, time_sec) %>% 
+      mutate(gfp_nb=ifelse(n()==2, sum(gfp_nb), 2*gfp_nb), 
+             length_um=ifelse(n()==2, sum(length_um), 2*length_um), 
+             type=paste0(n(), "dg")) %>%
+      slice(1L) 
+  ) ) %>% 
+  collect() %>% 
+  # fill in missing values
+  group_by(date, pos, gl, genealogy) %>% 
+  fill(start_time, end_time, t_lac_switch, t_lac_end) %>% 
+  mutate(ugen=paste(date, pos, gl, genealogy, sep='.'),
+         pre_switch=time_sec>t_lac_switch+60 & time_sec<t_lac_switch+10*60) %>% 
+  # select data used for lag estimation
+  group_by(condition, ugen) %>% 
+  mutate(fit_lag=ifelse(
+    type!='1dg' & # discard traces after one daughter is lost (because of discontinuity)
+      tail(time_sec-t_lac_switch, 1) > (10 * dt*60) & # require at least 10 frames after the switch
+      m_start==t_lac_switch # focus on the medium after the switch
+    , TRUE, FALSE) )
 
-ggplot(data=filter(myframes_switching, T), aes(time_sec - 2*3600, gfp_nb, col=cell)) +
+# visualise the data used to estimate the lags
+myframes_switching %>% 
+  filter(fit_lag) %>% 
+  ggplot(aes(time_sec - 2*3600, gfp_nb, col=ugen, alpha=type)) +
   # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
   facet_wrap(~condition, ncol=1) +
-  geom_path(alpha=0.5) + # geom_point() +
+  geom_path() + # geom_point() +
   scale_colour_periodic_brewer(guide='none') +
+  scale_alpha_discrete(range=c(0.1, 0.6)) +
   scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
-  ylim(0, 1e4) +   expand_limits(x=0, y=0) +
+  ylim(-100, 1e4) +   expand_limits(x=0, y=0) +
   labs(y='total fluorescence (GFP molecules)')
 # ggsave('plots/asc_gfp_induction_facetcond.pdf', width=7, height=4)
 
 mycells_switching <- myframes_switching %>%
-  # group_by(condition, cell) %>%
-  partition(condition, cell, cluster=mycluster %>% cluster_assign_func(compute_growth_lag) %>% cluster_assign_obj(dt)) %>%
-  # filter out cells that last more than 8h
-  filter(end_time-start_time<8*3600) %>% 
+  filter(fit_lag) %>% 
+  # group_by(condition, ugen) %>%
+  partition(condition, date, pos, gl, ugen, cluster=mycluster %>% cluster_assign_func(compute_lag) %>% cluster_assign_obj(dt)) %>%
   do((function(.df){
-    # print(unique(.df$cell))
-    # if (unique(.df$cell)=="20150703.0.11.32") browser()
+    # print(unique(.df$ugen))
+    # if (unique(.df$ugen)=="20150703.0.11.0:BBBBTBB") browser()
+    # if (unique(.df$ugen)=="20150703.3.11.0:BBTBBB") browser()
     
-    # compute growth lag
-    .growth_lag <- .df %>% filter(time_sec>=t_lac_switch) %>%
-      .[['length_um']] %>% compute_growth_lag(TRUE) #, .plot=TRUE)
-    if (length(.growth_lag) == 0)
-      .growth_lag <- list(tau=NA, l_lag=NA, rate_after=NA)
-    
-    # compute induction lag
+    .cond <- head(.df$condition)
     .preswitch_gfp <- mean(filter(.df, pre_switch)$gfp_nb)
     .preswitch_length <- mean(filter(.df, pre_switch)$length_um)
+    # compute growth lag
+    .growth_lag <- .df %>% filter(time_sec>=t_lac_switch, length_um<3*.preswitch_length) %>%
+      .[['length_um']] %>% log %>% compute_lag(.scaling_factor=1) #,.plot=TRUE)
+    if (length(.growth_lag) == 0)
+      .growth_lag <- list(tau_idx=NA, x_lag=NA, slope_after=NA)
+
+    .gfp_lag <- .df %>% filter(time_sec>=t_lac_switch, gfp_nb<.preswitch_gfp+ifelse(.cond!='switch_iptg', 1000, 2000)) %>%
+      .[['gfp_nb']] %>% compute_lag #(.plot=TRUE)
+    if (length(.gfp_lag) == 0)
+      .gfp_lag <- list(tau_idx=NA, x_lag=NA, slope_after=NA)
+
+    # compute induction lag
     .tmin <- filter(.df, pre_switch)$time_sec %>% max
-    # .ts <- ts[[unique(.df$condition)]]
-    .time_switch <- filter(.df, is_lac)$time_sec %>% min
-    .switch_idx <- filter(.df, is_lac)$m_cycle %>% min
     .t_200 <- filter(.df, time_sec>.tmin, gfp_nb > .preswitch_gfp+200)$time_sec %>% first
     .t_200_fail <- filter(.df, time_sec>.t_200, gfp_nb < .preswitch_gfp+200)$time_sec %>% first
-    # if (.switch_idx==2) browser()
-    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), time_switch=.time_switch,
-                      cell_num_from_top=mean(.df$cell_num_in_lane), cell_num_from_bottom=mean(.df$total_cell_in_lane-.df$cell_num_in_lane),
-                      switch_idx=.switch_idx, time_birth=unique(.df$start_time), time_div=unique(.df$end_time),
-                      growth_lag=.growth_lag$tau*dt*60, growth_lag_length=.growth_lag$l_lag, growth_lag_rate_after=.growth_lag$rate_after / (dt*60),
-                      gfp_ini=.preswitch_gfp, length_ini=.preswitch_length, cell_num=mean(.df$cell_num_in_lane),
+    return(data.frame(genealogy=gsub(":", "", unique(.df$genealogy)), 
+                      t_lac_switch=first(.df$t_lac_switch), t_lac_end=first(.df$t_lac_end),
+                      cell_num_from_top=mean(.df$cell_num_in_lane, na.rm=T), cell_num_from_bottom=mean(.df$total_cell_in_lane-.df$cell_num_in_lane, na.rm=T),
+                      switch_idx=filter(.df, is_lac)$m_cycle %>% first, 
+                      time_birth=unique(.df$start_time), time_div=unique(.df$end_time),
+                      growth_lag=(.growth_lag$tau_idx-1)*dt*60, growth_lag_length=exp(.growth_lag$x_lag), growth_lag_rate_after=.growth_lag$slope_after / (dt*60),
+                      gfp_lag=(.gfp_lag$tau_idx-1)*dt*60, gfp_lag_length=.gfp_lag$x_lag, gfp_lag_slope_after=.gfp_lag$slope_after / (dt*60),
+                      gfp_ini=.preswitch_gfp, length_ini=.preswitch_length, cell_num=mean(.df$cell_num_in_lane, na.rm=TRUE),
                       lac_200=.t_200, lac_200_fail=.t_200_fail))
     })(.)) %>%
   collect() %>% 
-  arrange(condition, cell, time_birth) %>%  # sort data after `partition()`
-  mutate(gl_id=gsub('\\.[0-9]+$', '', cell),
+  arrange(condition, ugen) %>%  # sort data after `partition()`
+# mycells_switching <- mycells_switching %>% 
+  mutate(lac_200=ifelse(is.na(lac_200), Inf, lac_200), # set lag_200 to Inf if no restart
          lag_200 = ifelse(is.na(lac_200_fail) | lac_200_fail-lac_200 > 20*60,
-                          lac_200-time_switch, as.numeric(NA)) )
+                          lac_200-t_lac_switch, as.numeric(NA)) )
 
+# ggplot(mycells_switching) +
+#   facet_grid(condition~., margins=TRUE, scales='free') +
+#   geom_vline(xintercept=0.12, col='red') +
+#   geom_histogram(aes(gfp_lag_slope_after), binwidth=0.025)
+# 
+# ggplot(mycells_switching) +
+#   facet_grid(condition~., margins=TRUE, scales='free') +
+#   geom_vline(xintercept=4e-5, col='red') +
+#   geom_histogram(aes(growth_lag_rate_after), binwidth=2e-6)
+
+# discard lag fit with slope too close to 0
+mycells_switching <- mycells_switching %>% 
+  mutate(gfp_lag=ifelse(!is.na(gfp_lag_slope_after) & between(gfp_lag_slope_after, 0.12, Inf), gfp_lag, Inf),
+         gfp_lag_slope_after=ifelse(!is.na(gfp_lag_slope_after) & between(gfp_lag_slope_after, 0.12, Inf), gfp_lag_slope_after, NA),
+         growth_lag=ifelse(!is.na(growth_lag_rate_after) & between(growth_lag_rate_after, 4e-5, 2.5e-4), growth_lag, Inf),
+         growth_lag_rate_after=ifelse(!is.na(growth_lag_rate_after) & between(growth_lag_rate_after, 4e-5, 2.5e-4), growth_lag_rate_after, NA))
+    
+    
 # add fit prediction and residual to myframes_switching
-myframes_switching <- myframes_switching %>% ungroup %>% 
-  left_join(mycells_switching %>% ungroup %>% select(cell, growth_lag, growth_lag_length, growth_lag_rate_after)) %>%
+myframes_switching <- myframes_switching %>% 
+  group_by(ugen) %>% 
+  mutate(switch_idx=m_cycle[is_lac] %>% first) %>% 
+  ungroup %>% 
+  left_join(mycells_switching %>% ungroup %>% 
+              select(ugen, growth_lag, growth_lag_length, growth_lag_rate_after, 
+                     gfp_lag, gfp_lag_length, gfp_lag_slope_after,
+                     gfp_ini, lag_200, lac_200)) %>%
   mutate(length_predict=ifelse(time_sec<t_lac_switch+growth_lag, growth_lag_length,
-                               growth_lag_length * exp(growth_lag_rate_after*(time_sec-t_lac_switch-growth_lag+dt*60) )),
-         length_predict=ifelse(is_lac, length_predict, NA),
+    growth_lag_length * exp(growth_lag_rate_after*(time_sec-t_lac_switch-growth_lag) )),
+         length_predict=ifelse(time_sec>=t_lac_switch, length_predict, NA),
          llength_residual=log(length_um)-log(length_predict))
 
-ggplot(myframes_switching, aes((time_sec-t_lac_switch-growth_lag)/60, llength_residual)) +
-  # geom_point(size=.2, alpha=.1) +
-  stat_summary(fun.y=mean, geom='line') +
-  coord_cartesian(ylim=c(-.02, .03), xlim=c(-200, 300))
-
+# # visual control
 # for(i in 1:1000) {
-# filter(myframes_switching, cell==nth(unique(cell), i)) %>%
+# filter(myframes_switching, cell==nth(unique(ugen), i)) %>%
+# filter(myframes_switching, ugen==unique(ugen)[i]) %>%
 #   (function(.x) ggplot(.x)+
 #   geom_vline(aes(xintercept = unique(t_lac_switch-start_time+growth_lag)), lty='dashed') +
 #   geom_point(aes(time_sec-start_time, log(length_um), col=medium)) +
@@ -161,531 +169,248 @@ switch_facets_labels <- function (.str) {
   .labels[.labels=='1'] <- 'switch:1'
   .labels[.labels=='2'] <- 'switch:2'
   .labels[.labels=='3'] <- 'switch:3'
-  .labels[.labels=='switch_04h'] <- 'lac (4h gap)'
-  .labels[.labels=='switch_06h'] <- 'lac (6h gap)'
-  .labels[.labels=='switch_08h'] <- 'lac (8h gap)'
-  .labels[.labels=='switch_12h'] <- 'lac (12h gap)'
-  .labels[.labels=='switch_iptg'] <- 'IPTG (4h gap)'
+  .labels[.labels=='switch_04h'] <- 'lac (4h)'
+  .labels[.labels=='switch_06h'] <- 'lac (6h)'
+  .labels[.labels=='switch_08h'] <- 'lac (8h)'
+  .labels[.labels=='switch_12h'] <- 'lac (12h)'
+  .labels[.labels=='switch_16h'] <- 'lac (16h)'
+  .labels[.labels=='switch_20h'] <- 'lac (20h)'
+  .labels[.labels=='switch_24h'] <- 'lac (24h)'
+  .labels[.labels=='switch_iptg'] <- 'IPTG (4h)'
   return(.labels)
 }
 
 ```
 
 
+
+### Validation of the lag estimation
+
+Let's look at the proportion of cells for which a lag can be estimated and identify the different types of indetermination (based on the interaction between the different estimates):
+
 ```{r eval=FALSE}
-# Explain the distribution of lags
-ggplot(filter(mycells_switching, condition %in% c('switch_04h')), aes(x=lag_200/60, y=..density..)) +
-  geom_histogram(aes(fill=factor(switch_idx)), breaks=seq(dt/2, 300, dt), alpha=.2, position='identity', show.legend=FALSE) +
-  geom_step_hist(aes(col=factor(switch_idx)), breaks=seq(dt/2, 300, dt), position='identity') +
-  # scale_y_continuous(breaks=seq(0, 1, 0.05)) +
-  xlim(0, 250) +
-  theme(legend.position=c(1, 1), legend.justification=c(1, 1)) +
-  labs(x='induction lag (+200 GFP molecules; min)', col='switch')
-# ggsave('tmp1.pdf', width=6.5, height=2)
+mycells_switching %>% 
+  mutate(growth_lag=ifelse(is.na(growth_lag), 'NA', as.character(growth_lag)),
+         growth_lag=ifelse(growth_lag %in% c('NA', 'Inf'), growth_lag, 'numeric'),
+         gfp_lag=ifelse(is.na(gfp_lag), 'NA', as.character(gfp_lag)),
+         gfp_lag=ifelse(gfp_lag %in% c('NA', 'Inf'), gfp_lag, 'numeric'),
+         lag_200=ifelse(is.na(lag_200), 'NA', as.character(lag_200)),
+         lag_200=ifelse(lag_200 %in% c('NA', 'Inf'), lag_200, 'numeric')) %>% 
+  group_by(growth_lag, gfp_lag, lag_200) %>% 
+  summarise(n=n()) %>% 
+  ungroup %>% mutate(p=n/sum(n)) %>% 
+  knitr::kable(digits=2)
 
-ggplot(filter(mycells_switching, condition %in% c('switch_04h')), aes(x=lag_200/60, y=..density..)) +
-  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
-  xlim(0, 250) +
-  theme(legend.position=c(1, 1), legend.justification=c(1, 1)) +
-  labs(x='induction lag (+200 GFP molecules; min)', y='rev. cumulative proba.', col='switch')
-# ggsave('tmp2.pdf', width=6.5, height=2)
+mycells_switching %>% 
+  mutate(growth_lag=ifelse(is.na(growth_lag), 'NA', as.character(growth_lag)),
+         growth_lag=ifelse(growth_lag %in% c('NA', 'Inf'), growth_lag, 'numeric'),
+         gfp_lag=ifelse(is.na(gfp_lag), 'NA', as.character(gfp_lag)),
+         gfp_lag=ifelse(gfp_lag %in% c('NA', 'Inf'), gfp_lag, 'numeric'),
+         lag_200=ifelse(is.na(lag_200), 'NA', as.character(lag_200)),
+         lag_200=ifelse(lag_200 %in% c('NA', 'Inf'), lag_200, 'numeric')) %>% 
+  filter(growth_lag=='numeric', gfp_lag=='Inf', lag_200=='numeric') %>% 
+  select(ugen) %>% 
+  semi_join(myframes_switching, ., by='ugen') %>% 
+  group_by(ugen) %>% slice(1L) %>%
+  select(condition, date, pos, gl, id, ugen) %>%  print(n=200)
+
+```
+
+|growth_lag |gfp_lag |lag_200 |    n|    p|
+|:----------|:-------|:-------|----:|----:|
+|Inf        |Inf     |Inf     |  121| 0.04| no restart  |
+|Inf        |Inf     |NA      |   21| 0.01| no restart but wiggly fluo |
+|Inf        |Inf     |numeric |   39| 0.01| no restart (with minor fluo increase) |
+|Inf        |numeric |Inf     |    9| 0.00| fluo only restart but lower than 200 |
+|Inf        |numeric |NA      |    1| 0.00| fluo only restart but wiggly |
+|Inf        |numeric |numeric |  162| 0.05| fluo restart but no growth |
+|numeric    |Inf     |Inf     |    8| 0.00| growth restart but not fluo |
+|numeric    |Inf     |numeric |    5| 0.00| (missed gfp_lag?) |
+|numeric    |numeric |NA      |    3| 0.00| (fluo either lower than 200 or wiggly) |
+|numeric    |numeric |numeric | 2722| 0.88| |
+
+- length pb before division (cf perl)
+- for Inf lags, check if true arrest by fitting the slope before and after the switch (to identify cells with slow growth that don't arrest)
+- for Inf lag, account for the trace length
+- remove filaments and "really" arrested cells
+
+iptg:
+20151207 pos0 GL17 0:BBBBBTBT
+20151207 pos0 GL17  0:BBBBBBBT
+
+For the growth lag, the residuals around the switch show less than 2% deviation from our model in average. In order to understand the distribution of residuals, it must be stratified by time: the residuals are the largest at the switch and decrease monotonically until the end of the lag exponential fit. During the post-lag exponential growth, the residuals continue to decrease.
+
+```{r}
+myframes_switching %>% 
+  filter(is.finite(growth_lag)) %>% 
+  mutate(t_switch=time_sec-t_lac_switch-growth_lag, rel_resid=llength_residual/log(length_predict)) %>% 
+  group_by(t_switch) %>% 
+  summarise(mean=mean(rel_resid, na.rm=TRUE), n=n(), sem=sd(rel_resid, na.rm=TRUE)/sqrt(n)) %>%
+  ungroup() %>% filter(n>max(n)/20) %>% 
+ggplot(aes(t_switch/60, mean, alpha=n)) +
+  geom_errorbar(aes(ymin=mean-sem, ymax=mean+sem)) +
+  geom_line() +
+  labs(x='time after switch (min)', y='scaled residuals average')
+
+myframes_switching %>% 
+  filter(is.finite(growth_lag)) %>% 
+  mutate(t_switch=time_sec-t_lac_switch-growth_lag, rel_resid=llength_residual/log(length_predict)) %>% 
+  filter(between(t_switch, -200*60, 200*60)) %>% 
+  ggplot() +
+  geom_histogram(aes(rel_resid)) +
+  scale_y_log10()
+
+myframes_switching %>% 
+  filter(is.finite(growth_lag), time_sec>=t_lac_switch, time_sec<=t_lac_switch+growth_lag) %>% 
+  mutate(time=time_sec-t_lac_switch, rel_resid=llength_residual/log(length_predict)) %>% 
+  filter(time<300*60) %>% 
+  mutate(time=mycut(time, seq(0, 300*60, length.out=6))) %>% 
+  ggplot() +
+  # facet_grid(.~t_switch)
+  geom_step_hist(aes(rel_resid, ..density.., col=time/60, group=time), alpha=.6) +
+  # geom_density(aes(rel_resid, col=t_switch/60, group=t_switch), alpha=.2) +
+  scale_y_log10() +
+  labs(x='scaled residuals', col='time after \nswitch (min)') +
+  scale_colour_distiller(palette="Spectral")
+
+myframes_switching %>% 
+  filter(is.finite(growth_lag)) %>% 
+  mutate(t_switch=time_sec-t_lac_switch-growth_lag, rel_resid=llength_residual/log(length_predict)) %>% 
+  filter(between(t_switch, -200*60, 200*60)) %>% 
+  mutate(t_switch=mycut(t_switch, seq(-200*60, 200*60, length.out=6))) %>% 
+  ggplot() +
+  # facet_grid(.~t_switch)
+  geom_step_hist(aes(rel_resid, ..density.., col=t_switch/60, group=t_switch), alpha=.6) +
+  # geom_density(aes(rel_resid, col=t_switch/60, group=t_switch), alpha=.2) +
+  scale_y_log10() +
+  labs(x='scaled residuals', col='time after \nrestart (min)') +
+  scale_colour_distiller(palette="Spectral")
 
 ```
 
 
-
-```{r}
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=lag_200/60, y=..density..)) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  geom_histogram(aes(fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show.legend=FALSE) +
-  geom_step_hist(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
-  scale_y_continuous(breaks=seq(0, 1, 0.05)) +
-  labs(x='induction lag (+200 GFP molecules; min)', col='switch') +
-  expand_limits(x=0)
-# ggsave('plots/asc_gfp_lag200_facetcond.pdf', width=7, height=4)
-
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=lag_200/60)) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
-  labs(x='induction lag (+200 GFP molecules; min)', y='reverse cumulative probability', col='switch') +
-  expand_limits(x=0)
-# ggsave('plots/asc_gfp_lag200_rcdf_facetcond.pdf', width=7, height=4.5)
-
-```
-
-
-Plot lag in switch with IPTG:
-
-```{r}
-ggplot(filter(mycells_switching, condition %in% c('switch_04h', 'switch_iptg')), aes(x=lag_200/60, y=..density..)) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  geom_histogram(aes(fill=factor(switch_idx)), breaks=seq(dt/2, 300, dt), alpha=.2, position='identity', show.legend=FALSE) +
-  geom_step_hist(aes(col=factor(switch_idx)), breaks=seq(dt/2, 300, dt), position='identity') +
-  # scale_y_continuous(breaks=seq(0, 1, 0.05)) +
-  labs(x='induction lag (+200 GFP molecules; min)', col='switch')
-# ggsave('plots/asc_gfp_lag200_iptg.pdf', width=7, height=4)
-
-ggplot(filter(mycells_switching, condition %in% c('switch_04h', 'switch_iptg')), aes(x=lag_200/60)) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
-  expand_limits(x=0) +
-  labs(x='induction lag (+200 GFP molecules; min)', y='reverse cumulative probability', col='switch')
-# ggsave('plots/asc_gfp_lag200_rcdf_iptg.pdf', width=6.5, height=3)
-
-```
-
-
-For the first switch, lactose 4h / 6h / 8h should be equivalent:
-
-```{r}
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1), aes(x=lag_200/60)) +
-  # facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  stat_ecdf(aes(y=1-..y.., col=factor(condition))) +
-  # stat_ecdf(aes(y=1-..y.., col='4_6h'),
-  #           data=filter(mycells_switching, str_detect(condition, 'switch_[4-6]+h'), switch_idx==1)) +
-  # stat_ecdf(aes(y=1-..y.., col='all'),
-  #           data=filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1)) +
-  labs(x='induction lag (+200 GFP molecules; min)', y='reverse cumulative probability', col='switch') +
-  theme(legend.justification=c(1, 1), legend.position=c(1, 1)) +
-  expand_limits(x=0)
-
-# last_plot() + scale_y_log10()
-
-# discard switch_08h
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-79]+h'), switch_idx==1), aes(x=lag_200/60)) +
-  stat_ecdf(aes(y=1-..y..)) +
-  labs(x='induction lag (+200 GFP molecules; min)', y='reverse cumulative probability', title='4_6_12h') +
-  expand_limits(x=0)
-
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-79]+h'), switch_idx==1), aes(x=lag_200/60)) +
-  geom_histogram(aes(y=..density..), binwidth=3) +
-  labs(x='induction lag (+200 GFP molecules; min)', title='4_6_12h') +
-  expand_limits(x=0)
-
+```{r eval=FALSE}
+# print control plots to pdf
+pdf('plots/MoM_Switch_lag_verif.pdf', width=12, height=9)
+myframes_switching %>%
+  semi_join(mycells_switching, by='ugen') %>% 
+  ungroup %>% 
+  filter(type!='1dg') %>% 
+  # head(1e3) %>%
+  gather(var, value, gfp_nb, length_um) %>% 
+  mutate(value=ifelse(var=='length_um', log(value), value),
+         var=ifelse(var=='length_um', 'llength_um', var)) %>% 
+  group_by(ugen) %>% 
+  mutate(b_rank_avg=round(mean(total_cell_in_lane-cell_num_in_lane, na.rm=TRUE)),
+         fct=paste(b_rank_avg, var, sep=":")) %>% 
+  group_by(condition, date, pos, gl) %>% 
+  do((function(.df){
+    print(.df$ugen[1])
+    .pl <- ggplot(.df, aes((time_sec-t_lac_switch)/60, value, col=ugen)) +
+      facet_grid(fct~switch_idx, scales='free', as.table=FALSE) +
+      # add annotations
+      geom_vline(xintercept=0, col='grey60') +
+      geom_text(aes(x=-Inf, y=Inf, label=sprintf("%d (%s)", id, genealogy)),
+                hjust=-0.05, vjust=1.2, size=3, alpha=0.9, 
+                data=.df %>% group_by(fct, ugen) %>% slice(1)) +
+      # plot traces
+      geom_line(aes(alpha=type, lty=fit_lag, group=interaction(ugen, type, fit_lag, time_sec<t_lac_switch))) +
+      scale_colour_periodic_brewer(guide='none') +
+      # add lag estimations
+      geom_vline(aes(xintercept=(lvalue)/60, col=ugen, lty=lvar),
+                 data=.df%>% group_by(fct, ugen) %>% slice(1) %>% 
+                   gather(lvar, lvalue, lag_200, gfp_lag, growth_lag) %>% 
+                   mutate(lvalue=ifelse(var!='llength_um' & lvar=='growth_lag', NA, lvalue),
+                          lvalue=ifelse(var!='gfp_nb' & lvar%in%c('gfp_lag', 'lag_200'), NA, lvalue))) +
+      scale_linetype_manual(values=c('TRUE'=1, 'FALSE'=4
+                                     , 'growth_lag'=3, 'gfp_lag'=3, 'lag_200'=2), guide='none') +
+      # add bg every other rank
+      geom_rect(aes(xmin=-Inf, ymin=-Inf, xmax=Inf, ymax=Inf, x=NULL, y=NULL,
+                alpha=b_rank_avg%%2==0), color='grey80',
+                data=.df %>% group_by(fct, switch_idx, ugen) %>%
+                  summarise(b_rank_avg=first(b_rank_avg))) +
+      scale_alpha_manual(values=c("cell"=1, "2dg"=.5, "FALSE"=0.1, "TRUE"=0), guide='none') +
+      labs(title=slice(.df, 1) %>% with(sprintf("%s pos%s GL%s (%s)", date, pos, gl, condition)))
+    
+    print(.pl)
+  })(.))
+dev.off()
 
 ```
 
-Where do lags at later switches fall compared to the 2 modes of the first switch?
+### Comparison of lag types
 
 ```{r}
-
-# ggplot(data=NULL, aes(x=lag_200/60)) +
-#   facet_grid(switch_idx~.) +
-#   stat_ecdf(aes(y=1-..y.., col='lac_all'),
-#             data=filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1)) +
-#   stat_ecdf(aes(y=1-..y.., col=condition),
-#             data=mycells_switching %>% filter(str_detect(condition, 'switch_[0-9]+h'), switch_idx==2)) +
-#   stat_ecdf(aes(y=1-..y.., col=condition), lty='dashed',
-#             data=mycells_switching %>% filter(condition=='switch_iptg')) +
-#   labs(x='induction lag (+200 GFP molecules; min)', y='reverse cumulative probability') +
-#     scale_colour_periodic_brewer() + labs(col='condition') +
-#   expand_limits(x=0)
-
-plot_lag_distrs <- function(.pattern)
-  ggplot(data=NULL, aes(x=lag_200/60)) +
-  facet_grid(switch_idx~., scales='free_y', labeller=as_labeller(switch_facets_labels)) +
-  # first switch (all conds)
-  geom_histogram(aes(y=..density.., fill='all'), binwidth=3, alpha=.2, position='identity', 
-                 data=filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1)) +
-  geom_step_hist(aes(y=..density.., col='all'), binwidth=3, position='identity',
-                 data=filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1)) +
-  # second and third switch
-  geom_histogram(aes(y=..density.., fill=condition), binwidth=3, alpha=.2, position='identity',
-                 data=mycells_switching %>% filter(str_detect(condition, .pattern), switch_idx>1)) +
-  geom_step_hist(aes(y=..density.., col=condition), binwidth=3, position='identity',
-                 data=mycells_switching %>% filter(str_detect(condition, .pattern), switch_idx>1)) +
-  labs(x='induction lag (+200 GFP molecules; min)', col='condition') +
-  guides(fill='none') +
-  expand_limits(x=0)
-
-# # plots for presenting
-# plot_lag_distrs('switch_04h')
-# plot_lag_distrs('switch_04h|switch_12h') +
-#   scale_color_manual(values=c('all'=brewer_cols[1], 'switch_04h'=brewer_cols[2], 'switch_12h'=brewer_all_cols[5])) +
-#   scale_fill_manual(values=c('all'=brewer_cols[1], 'switch_04h'=brewer_cols[2], 'switch_12h'=brewer_all_cols[5]))
-# plot_lag_distrs('switch_[0-9]+h') 
-
-plot_lag_distrs('switch_[0-9]+h') + 
-  # show iptg with dotted line
-  geom_histogram(aes(y=..density.., lty='iptg'), binwidth=3, alpha=.2, position='identity', 
-                 data=filter(mycells_switching, str_detect(condition, 'switch_iptg'))) +
-  geom_step_hist(aes(y=..density.., lty='iptg'), binwidth=3, position='identity',
-                 data=filter(mycells_switching, str_detect(condition, 'switch_iptg'))) +
-  scale_linetype_manual(name='condition', values=c('iptg'='dotted'))
-
-```
-
-
-```{r}
-mycells_switching %>% ungroup %>% 
-  filter(str_detect(condition, 'switch_[0-9]+h'), switch_idx==1) %>% 
-  mutate(slow_induction=lag_200>50*60) %>% 
-  ggplot(aes(condition, fill=slow_induction)) +
-    geom_bar(position='fill')
-
-mycells_switching %>% ungroup %>% 
-  filter(str_detect(condition, 'switch_[0-9]+h'), switch_idx==1) %>% 
-  mutate(slow_induction=lag_200>50*60, 
-         poleline=convert_genealogy_to_poleline(genealogy), pole_age=get_pole_age(poleline)) %>%
-  ggplot(aes(pole_age, col=slow_induction)) +
-    geom_step_hist(aes(y=..density..), position='identity', binwidth=1)
-
-mycells_switching %>% ungroup %>% 
-  filter(str_detect(condition, 'switch_[0-79]+h'), switch_idx==1) %>% 
-  mutate(slow_induction=lag_200>50*60, 
-         poleline=convert_genealogy_to_poleline(genealogy), pole_age=get_pole_age(poleline)) %>%
-  ggplot(aes(gfp_ini, col=slow_induction)) +
-  # geom_step_hist(aes(y=..density..), position='identity')
-  stat_ecdf(aes(y=1-..y..))
-
-mycells_switching %>% ungroup %>% 
-  filter(str_detect(condition, 'switch_[0-79]+h'), switch_idx==1) %>% 
-  mutate(slow_induction=lag_200>50*60) %>%
-  ggplot(aes(gfp_ini, lag_200/60, col=slow_induction)) +
-  geom_point() +
-  stat_smooth(method='lm')
-
-# mycells_switching %>% ungroup %>% 
-#   filter(str_detect(condition, 'switch_[0-79]+h'), switch_idx==1) %>% 
-#   mutate(slow_induction=lag_200>50*60) %>%
-#   group_by(slow_induction) %>% 
-#   summarise(r2=cor(gfp_ini, lag_200)^2, n=n())
-
-```
-
-
-### Comparison with growth lag
-
-```{r}
-ggplot(data=mycells_switching %>% filter(!is.na(lag_200)), aes(growth_lag/60, lag_200/60)) +
+ggplot(data=mycells_switching, aes(lag_200/60, gfp_lag/60)) +
+  facet_grid(switch_idx~condition, margins=TRUE) +
+  geom_abline(col='red', alpha=0.5) +
   geom_point(alpha=.2, size=.2) +
-  stat_smooth() + 
+  labs(x='induction lag (+200 GFP molecules; min)', y='GFP lag (min)') +
   expand_limits(x=0, y=0)
 
-last_plot() +
-    facet_grid(switch_idx~condition)
+ggplot(data=mycells_switching, aes(growth_lag/60, gfp_lag/60)) +
+  facet_grid(switch_idx~condition) + #, margins=TRUE) +
+  geom_abline(col='red', alpha=0.5) +
+  geom_point(alpha=.2, size=.2) +
+  labs(x='growth lag (min)', y='GFP lag (min)') +
+  expand_limits(x=0, y=0) 
+
+ggplot(data=mycells_switching, aes(growth_lag/60, lag_200/60)) +
+  facet_grid(switch_idx~condition, margins=TRUE) +
+  geom_abline(col='red', alpha=0.5) +
+  geom_point(alpha=.2, size=.2) +
+  expand_limits(x=0, y=0) 
 
 ```
 
-```{r}
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=growth_lag/60, y=..density..)) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  geom_histogram(aes(fill=factor(switch_idx)), binwidth=3, alpha=.2, position='identity', show.legend=FALSE) +
-  geom_step_hist(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
-  scale_y_continuous(breaks=seq(0, 1, 0.05)) +
-  labs(x='growth lag (min)', col='switch') +
-  expand_limits(x=0)
-
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), aes(x=growth_lag/60)) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
-  labs(x='growth lag (min)', y='reverse cumulative probability', col='switch') +
-  expand_limits(x=0)
-
-```
-
-First switch:
+NB: the lower bound of the GFP lags probably comes from GFP maturation time.
 
 ```{r}
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1), aes(x=growth_lag/60)) +
-  stat_ecdf(aes(y=1-..y.., col=factor(condition))) +
-  labs(x='growth lag (min)', y='reverse cumulative probability', col='switch') +
-  theme(legend.justification=c(1, 1), legend.position=c(1, 1)) +
-  expand_limits(x=0)
-
-# last_plot() + scale_y_log10()
-
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1), aes(x=growth_lag/60)) +
-  stat_ecdf(aes(y=1-..y..)) +
-  labs(x='growth lag (min)', y='reverse cumulative probability', title='4_6_8_12h') +
-  expand_limits(x=0)
-
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1), aes(x=growth_lag/60)) +
-  geom_histogram(aes(y=..density..), binwidth=3) +
-  labs(x='growth lag (min)', title='4_6_8_12h') +
-  expand_limits(x=0)
-
-```
-
-
-```{r}
-ggplot(data=NULL, aes(x=growth_lag/60)) +
-  facet_grid(switch_idx~.) +
-  stat_ecdf(aes(y=1-..y.., col='lac_all'),
-            data=filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h'), switch_idx==1)) +
-  stat_ecdf(aes(y=1-..y.., col=condition),
-            data=mycells_switching %>% filter(str_detect(condition, 'switch_[0-9]+h'), switch_idx==2)) +
-  stat_ecdf(aes(y=1-..y.., col=condition), lty='dashed', 
-            data=mycells_switching %>% filter(condition=='switch_iptg')) +
-  labs(x='growth lag (min)', y='reverse cumulative probability') +
-    scale_colour_periodic_brewer() + labs(col='condition') +
-  expand_limits(x=0)
-
-```
-
-
-
-### Position effect 
-
-Position effect in the growth lane on induction lag:
-
-```{r}
-# within GL correlation makes it irrelevant to look at the position/lag correl:
-ggplot(mycells_switching, aes(x=cell_num, y=lag_200/60, col=factor(switch_idx))) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  geom_point(alpha=.33, size=.5, show.legend=FALSE) +
-  stat_smooth(method='lm', se=FALSE) +
-  scale_x_reverse() + 
-  expand_limits(y=0) +
-  labs(x='position (closed end -- exit)', y='induction lag \n(+200 GFP molecules; min)', col='switch') +
-  # scale_colour_brewer(palette='Set1', # breaks=1:3, 
-  #                     labels=mycells_switching %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(cell_num, lag_200/60, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.1e)', .df$switch_idx, .df$r2)) ) +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-
-# relative to exit cell
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
-         mutate(gl_exit_lag=lag_200/lag_200[which.min(cell_num)],
-                gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]) %>% 
-  ggplot(aes(gl_exit_cdist, gl_exit_lag, col=factor(switch_idx))) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  geom_point(alpha=0.25, size=.5) +
-  stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
-  scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-  labs(x='distance to "exit" cell (cell position)', y='induction lag relative to exit cell', col='switch')
-# ggsave('plots/asc_gfp_lag200_position_exit.pdf', width=3, height=3.5)
-
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
-         mutate(gl_rel_lag200=lag_200/mean(lag_200, na.rm=TRUE),
-                gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]) %>% 
-ggplot(aes(cell_num, gl_rel_lag200, col=factor(switch_idx))) +
-  geom_point(alpha=0.25, size=.5) +
-  stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
-  scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
-  expand_limits(y=2) +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-  labs(x='position (closed end -- exit)', y='induction lag relative to GL average', col='switch')
-# ggsave('plots/asc_gfp_lag200_position_avg.pdf', width=3, height=3.5)
-
-
-# plot time btw cell 1 and cell k in each gl
-```
-
-
-### Effect of initial cell state
-
-Does the induction lag depends on the initial amount of GFP?
-
-```{r}
-ggplot(filter(mycells_switching, str_detect(condition, 'switch_[0-9]+h')), 
-       aes(x=gfp_ini, y=lag_200/60, col=factor(switch_idx))) +
+mycells_switching %>% ungroup %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(lag/60)) +
   facet_grid(condition~switch_idx, labeller=as_labeller(switch_facets_labels)) +
-  geom_point(alpha=.5, size=.5) +
-  # scale_x_continuous(trans='log2') +
-  # scale_y_continuous(breaks=seq(0, 500, 100), trans='log10') +
-  expand_limits(y=0) + scale_x_log10() + scale_y_log10(breaks=c(20, 35, 70)) +
-  labs(x='initial GFP level (molecules)', y='induction lag (+200 GFP molecules; min)', col='switch') +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
-# ggsave('plots/asc_gfp_lag200_gfpini_facetcond.pdf', width=7, height=4)
-
-# # todo: fix this: there should be complete element pairs
-# mycells_switching %>% mutate(switch_idx2=ifelse(switch_idx==2 & gfp_ini<190, '2_low', as.character(switch_idx))) %>%
-#   group_by(condition, switch_idx2) %>%
-#   summarise(r2 = cor(gfp_ini, lag_200, use="complete.obs", method="pearson")^2)
-
-# cor_df <- function(.df, .x, .y, ...) {
-#   .df <- .df %>%
-#     select_(.dots=list(.x, .y)) %>%
-#     na.omit
-#   cor(.df[[.x]], .df[[.y]], ...)
-# }
-
-```
-
-
-NB: check the history of cells with low initial GFP at second switch:
-
-```{r}
-mycells_switching %>% 
-  filter(condition=='switch_04h', switch_idx==2, gfp_ini<190) %>% 
-  select(gl_id, switch_cell=cell, genealogy) %>% ungroup %>% distinct %>% 
-  group_by(gl_id, switch_cell) %>% 
-  do((function(.df){
-    data.frame(genealogy=c(.df$genealogy, get_all_parents_cid(.df$genealogy)))
-  })(.)) %>% 
-  inner_join(mutate(myframes, genealogy=sub(':', '', genealogy)), .) %>% 
-  ggplot() +
-  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=11e3, ymax=Inf, fill=medium, group=1), size=0.2, data=filter(condition_ts, condition=='switch_04h') ) +
-  geom_vline(aes(xintercept=t_start - 2*3600, group=1), alpha=.2, size=.5, data=filter(condition_ts, condition=='switch_04h')) +
-  geom_line(aes(time_sec - 2*3600, gfp_nb, col=gl_id, group=switch_cell), alpha=.25) +
-  scale_colour_periodic_brewer(guide='none') +
-  scale_x_hours() +
-  labs(y='total GFP fluorescence (molecules)') +
-  theme(legend.position='top')
+  stat_ecdf(aes(y=1-..y.., col=variable)) +
+  labs(x='lag after the switch (min)', y='rev. cumulative proba.')
   
-```
+mycells_switching %>% ungroup %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(lag/60)) +
+  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels)) +
+  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.5)) +
+  labs(x='lag after the switch (min)', y='rev. cumulative proba.', col='switch')
+# ggsave('Rplot.pdf', width=7.5, height=4.5)
 
 
-
-Does the induction lag depends on the cell cycle state at the switch?
-
-```{r}
-# todo: add mycells to get average growth rate
-glc_dt <- filter(mycells, condition=='glucose') %>% 
-  mutate(dt=time_div-time_birth) %>% 
-  .[['dt']] %>% mean
-
-ggplot(filter(mycells_switching, !is.na(lag_200)), aes(x=(time_switch-time_birth)/glc_dt, y=lag_200/60, col=factor(switch_idx))) +
-  facet_grid(condition~switch_idx) +
-  geom_point(alpha=.5, size=.5) +
-  expand_limits(y=0) + scale_y_continuous(breaks=seq(0, 500, 100)) +
-  xlim(0, 2) +
-  labs(x='cell cycle progression at switch', y='induction lag (+200 GFP molecules; min)', col='switch') +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
-# ggsave('plots/asc_gfp_lag200_cellcycle.pdf', width=6, height=4)
-
-filter(mycells_switching, !is.na(lag_200), (time_switch-time_birth)/glc_dt<= 1) %>% 
-  group_by(switch_idx) %>% 
-  summarise(r2=cor((time_switch-time_birth)/glc_dt, lag_200, use="complete.obs", method="pearson")^2)
-
-```
-
-Does the induction lag depends on the growth rate before the switch?
-
-```{r}
-mycells_switching <- 
-  # extract relevant frames
-  bind_rows(
-    # switching cells
-    mycells_switching %>% ungroup %>% filter(!is.na(lag_200)) %>% 
-      mutate(type='pre', switch_cell=cell) %>% 
-      select(type, cell, switch_cell, switch_idx, time_switch) %>% 
-      left_join(myframes) %>% 
-      filter(time_sec < time_switch),
-    # parent cells
-    mycells_switching %>% ungroup %>% filter(!is.na(lag_200)) %>% 
-      left_join(select(myframes, date, gl, pos, id, parent_id, cell) %>% group_by(cell) %>% slice(1)) %>% 
-      mutate(type='parent', switch_cell=cell, 
-             cell=paste(date, pos, gl, parent_id, sep='.')) %>% 
-      select(type, cell, switch_cell, switch_idx, time_switch) %>% 
-      left_join(myframes) %>% 
-      filter(medium=='glucose')
-  ) %>% 
-  # compute elongation rate for these cells
-  group_by(type, cell, switch_cell) %>% 
-  do((function(.df) {
-    # browser()
-    if (dim(.df)[1] < 5) return(data.frame())
-    
-    .mod <- lm( log(length_um)~time_sec, .df)
-    data.frame(logl_time_slope=.mod$coefficients[2],
-               logl_time_r2=cor(.df$time_sec, log(.df$length_um))^2)
-  })(.)) %>% 
-  # reshape and join to mycells_switching
-  ungroup %>% 
-  mutate(cell=switch_cell, switch_cell=NULL) %>% 
-  gather(var, val, -type, -cell) %>% 
-  mutate(var=paste(var, type, sep='_'), type=NULL) %>% 
-  spread(var, val) %>% 
-  right_join(mycells_switching) %>% 
-  mutate(n_preswitch=(time_switch-time_birth)/dt/60)
-  
-# ggplot(mycells_switching) + 
-#   geom_abline() +
-#   geom_point(aes(logl_time_slope_parent,  logl_time_slope_pre, col=n_preswitch), size=0.2, alpha=0.2) +
-#   scale_color_gradient(low = "red", high = "blue", trans='log10') +
-#   ylim(0, 3e-4)
-# 
-# ggplot(mycells_switching) + 
-#   geom_point(aes(n_preswitch, 1-logl_time_r2_pre), size=0.2, alpha=0.2) +
-#   scale_y_log10() +
-#   xlim(0, 50)
-
-```
-
-```{r}
-ggplot(mycells_switching) + 
-  geom_abline() +
-  geom_point(aes(logl_time_slope_pre,  lag_200/60, col=n_preswitch), size=0.2, alpha=0.2) +
-  scale_color_gradient(low = "red", high = "blue", trans='log10') +
-  xlim(0, 3e-4)
-
-with(mycells_switching, cor(logl_time_slope_pre, lag_200/60, use='complete.obs'))^2
-
-ggplot(mycells_switching) + 
-  geom_abline() +
-  geom_point(aes(logl_time_slope_parent,  lag_200/60, col=n_preswitch), size=0.2, alpha=0.2) +
-  scale_color_gradient(low = "red", high = "blue", trans='log10') +
-  expand_limits(x=0)
-
-with(mycells_switching, cor(logl_time_slope_parent, lag_200/60, use='complete.obs'))^2
-
-```
-
-Does the induction lag depends on the pole age?
-
-```{r}
-# mycells_switching %>% 
-#   mutate(poleline=convert_genealogy_to_poleline(genealogy), 
-#          pole_age=get_pole_age(poleline), pole_type=ifelse(pole_age>0, 'old', 'new')) %>% 
-#   ggplot(aes(pole_age, get_pole_age(genealogy, .old_char='B', .new_char='T'))) +
-#     geom_jitter( )
-
-mycells_switching %>% 
-  mutate(poleline=convert_genealogy_to_poleline(genealogy), pole_age=get_pole_age(poleline),
-         bottom_cell= cell_num_from_bottom==0) %>% 
-  ggplot(aes(pole_age, lag_200/60, col=bottom_cell)) + 
-  facet_grid(switch_idx~condition) +
-  geom_point(size=0.2, alpha=0.2, position=position_jitter(width=0.5)) +
-  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1))
-
-mycells_switching %>% 
-  mutate(poleline=convert_genealogy_to_poleline(genealogy), pole_age=get_pole_age(poleline),
-         bottom_cell= cell_num_from_bottom==0) %>% 
-  filter(str_detect(condition, 'switch_[0-9]+h'), switch_idx==1) %>% 
-  (function(.df) 
-  ggplot(.df, aes(pole_age, lag_200/60, col=bottom_cell)) + 
-     geom_point(size=0.2, alpha=0.2, position=position_jitter(width=0.5)) +
-     geom_pointrange(aes(y=y, ymin=ymin, ymax=ymax), data=.df %>% 
-                       group_by(pole_age, bottom_cell) %>% 
-                       summarise(y=mean(lag_200/60, na.rm=T), n=sum(!is.na(lag_200)),
-                                 ymin=y-sd(lag_200/60, na.rm=T)/sqrt(n), ymax=y+sd(lag_200/60, na.rm=T)/sqrt(n))) +
-     # stat_summary(fun.data=mean_sdl, fun.args = list(mult=1)) +
-     expand_limits(y=0)
-  )
+mycells_switching %>% ungroup %>% 
+  filter(!condition %in% c('switch_iptg', 'switch_08h')) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(lag/60)) +
+  facet_grid(variable~switch_idx, labeller=as_labeller(switch_facets_labels)) +
+  stat_ecdf(aes(y=1-..y.., col=condition, group=date)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.5)) +
+  labs(x='lag after the switch (min)', y='rev. cumulative proba.')
 
 ```
 
 
-```{r}
-mycells_switching %>% 
-  filter(cell_num_from_bottom>0) %>% 
-  mutate(mother_dist=get_divs_from_mothercell(genealogy)) %>% 
-  group_by(condition, switch_idx, mother_dist) %>% 
-  (function(.df) {
-    # browser()
-    ggplot(.df, aes(mother_dist, lag_200/60)) + 
-     facet_grid(switch_idx~condition, scales='free_y') +
-     geom_point(size=0.2, alpha=0.25, position=position_jitter(width=0.5)) +
-     geom_pointrange(aes(y=y, ymin=ymin, ymax=ymax), data=.df %>% 
-                       group_by(condition, switch_idx, mother_dist) %>% 
-                       summarise(y=mean(lag_200/60, na.rm=T), n=sum(!is.na(lag_200)),
-                                 ymin=y-sd(lag_200/60, na.rm=T)/sqrt(n), ymax=y+sd(lag_200/60, na.rm=T)/sqrt(n))) +
-   # stat_summary(fun.data=mean_sdl, fun.args = list(mult=1)) +
-   xlim(0, 5) + expand_limits(y=0)
-  })
+## Lag inheritance
 
-```
+It is visually striking that cells in a given growth lane get induced and restart growing simultaneously, while the fluctuations between growth lanes are much larger. This can be quantified in two ways:
 
+- by showing that the cells' lags and the avergae lags per GL are correlated
+- by comparing the variance within growth lane and the global variance per condition, the fromer is smaller than the latter
 
-
-### Lag inheritance
-
-As a preliminary, let's compare variance within growth lane and global variance:
-
-```{r}
+```{r eval=FALSE}
 # histogram of number of estimated lags per GL
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
+mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
   mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
          lag200_n=sum(!is.na(lag_200))) %>% 
   ( function(.df)
@@ -694,7 +419,7 @@ mycells_switching %>% group_by(switch_idx, gl_id) %>%
       geom_histogram(binwidth=1) )
     
 # correlation lag and avg lag in GL
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
+mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
   mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
          lag200_n=sum(!is.na(lac_200)), lag200_se=lag200_sd/sqrt(lag200_n)) %>% 
   filter(lag200_n>2) %>% 
@@ -716,7 +441,7 @@ mycells_switching %>% group_by(switch_idx, gl_id) %>%
 # ggsave('plots/asc_gfp_lag200_gl.pdf', width=6, height=3.5)
 
 # compare variance within GL versus global variance
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
+mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
   mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
          lag200_n=sum(!is.na(lag_200))) %>% 
   filter(lag200_n>2) %>% 
@@ -736,13 +461,42 @@ mycells_switching %>% group_by(switch_idx, gl_id) %>%
 
 ```
 
-Smaller variance within GLs suggests that the lag might be strongly heritable…
 
 Filter out the cells that have not been induced during the first switch:
+check that gfp at the end of trace (if before end of medium) or at end of medium is greater than gfp_switch + constant (1000 gfp).
+
+```{r eval=FALSE}
+myframes_switching %>% 
+  filter(type!='1dg') %>% 
+  group_by(ugen) %>% 
+
+  mutate(div_before_end=last(time_sec)<unique(t_lac_end), 
+         get_induced=ifelse(div_before_end, last(gfp_nb)>(mean(gfp_nb[pre_switch])+1000),
+                            gfp_nb[time_sec==t_lac_end]>(mean(gfp_nb[pre_switch])+1000) ),
+         tmp=ifelse(div_before_end, 0, as.numeric(length(time_sec))) ) %>% 
+           with(tmp) %>% table
+  with(paste(div_before_end, get_induced)) %>% table
+  # summarise(gi=first(get_induced)) %>% with(gi) %>% table
+  filter(!get_induced & (last(time_sec)>=unique(t_lac_end)) ) %>% 
+  # filter(time_div < t_lac_end) %>% 
+  # semi_join(myframes_switching, ., by='ugen') %>% 
+  ggplot(aes(time_sec - 2*3600, gfp_nb, col=ugen, alpha=type)) +
+  # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  facet_wrap(~condition, ncol=1) +
+  geom_path() + # geom_point() +
+  scale_colour_periodic_brewer(guide='none') +
+  scale_alpha_discrete(range=c(0.1, 0.6)) +
+  scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
+  ylim(-100, 1e4) +   expand_limits(x=0, y=0) +
+  labs(y='total fluorescence (GFP molecules)')
+
+
+```
+
 
 ```{r}
 mypairs_switching <- mycells_switching %>% 
-  group_by(condition, gl_id, switch_idx) %>% 
+  group_by(condition, date, pos, gl, switch_idx) %>% 
   do((function(.df) {
     # browser()
     if (dim(.df)[1]<2) 
@@ -751,115 +505,77 @@ mypairs_switching <- mycells_switching %>%
       lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>% 
       do.call(rbind, .) )
   })(.)) %>% 
+  # rbind one df per variable type
+  mutate(foo=1) %>% left_join(data.frame(foo=1, variable=c('growth_lag', 'gfp_lag', 'lag_200'))) %>% select(-foo) %>% 
+  # join variables of interest
   mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>% 
   left_join(mycells_switching %>% ungroup %>% 
-              setNames(., paste(names(.), "1", sep="_")) %>% rename(gl_id=gl_id_1, switch_idx=switch_idx_1) ) %>% 
+              gather(variable, value, growth_lag, gfp_lag, lag_200) %>% 
+              setNames(., paste(names(.), "1", sep="_")) %>% 
+              rename(date=date_1, pos=pos_1, gl=gl_1, switch_idx=switch_idx_1, variable=variable_1) ) %>% 
   left_join(mycells_switching %>% ungroup %>% 
-              setNames(., paste(names(.), "2", sep="_")) %>% rename(gl_id=gl_id_2, switch_idx=switch_idx_2) ) 
-
-mycells_switching %>% 
-  filter(!(switch_idx>1 & lag_200/60>60)) %>%
-  filter(!(condition=='switch_04h' & switch_idx==2 & gfp_ini<150)) %>%
-# filter(!(switch_idx==2 & lag_200_1/60>75) ) %>%
-  ggplot(aes(x=gfp_ini, y=lag_200/60, col=factor(switch_idx))) +
-  facet_grid(condition~switch_idx) +
-  geom_point(alpha=.5, size=.5) +
-  expand_limits(y=0) +
-  scale_y_continuous(breaks=seq(0, 500, 100)) +
-  labs(x='initial GFP level (molecules)', y='induction lag (+200 GFP molecules; min)', col='switch') +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
+              gather(variable, value, growth_lag, gfp_lag, lag_200) %>% 
+              setNames(., paste(names(.), "2", sep="_")) %>% 
+              rename(date=date_2, pos=pos_2, gl=gl_2, switch_idx=switch_idx_2, variable=variable_2) ) 
 
 ```
 
-Plot heritability:
+
+## Lag of naive cells
+
+For the first switch, all conditions (but IPTG) should be equivalent:
+  
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(condition=='switch_iptg', switch_idx==1) %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(lag/60)) +
+  facet_grid(variable~switch_idx, labeller=as_labeller(switch_facets_labels)) +
+  stat_ecdf(aes(y=1-..y.., col=condition, group=date)) +
+  labs(x='lag after the switch (min)', y='rev. cumulative proba.')
+
+```
 
 ```{r}
-filter(mypairs_switching, rel!='niece') %>% 
-  filter(!( (switch_idx>1 & lag_200_1/60>60) | (switch_idx>1 & lag_200_2/60>60) )) %>%
-  filter(!( (condition=='switch_04h' & switch_idx==2 & gfp_ini_1<150) |
-              (condition=='switch_04h' & switch_idx==2 & gfp_ini_2<150) )) %>%
-  ggplot(aes(lag_200_1/60, lag_200_2/60, col=rel)) +
-# ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
-  # facet_wrap(~switch_idx, scales='free', ncol = 3) +
-     facet_grid(condition~switch_idx, scales='free') +
-  geom_abline(col='gray50') +
-  geom_point(alpha=.5, size=.5) +
-  # geom_smooth() +
-  expand_limits(x=0, y=0) +
-  # scale_y_continuous(breaks=seq(0, 500, 100)) +
-  labs(x='induction lag cell 1 (min)', y='induction lag cell 2 (min)', col='relationship') +
-  theme(legend.position='bottom') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
-# ggsave('plots/asc_gfp_lag200_genealogy.pdf', width=5, height=4)
+# discard switch_08h
+mycells_switching %>% ungroup %>% 
+  filter(!condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  stat_ecdf(aes(y=1-..y.., col=variable)) +
+  labs(x='lag after the switch (min)', y='reverse cumulative probability', title='without 8h') +
+  expand_limits(x=0)
 
-# with(mypairs_switching, table(switch_idx, rel, useNA='ifany'))
-
-filter(mypairs_switching, rel!='niece') %>% 
-  filter(!( (switch_idx>1 & lag_200_1/60>60) | (switch_idx>1 & lag_200_2/60>60) )) %>%
-  filter(!( (condition=='switch_04h' & switch_idx==2 & gfp_ini_1<150) |
-              (condition=='switch_04h' & switch_idx==2 & gfp_ini_2<150) )) %>%
-  group_by(condition, switch_idx, rel) %>% 
-  summarise(r2=cor(lag_200_1, lag_200_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
-  (function(.df) ggplot(.df, aes(rel, r2)) +
-     facet_grid(condition~switch_idx) +
-     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
-     geom_text(aes(y=0.99, label=paste0("n = ", n)), angle=90, hjust=1) +
-     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
-     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
-  )
-# ggsave('plots/asc_gfp_lag200_genealogyr2.pdf', width=2.5, height=4)
-
+mycells_switching %>% ungroup %>% 
+  filter(!condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -200, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(variable~.) +
+  geom_step_hist(aes(col=factor(switch_idx)), binwidth=6, position='identity') +
+  geom_histogram(aes(fill=factor(switch_idx)), binwidth=6, position='identity', 
+                 col='transparent', alpha=.2) +
+  labs(x='lag after the switch (min)', title='without 8h', col='switch', fill='switch') +
+  expand_limits(x=0)
 
 ```
 
+Let's look at the heritability of the lag in naive cells:
+first visualize the pairwise correlations to understand the heritability estimator.
 
 ```{r}
-
-filter(mypairs_switching, rel!='niece') %>% 
-  filter(str_detect(condition, 'switch_[0-79]+h'), switch_idx==1) %>%
-  ggplot(aes(lag_200_1/60, lag_200_2/60, col=rel)) +
-     facet_grid(condition~rel, scales='free') +
-  geom_abline(col='gray50') +
-  geom_hline(yintercept=50, lty='dashed') + geom_vline(xintercept=50, lty='dashed') + 
-  geom_point(alpha=.5, size=.5) +
-  expand_limits(x=0, y=0) +
-  labs(x='induction lag cell 1 (min)', y='induction lag cell 2 (min)', col='relationship') +
-  theme(legend.position='bottom') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
-
-filter(mypairs_switching, rel!='niece') %>% 
-  filter(str_detect(condition, 'switch_[0-79]+h'), switch_idx==1) %>%
-    mutate(slow_induction_1=lag_200_1>50*60, slow_induction_2=lag_200_2>50*60) %>% 
-  ggplot(aes(slow_induction_1, slow_induction_2, col=rel)) +
-     facet_grid(condition~rel, scales='free') +
-  geom_point(alpha=.5, size=.5, position='jitter') +
-  theme(legend.position='bottom') + guides(col=guide_legend(override.aes=list(size=3, alpha=1)))
-
-filter(mypairs_switching, rel!='niece') %>% 
-  filter(str_detect(condition, 'switch_[0-79]+h'), switch_idx==1) %>%
-    mutate(slow_induction_1=lag_200_1>50*60, slow_induction_2=lag_200_2>50*60) %>% 
-  group_by(condition, rel) %>% 
-  summarise(r2=cor(slow_induction_1, slow_induction_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
-  (function(.df) ggplot(.df, aes(rel, r2)) +
-     facet_grid(.~condition) +
-     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
-     geom_text(aes(y=0.99, label=paste0("n = ", n)), angle=90, hjust=1) +
-     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
-     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
-  )
-
-```
-
-
-```{r eval=FALSE}
-# presentation plots with 4h data:
 filter(mypairs_switching, rel %in% c('sisters', 'cousins2')) %>% 
-  filter(condition=='switch_04h', switch_idx==1) %>% 
-  filter(!( (switch_idx>1 & lag_200_1/60>60) | (switch_idx>1 & lag_200_2/60>60) )) %>%
-  filter(!( (condition=='switch_04h' & switch_idx==2 & gfp_ini_1<150) |
-              (condition=='switch_04h' & switch_idx==2 & gfp_ini_2<150) )) %>%
-  ggplot(aes(lag_200_1/60, lag_200_2/60, col=rel)) +
+  filter(!condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% 
+  # filter(is.finite(value_1), is.finite(value_2)) %>% 
+  ggplot(aes(value_1/60, value_2/60, col=rel)) +
 # ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
   # facet_wrap(~switch_idx, scales='free', ncol = 3) +
-     facet_grid(.~rel) +
+     facet_grid(rel~variable) +
   geom_abline(col='gray50') +
   geom_point(alpha=.5, size=.5) +
   expand_limits(x=0, y=0) +
@@ -867,29 +583,143 @@ filter(mypairs_switching, rel %in% c('sisters', 'cousins2')) %>%
   scale_colour_manual(values=c('sisters'=brewer_cols[1], 'cousins2'=brewer_cols[3])) +
   guides(col='none') +
   theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
-ggsave('Rplot.pdf', width=3.5, height=3.7)
 
+```
+
+```{r}
 filter(mypairs_switching, rel!='niece') %>% 
-  filter(condition=='switch_04h') %>% 
-  filter(!( (switch_idx>1 & lag_200_1/60>60) | (switch_idx>1 & lag_200_2/60>60) )) %>%
-  filter(!( (condition=='switch_04h' & switch_idx==2 & gfp_ini_1<150) |
-              (condition=='switch_04h' & switch_idx==2 & gfp_ini_2<150) )) %>%
-  group_by(condition, switch_idx, rel) %>% 
-  summarise(r2=cor(lag_200_1, lag_200_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  filter(!condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% 
+  mutate(both_finite=is.finite(value_1) & is.finite(value_2)) %>%
+  group_by(variable, rel) %>% 
+  summarise(pearson=cor(value_1[both_finite], value_2[both_finite], method="pearson")^2, 
+            spearman=cor(value_1, value_2, method="spearman", use="complete.obs")^2, 
+            n=n(), n_finite=sum(both_finite)) %>% 
+  gather(type, r2, pearson, spearman) %>% 
+  # filter(type=='pearson') %>% 
   (function(.df) ggplot(.df, aes(rel, r2)) +
-     facet_grid(.~switch_idx, labeller=as_labeller(switch_facets_labels)) +
+     facet_grid(type~variable, labeller=as_labeller(switch_facets_labels)) +
      geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
-     geom_text(aes(y=0.99, label=paste0("n = ", n)), angle=90, hjust=1) +
+     geom_text(aes(y=0.99, label=paste0("n = ", n_finite)), angle=90, hjust=1) +
      expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
      theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
   )
-ggsave('Rplot.pdf', width=3, height=2.5)
+
+# check the heritability estimated per experiment
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(!condition %in% c('switch_iptg'), switch_idx==1) %>% 
+  filter(is.finite(value_1), is.finite(value_2)) %>% 
+  group_by(condition, date, variable, rel) %>% 
+  summarise(r2=cor(value_1, value_2, method="pearson")^2, n=n()) %>% 
+  (function(.df) ggplot(.df, aes(rel, r2)) +
+     facet_grid(variable~date+condition, labeller=as_labeller(switch_facets_labels)) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+
+```
+
+By comparison, let's look at the heritability of various traits in constant environment:
+
+```{r}
+mypairs_constant %>% 
+  filter(div_min==div_max) %>% 
+  group_by(condition, variable, rel) %>% 
+  summarise(r2=cor(value_1,  value_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  ggplot(aes(variable, r2)) +
+  facet_wrap(~condition) +
+  geom_bar(aes(fill=rel), stat='identity', pos='dodge') +
+  geom_text(aes(y=1, label=sprintf("(n = %d)", n), group=rel), 
+            angle=90, hjust=1, pos=position_dodge(width=0.8)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1),
+        legend.position='top')
+
+```
+
+## Induction of pre-exposed cells
+
+Focus on the second switch only:
+
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(condition!='switch_08h') %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  (function(.df)
+    ggplot(data=NULL, aes(x=lag/60)) +
+     facet_grid(switch_idx~variable) +
+     stat_ecdf(aes(y=1-..y.., col='lac_all'),
+               data=filter(.df, !condition %in% c('switch_iptg'), switch_idx==1)) +
+     stat_ecdf(aes(y=1-..y.., col=condition),
+               data=.df %>% filter(!condition %in% c('switch_iptg'), switch_idx==2)) +
+     stat_ecdf(aes(y=1-..y.., col=condition, lty='switch_iptg'), 
+               data=.df %>% filter(condition=='switch_iptg')) +
+     labs(x='lag after the switch (min)', y='reverse cumulative probability') +
+     scale_colour_periodic_brewer(.n=5) + labs(col='condition') +
+     scale_linetype_manual(values=c('switch_iptg'=2)) )
+
+mycells_switching %>% ungroup %>% 
+  # filter(!condition %in% c('switch_iptg', 'switch_08h')) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  (function(.df)
+    ggplot(data=NULL, aes(x=lag/60, y=..density.., col=condition, fill=condition)) +
+     facet_grid(condition+switch_idx~variable, scales='free_y', labeller=as_labeller(switch_facets_labels)) +
+     geom_step_hist(binwidth=3, position='identity',
+                    data=filter(.df, !condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% mutate(condition='lac_all')) +
+     geom_histogram(binwidth=3, position='identity', col='transparent', alpha=.2,
+                    data=filter(.df, !condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% mutate(condition='lac_all')) +
+     geom_step_hist(binwidth=3, position='identity',
+                    data=.df %>% filter(!condition %in% c('switch_iptg'), switch_idx==2)) +
+     geom_histogram(binwidth=3, position='identity', col='transparent', alpha=.2,
+                    data=.df %>% filter(!condition %in% c('switch_iptg'), switch_idx==2)) +
+     # stat_ecdf(aes(y=1-..y.., col=condition, lty='switch_iptg'), 
+     #           data=.df %>% filter(condition=='switch_iptg')) +
+     labs(x='lag after the switch (min)', col='condition', fill='condition') +
+     scale_colour_periodic_brewer(.n=5) + scale_fill_periodic_brewer(.n=5) + 
+     # scale_linetype_manual(values=c('switch_iptg'=2)) +
+     xlim(0, 250)
+  )
+# ggsave('Rplot.pdf', width=7, height=4)
+
+```
+
+Mother cells don't show very different distribution of lags:
+
+```{r}
+mycells_switching %>% ungroup %>% 
+  # filter(!condition %in% c('switch_iptg', 'switch_08h')) %>% 
+  mutate(cell_pos=NA,
+         cell_pos=ifelse(cell_num_from_bottom==0, 'bottom', cell_pos), 
+         cell_pos=ifelse(cell_num_from_bottom>=2, '>=2', cell_pos)) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  filter(!is.na(cell_pos)) %>% # filter(variable=='lag_200') %>% 
+  (function(.df)
+    ggplot(data=NULL, aes(x=lag/60, y=1-..y.., col=cell_pos)) +
+     facet_grid(condition+switch_idx~variable, labeller=as_labeller(switch_facets_labels)) +
+     stat_ecdf(data=filter(.df, !condition %in% c('switch_iptg', 'switch_08h'), switch_idx==1) %>% mutate(condition='lac_all')) +
+     stat_ecdf(data=.df %>% filter(!condition %in% c('switch_iptg'), switch_idx==2)) +
+     labs(x='lag after the switch (min)', y='reverse cumulative probability', col='cell position') +
+     scale_y_continuous(breaks=seq(0, 1, by=0.5))
+   )
+
+```
+
+Lag inheritance at the second switch
+
+```{r}
 
 ```
 
 
+### Memory of lag
 
-## Memory of mother cells
+Memory of mother cells:
 
 ```{r}
 myframes %>% 
@@ -905,23 +735,46 @@ myframes %>%
   labs(y='total GFP fluorescence (molecules)') +
   theme(legend.position='top')
 
-mymothers_switching <- myframes %>% 
-  # filter(cell=='20150708.0.11.82') %>% 
-  filter(str_detect(condition, 'switch_[0-9]+h')) %>% 
-  filter(!discard_start, cell_num_in_lane==total_cell_in_lane) %>% # bottom_cell
-  ungroup %>% select(gl_id, cell) %>% distinct %>% 
-  inner_join(mycells_switching)
-
-
-mymothers_switching %>% 
-  select(condition, gl_id, switch_idx, lag_200) %>% 
-  mutate(name_col=paste0('lag_200_', switch_idx), switch_idx=NULL) %>% 
-  spread(name_col, lag_200) %>%
+mycells_switching %>% ungroup %>% 
+  filter(!condition %in% c('switch_iptg')) %>% 
+  filter(cell_num_from_bottom==0) %>% # bottom_cell
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  select(condition, date, pos, gl, switch_idx, variable, lag) %>% 
+  mutate(name_col=paste0('lag_', switch_idx), switch_idx=NULL) %>% 
+  spread(name_col, lag) %>%
   ggplot() +
-  facet_grid(condition~.) +
-  geom_point(aes(lag_200_1, lag_200_2), position='jitter') +
+  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels)) +
+  geom_abline(col='red', alpha=.5) +
+  geom_point(aes(lag_1/60, lag_2/60), alpha=.5) +
+  scale_x_continuous(breaks=seq(0, 1000, by=100)) +
+  scale_y_continuous(breaks=seq(0, 1000, by=100)) +
   expand_limits(x=0, y=0)
 
+```
+
+Average memory in a GL:
+
+```{r}
+mycells_switching %>% 
+  filter(!condition %in% c('switch_iptg')) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  filter(is.finite(lag)) %>% 
+  # compute stats per GL, per switch, per variable
+  group_by(condition, date, pos, gl, variable, switch_idx) %>% 
+  summarise(mean_lag=mean(lag)) %>% 
+  mutate(name_col=paste0('mean_lag_', switch_idx), switch_idx=NULL) %>% 
+  spread(name_col, mean_lag) %>%
+  ggplot(aes(mean_lag_1/60, mean_lag_2/60)) +
+  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels)) +
+  geom_abline(col='red', alpha=.5) +
+  geom_point(alpha=.4) +
+  scale_x_continuous(breaks=seq(0, 1000, by=100))
+# ggsave('Rplot.pdf', width=3.5, height=4)
 
 ```
+
+
+## Various controls
+
+
 
