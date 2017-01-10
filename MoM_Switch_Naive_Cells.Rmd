@@ -1,0 +1,176 @@
+---
+title: "*lac* induction and growth lag in naive cells"
+author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+## Distribution of lags
+
+For the first switch, all conditions (without IPTG) should be equivalent:
+  
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  stat_ecdf(aes(y=1-..y.., col=variable)) +
+  labs(x='lag after the switch (min)', y='reverse cumulative probability', title='distribution of lags at 1st switch (without 8h)') +
+  expand_limits(x=0)
+
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -200, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(variable~.) +
+  geom_step_hist(aes(col=factor(switch_idx)), binwidth=6, position='identity') +
+  geom_histogram(aes(fill=factor(switch_idx)), binwidth=6, position='identity', 
+                 col='transparent', alpha=.2) +
+  labs(x='lag after the switch (min)', title='distribution of finite lags at 1st switch (without 8h)', col='switch', fill='switch') +
+  xlim(0, 240) +
+  guides(col='none', fill='none')
+
+```
+
+how the bimodal lag of GFP induction becomes more unimodal for growth is not clear: it is tempting t hypothesize that there is some additional variability in the time different cells need to restart growing after expressing GFP / that they induce GFP at different rates, hence bluring the 2 peaks into a single broader peak.
+
+
+## Lag heritability
+
+Let's look at the heritability of the lag in naive cells, i.e. how much a common history (and hence cellular state) determines the duration of the lag.
+first visualize the pairwise correlations to understand the heritability estimator.
+
+```{r}
+filter(mypairs_switching, rel %in% c('sisters', 'cousins2')) %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
+  # filter(is.finite(value_1), is.finite(value_2)) %>% 
+  ggplot(aes(value_1/60, value_2/60, col=rel)) +
+# ggplot(filter(mypairs_switching, rel!='niece'), aes(lag_200_1/60, lag_200_2/60, col=rel)) +
+  # facet_wrap(~switch_idx, scales='free', ncol = 3) +
+     facet_grid(rel~variable) +
+  geom_abline(col='gray50') +
+  geom_point(alpha=.5, size=.5) +
+  expand_limits(x=0, y=0) +
+  labs(x='induction lag cell 1 (min)', y='induction lag cell 2 (min)', col='relationship') +
+  scale_colour_manual(values=c('sisters'=brewer_cols[1], 'cousins2'=brewer_cols[3])) +
+  guides(col='none') +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
+  coord_equal()
+
+```
+
+```{r}
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
+  mutate(both_finite=is.finite(value_1) & is.finite(value_2)) %>%
+  group_by(variable, rel) %>% 
+  summarise(pearson=cor(value_1[both_finite], value_2[both_finite], method="pearson")^2, 
+            spearman=cor(value_1, value_2, method="spearman", use="complete.obs")^2, 
+            n=n(), n_finite=sum(both_finite)) %>% 
+  gather(type, r2, pearson, spearman) %>% 
+  # filter(type=='pearson') %>% 
+  (function(.df) ggplot(.df, aes(rel, r2)) +
+     facet_grid(type~variable, labeller=as_labeller(switch_facets_labels)) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=paste0("n = ", n_finite)), angle=90, hjust=1) +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+
+```
+
+By comparison, let's look at the heritability of various traits in constant environment:
+
+```{r}
+mypairs_constant %>% 
+  filter(div_min==div_max) %>% 
+  group_by(condition, variable, rel) %>% 
+  summarise(r2=cor(value_1,  value_2, use="complete.obs", method="pearson")^2, n=n()) %>% 
+  ggplot(aes(variable, r2)) +
+  facet_wrap(~condition) +
+  geom_bar(aes(fill=rel), stat='identity', pos='dodge') +
+  geom_text(aes(y=1, label=sprintf("(n = %d)", n), group=rel), 
+            angle=90, hjust=1, pos=position_dodge(width=0.8)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1),
+        legend.position='top')
+
+```
+
+
+We want to understand (i) the molecular processes underlying the multimodal distribution of the lags, and (ii) what are theounds shared by cellullarcompurelated cells that determines their lags. Actually these questions might very well be linked. 
+
+
+## Effect of spontaneous *lac* expression
+
+hypothesized to explain how the positive feedback kicks off.
+can be manipulated by titrating a given fraction of LacI with IPTG.
+
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(condition!='switch_lac_IPTG500uM') %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
+         'lactose', condition)) %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(variable~.) +
+  stat_ecdf(aes(y=1-..y.., col=condition)) +
+  labs(x='lag after the switch (min)', y='reverse cumulative probability', title='distribution of lags at 1st switch') +
+  expand_limits(x=0)
+
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(condition!='switch_lac_IPTG500uM') %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
+         'lactose', condition)) %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -200, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(variable~.) +
+  geom_step_hist(aes(y=..density.., col=condition), binwidth=6, position='identity') +
+  geom_histogram(aes(y=..density.., fill=condition), binwidth=6, position='identity', 
+                 col='transparent', alpha=.2) +
+  labs(x='lag after the switch (min)', title='distribution of finite lags at 1st switch') +
+  xlim(0, 240)
+
+```
+
+
+Let's check that the *lac* promoter is not induced before the switch:
+
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(condition!='switch_lac_IPTG500uM') %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
+         'lactose', condition)) %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -200, lag)) %>% 
+  ggplot(aes(condition, gfp_ini)) +
+  geom_violin()
+    # labs(x='lag after the switch (min)', title='distribution of finite lags at 1st switch') +
+  # xlim(0, 240)
+
+```
+
+

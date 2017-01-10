@@ -3,9 +3,9 @@
 *.RData*
 plots
 preproc
-data_matthias
-data_thomas
+data_*
 html
 old
+qlogs
 share
 debug

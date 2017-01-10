@@ -1,0 +1,175 @@
+---
+title: "Heritability of the *lac* induction and growth lags"
+author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+## Motivation
+
+It is visually striking that cells in a given growth lane get induced and restart growing simultaneously, while the fluctuations between growth lanes are much larger. This can be quantified in two ways:
+
+- by showing that the cells' lags and the average lags per GL are correlated
+- by comparing the variance within growth lane and the global variance per condition, the fromer is smaller than the latter
+
+```{r eval=FALSE}
+# histogram of number of estimated lags per GL
+mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
+  mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
+         lag200_n=sum(!is.na(lag_200))) %>% 
+  ( function(.df)
+    ggplot(.df, aes(lag200_n) ) +
+      facet_grid(condition~switch_idx) +
+      geom_histogram(binwidth=1) )
+    
+# correlation lag and avg lag in GL
+mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
+  mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
+         lag200_n=sum(!is.na(lac_200)), lag200_se=lag200_sd/sqrt(lag200_n)) %>% 
+  filter(lag200_n>2) %>% 
+  filter(!(switch_idx==2 & lag200_mean/60>100)) %>% #group_by(switch_idx) %>% 
+  # summarise(n=n(), r2=cor(lag200_mean, lag_200, use="complete.obs", method="pearson")^2)
+  ( function(.df) { #browser()
+    ggplot(.df, aes(lag200_mean/60, lag_200/60, col=factor(switch_idx)) ) +
+      facet_grid(condition~switch_idx, scales="free") +
+      # stat_smooth(method='lm', fullrange=TRUE) +
+      geom_abline(lty="dashed") +
+      geom_segment(aes(x=(lag200_mean-lag200_se)/60, xend=(lag200_mean+lag200_se)/60, yend=lag_200/60), alpha=0.5, show.legend=FALSE) +
+      geom_point(size=0.5, alpha=0.5) +
+        scale_colour_brewer(palette='Set1', # breaks=1:3, 
+                            labels=.df %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(lag200_mean, lag_200, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.2f)', .df$switch_idx, .df$r2)) ) +
+      labs(x='induction lag average in GL (min)', y='induction lag (min)', col='switch') +
+      expand_limits(x=0, y=0) + 
+      theme(legend.position='top') + guides(col=guide_legend(override.aes = list(size=3, alpha=1)))
+    })
+# ggsave('plots/asc_gfp_lag200_gl.pdf', width=6, height=3.5)
+
+# compare variance within GL versus global variance
+mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
+  mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
+         lag200_n=sum(!is.na(lag_200))) %>% 
+  filter(lag200_n>2) %>% 
+  ( function(.df)
+    ggplot(.df) +
+      facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
+      geom_histogram(aes(lag200_sd/lag200_mean, ..density.., fill=factor(switch_idx)), 
+                     binwidth=.05, position='identity', alpha=.2, col='transparent', show.legend=FALSE) +
+      geom_step_hist(aes(lag200_sd/lag200_mean, ..density.., col=factor(switch_idx), lty='GLs'), binwidth=.05, position='identity') +
+      geom_vline(aes(xintercept=lag200_sd/lag200_mean, col=factor(switch_idx), lty='all'),  show.legend=FALSE,
+                 data=.df %>% group_by(condition, switch_idx) %>%
+                   summarise(lag200_mean=mean(lag_200, na.rm=TRUE)/60, lag200_sd=sd(lag_200, na.rm=TRUE)/60)) +
+      scale_linetype_manual(name='group', values=2:1) +
+      labs(x='induction lag c.o.v.', col='switch')
+  )
+# ggsave('plots/asc_gfp_lag200_cov.pdf', width=6, height=3)
+
+```
+
+
+Filter out the cells that have not been induced during the first switch:
+check that gfp at the end of trace (if before end of medium) or at end of medium is greater than gfp_switch + constant (1000 gfp).
+
+```{r eval=FALSE}
+myframes_switching %>% 
+  filter(type!='1dg') %>% 
+  group_by(ugen) %>% 
+
+  mutate(div_before_end=last(time_sec)<unique(t_lac_end), 
+         get_induced=ifelse(div_before_end, last(gfp_nb)>(mean(gfp_nb[pre_switch])+1000),
+                            gfp_nb[time_sec==t_lac_end]>(mean(gfp_nb[pre_switch])+1000) ),
+         tmp=ifelse(div_before_end, 0, as.numeric(length(time_sec))) ) %>% 
+           with(tmp) %>% table
+  with(paste(div_before_end, get_induced)) %>% table
+  # summarise(gi=first(get_induced)) %>% with(gi) %>% table
+  filter(!get_induced & (last(time_sec)>=unique(t_lac_end)) ) %>% 
+  # filter(time_div < t_lac_end) %>% 
+  # semi_join(myframes_switching, ., by='ugen') %>% 
+  ggplot(aes(time_sec - 2*3600, gfp_nb, col=ugen, alpha=type)) +
+  # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+  facet_wrap(~condition, ncol=1) +
+  geom_path() + # geom_point() +
+  scale_colour_periodic_brewer(guide='none') +
+  scale_alpha_discrete(range=c(0.1, 0.6)) +
+  scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
+  ylim(-100, 1e4) +   expand_limits(x=0, y=0) +
+  labs(y='total fluorescence (GFP molecules)')
+
+
+```
+
+
+## Lag heritability
+
+```{r}
+mypairs_switching <- mycells_switching %>% 
+  group_by(condition, date, pos, gl, switch_idx) %>% 
+  do((function(.df) {
+    # browser()
+    if (dim(.df)[1]<2) 
+      return(data.frame())
+    return( combn(.df$genealogy, 2, simplify=FALSE) %>% 
+      lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>% 
+      do.call(rbind, .) )
+  })(.)) %>% 
+  # rbind one df per variable type
+  mutate(foo=1) %>% left_join(data.frame(foo=1, variable=c('growth_lag', 'gfp_lag', 'lag_200'))) %>% select(-foo) %>% 
+  # join variables of interest
+  mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>% 
+  left_join(mycells_switching %>% ungroup %>% 
+              gather(variable, value, growth_lag, gfp_lag, lag_200) %>% 
+              setNames(., paste(names(.), "1", sep="_")) %>% 
+              rename(date=date_1, pos=pos_1, gl=gl_1, switch_idx=switch_idx_1, variable=variable_1) ) %>% 
+  left_join(mycells_switching %>% ungroup %>% 
+              gather(variable, value, growth_lag, gfp_lag, lag_200) %>% 
+              setNames(., paste(names(.), "2", sep="_")) %>% 
+              rename(date=date_2, pos=pos_2, gl=gl_2, switch_idx=switch_idx_2, variable=variable_2) ) 
+
+```
+
+NB: for the long lac experiment, it is important to discard cells with a lag longer than 4h (rare points between 4h and 24h probably mess up the computation of the correlation)
+
+```{r eval=FALSE}
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(condition=='switch_long_lac') %>%
+  filter(switch_idx==1) %>% 
+  # filter(type=='pearson') %>% 
+  (function(.df) ggplot(.df, aes(value_1/60, value_2/60)) +
+     facet_grid(.~variable, labeller=as_labeller(switch_facets_labels)) +
+     geom_point(alpha=.25)
+  )
+
+```
+
+
+```{r}
+# check the heritability estimated per experiment (pearson)
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(switch_idx==1) %>% 
+  mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
+  filter(is.finite(value_1), is.finite(value_2)) %>% 
+  group_by(condition, date, variable, rel) %>% 
+  summarise(r2=cor(value_1, value_2, method="pearson")^2, n=n()) %>% 
+  (function(.df) ggplot(.df, aes(rel, r2)) +
+     facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+
+# check the heritability estimated per experiment (spearman)
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(switch_idx==1) %>% 
+  filter(is.finite(value_1), is.finite(value_2)) %>% 
+  group_by(condition, date, variable, rel) %>% 
+  summarise(r2=cor(value_1, value_2, method="spearman", use="complete.obs")^2, n=n()) %>% 
+  (function(.df) ggplot(.df, aes(rel, r2)) +
+     facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
+     expand_limits(y=1) + labs(x='relationship', y='squared spearman correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+
+```
+
+

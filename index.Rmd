@@ -1,5 +1,5 @@
 ---
-title: "Glucose/Lactose experiments in the Mother Machine"
+title: "Single-cell analysis of the glucose/lactose diauxic shift"
 author: Thomas Julou
 output:
   html_document:

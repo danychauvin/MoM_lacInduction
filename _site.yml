@@ -9,19 +9,22 @@ output:
 author: Thomas Julou
 
 navbar:
-  title: "Glucose/Lactose experiments in the Mother Machine"
+  title: "Single-cell analysis of the glucose/lactose diauxic shift"
   left:
     - text: "Analysis"
       icon: fa-gear
       menu:
         - text: "GFP Estimation"
           href: MoM_Switch_GFP_Estimation.html
-        - text: "Growth in constant environments"
-          href: MoM_Switch_Constant_Envts_Growth.html
-        - text: "*lac* promoter activity"
-          href: MoM_Switch_Constant_Envts_GFPprod.html
-        - text: "Switching environments"
-          href: MoM_Switch_Switching_Envts.html
-#        - text: "Comparison with Flow Cytometry"
-#          href: MoM_Switch_FCM_Comparison.html
+        - text: "Lags estimation"
+          href: MoM_Switch_Lags_Estimation.html
+        - text: "Heritability estimation"
+          href: MoM_Switch_Heritability_Estimation.html
+        - text: "Controls"
+          href: MoM_Switch_Controls.html
+        - text: "---------"
+        - text: "Naive cells"
+          href: MoM_Switch_Naive_Cells.html
+        - text: "Memory"
+          href: MoM_Switch_Memory.html
 

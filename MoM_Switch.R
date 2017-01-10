@@ -34,8 +34,6 @@ myconditions <- list(
        paths=c("./data_MoM_ms/glucose")),
   list(condition='lactose', duration=1560, medium='lactose',
        paths=c("./data_MoM_ms/lactose")),
-  # list(condition='lactose_lowillum', duration=1560, medium='lactose',
-  #      paths=c("./data_copy/20160318", "./data_copy/20160427")),
   list(condition='switch_long_lac',
        duration=c(360, 1800),
        medium=c('glucose', 'lactose'),
@@ -48,6 +46,9 @@ myconditions <- list(
        duration=c(360, 240),
        medium=c('glucose+IPTG', 'lactose+IPTG'),
        paths=c("./data_thomas/20161207/20161207_curated")),
+  list(condition='switch_lac_IPTG500uM', duration=c(360, 240, 240, 240, 240, 240),
+       medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
+       paths=c("./data_thomas/20151207/20151207_switch_iptg_curated")),
   list(condition='switch_04h',
        duration=c(360, 240, 240, 240, 240, 240),
        medium=c('glucose', 'lactose', 'glucose', 'lactose', 'glucose', 'lactose'),
@@ -66,12 +67,13 @@ myconditions <- list(
   list(condition='switch_16h', duration=c(360, 240, 960, 360), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose'),
        paths=c("./data_thomas/20160912/20160912_curated")),
+  list(condition='switch_20h', duration=c(360, 240, 1200, 360), 
+       medium=c('glucose', 'lactose', 'glucose', 'lactose'),
+       paths=c("./data_thomas/20161014/20161014_curated")),
   list(condition='switch_24h', duration=c(360, 240, 1440, 360), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose'),
-       paths=c("./data_thomas/20161007/20161007_curated")),
-  list(condition='switch_iptg', duration=c(360, 240, 240, 240, 240, 240),
-       medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
-       paths=c("./data_thomas/20151207/20151207_switch_iptg_curated")) #,
+       paths=c("./data_thomas/20161007/20161007_curated"))
+ #,
   # list(condition='switch_m9',
   #      duration=c(360, 120, 360, 720, 360, 240), 
   #      medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
@@ -166,6 +168,19 @@ myframes <- myfiles %>%
          b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)))
 
 
+# CONVERT FLUO UNITS ####
+if (use_eriks_params)
+  autofluo_predict <- function(.h) .h * 422.8
+myframes <- myframes %>%
+  mutate(fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um))
+
+fp_per_oligomers <- 4 # lacZ is tetrameric
+if (use_eriks_params)
+  fp_per_dn <- 0.0361 * fp_per_oligomers
+myframes <- myframes %>%
+  # convert to gfp units (after subtracting autofluorescence)
+  mutate(gfp_nb = fluogfp_amplitude * fp_per_dn )
+
 
 # RENDER ANALYSIS FILES ####
 # calling `render()` or `render_site()` from the command line allows to execute the function 
@@ -179,93 +194,14 @@ knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 
 # rmarkdown::render_site('index.Rmd')
 rmarkdown::render_site('MoM_Switch_GFP_Estimation.Rmd')
-# rmarkdown::render_site('MoM_Switch_Constant_Envts.Rmd')
-rmarkdown::render_site('MoM_Switch_Switching_Envts.Rmd')
-# rmarkdown::render_site('MoM_Switch_FCM_Comparison.Rmd')
+rmarkdown::render_site('MoM_Switch_Constant_Envts.Rmd')
+rmarkdown::render_site('MoM_Switch_Lags_Estimation.Rmd')
+rmarkdown::render_site('MoM_Switch_Heritability_Estimation.Rmd')
 
+# DISCARD SOME DATASETS
+discarded_date <- c('20151218') # switch_08h
 
+rmarkdown::render_site('MoM_Switch_Controls.Rmd')
+rmarkdown::render_site('MoM_Switch_Naive_Cells.Rmd')
+rmarkdown::render_site('MoM_Switch_Memory.Rmd')
 
-# CURATION STATS ####
-timm_files <- list.files("./data", "^\\d+_pos.*\\.timm$", recursive=TRUE, full.names=TRUE)
-
-l_data <- lapply(timm_files, function(.f) try(parse_timm_curation(.f) %>%
-                                                data.frame(path=.f, .)) )
-timm_data <- lapply(l_data, function(.df) {
-  if (class(.df) == 'try-error') return(data.frame())
-  # keep only the first line of a frame for each SSCxAction events
-  # combine it (using rbind) with all other events
-  rbind(.df %>% 
-          filter(type=='SSC') %>%
-          group_by(frame, action) %>%
-          summarise_each(funs(first)) %>%
-          ungroup %>% 
-          select(path, type, frame, action),
-        filter(.df, type!='SSC') %>%
-          select(path, type, frame, action) ) %>%
-    arrange(type, frame)
-}) %>%
-  do.call(rbind, .) %>%
-  extract(path, c('date', 'pos', 'gl'), ".*/(\\d+)_pos(\\d+)_[^/]*GL0*(\\d+)\\.timm") %>%
-  # to do: keep only files for which the output is used
-  mutate(date=as.numeric(date), pos=as.numeric(pos), gl=as.numeric(gl))
-
-
-mygl <- myframes %>%
-  # start from the total number of observations
-  group_by(condition, date, pos, gl) %>%
-  filter(!discard_top, !discard_start) %>% 
-  summarise(n_obs=n()) %>%
-  # add the number of dividing cells
-  left_join(myframes %>%
-              group_by(date, pos, gl, id) %>% 
-              filter(!discard_top, !any(discard_start), end_type=='div', row_number()==1) %>% 
-              group_by(date, pos, gl) %>% 
-              summarise(n_div_cells=n()) ) %>%
-  # add the number of frames
-  left_join(myframes %>%
-              group_by(date, pos, gl) %>% 
-              summarise(nframes=max(frame)) ) %>%
-  # add curation times
-  left_join(read.csv("./data_matthias/curation_times.csv", comment.char="#") %>%
-              na.omit %>%
-              mutate(pos=as.numeric(gsub('pos', '', pos)),
-                     gl=as.numeric(gsub('GL', '', gl))) ) %>%
-  # add the number of curated frames
-  left_join(rbind(
-    timm_data %>% 
-      filter(type != 'none') %>%
-      group_by(date, pos, gl) %>%
-      summarise(n_cur_frames=length(unique(frame))),
-    timm_data %>% 
-      filter(type == 'none') %>%
-      group_by(date, pos, gl) %>%
-      summarise(n_cur_frames=0)) )
-
-
-# kable(mygl %>%
-#   group_by(condition) %>%
-#   summarise(n_lanes=length(unique(interaction(date, pos, gl))),
-#             n_div_cells=sum(n_div_cells),
-#             n_obs=sum(n_obs),
-#             time_avg=mean(time, na.rm=TRUE),
-#             time_sd=sd(time, na.rm=TRUE) ))
-#
-# qplot(time/nframes*100, data=mygl, xlab='curation time (min; per 100 frames)', col=I('darkblue'), fill=I('darkblue'), alpha=I(.4))
-# ggsave('plots/curation_times_hist.pdf', width=4, height=3)
-# 
-# ggplot(data=mygl, aes(n_cur_frames/nframes*100, time/nframes*100)) +
-#   geom_smooth(method='lm', se=FALSE) +
-#   geom_point(position=position_jitter(width=.1)) +
-#   # geom_rug(sides='r', position=position_jitter(), size=5, alpha=.2) +
-#   # ylim(0, 20) +
-#   expand_limits(y=0) +
-#   labs(x='fraction of frames curated (%)', y='curation time (min; per 100 frames)')
-# ggsave('plots/curation_times_frames.pdf', width=4, height=3)
-# 
-# ggplot(data=filter(mygl, n_div_cells>40), aes(n_div_cells, time)) +
-#   geom_point(position=position_jitter(width=.1)) +
-#   geom_point(data=filter(mygl, n_div_cells>40) %>% ungroup %>% select(n_div_cells, time) %>% mutate_each(funs(as.numeric)) %>% summarise_each(funs(median(., na.rm=T))), col='red', pch='+', size=10) +
-#   # geom_rug(sides='r', position=position_jitter(), size=5, alpha=.2) +
-#   ylim(0, 20) +
-#   labs(x='number of entire cell cycles', y='curation time (min)')
-# ggsave('plots/curation_times_divcells.pdf', width=4, height=3)

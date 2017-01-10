@@ -6,7 +6,7 @@ calling `render()` or `render_site()` from the command line allows to execute th
 these scripts rely heavily on `multidplyr`...
 
 ## Rmardown rendering
-designed as a Rmarkdown "site". hence requires rmarkdown dev version (as of April 2016).
+designed as a Rmarkdown "site". hence requires rmarkdown ≥ 1.0
 
 `index.Rmd` file is required for site_render() to execute.
 
