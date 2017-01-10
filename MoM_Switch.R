@@ -189,6 +189,22 @@ myframes <- myframes %>%
 # render control plots of each GC
 # source('MoM_Switch_GCplots.R')
 
+switch_facets_labels <- function (.str) {
+  .labels <- .str
+  .labels[.labels=='1'] <- 'switch:1'
+  .labels[.labels=='2'] <- 'switch:2'
+  .labels[.labels=='3'] <- 'switch:3'
+  .labels[.labels=='switch_04h'] <- 'lac (4h)'
+  .labels[.labels=='switch_06h'] <- 'lac (6h)'
+  .labels[.labels=='switch_08h'] <- 'lac (8h)'
+  .labels[.labels=='switch_12h'] <- 'lac (12h)'
+  .labels[.labels=='switch_16h'] <- 'lac (16h)'
+  .labels[.labels=='switch_20h'] <- 'lac (20h)'
+  .labels[.labels=='switch_24h'] <- 'lac (24h)'
+  .labels[.labels=='switch_iptg'] <- 'IPTG (4h)'
+  return(.labels)
+}
+
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 # rmarkdown::clean_site()
 
