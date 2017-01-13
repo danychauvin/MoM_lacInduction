@@ -58,7 +58,7 @@ myframes_switching <- myframes %>%
   group_by(condition, ugen) %>% 
   mutate(fit_lag=ifelse(
     type!='1dg' & # discard traces after one daughter is lost (because of discontinuity)
-      tail(time_sec-t_lac_switch, 1) > (10 * dt*60) & # require at least 10 frames after the switch
+      tail(time_sec[type!='1dg']-t_lac_switch[type!='1dg'], 1) > (10 * dt*60) & # require at least 10 frames after the switch
       m_start==t_lac_switch # focus on the medium after the switch
     , TRUE, FALSE) )
 
@@ -148,10 +148,10 @@ mycells_switching <- mycells_switching %>%
   
 # set to NA lags of uninduced cells with traces shorter than the lactose episode
 mycells_switching <- mycells_switching %>%
-  mutate(reac_lac_end = abs(tmax_lag_fit-(t_lac_end-180))<1e-3) %>% 
-  mutate(gfp_lag=ifelse(is.infinite(gfp_lag) & !reac_lac_end, NA, gfp_lag),
-         growth_lag=ifelse(is.infinite(growth_lag) & !reac_lac_end, NA, growth_lag),
-         lag_200=ifelse(is.infinite(lag_200) & !reac_lac_end, NA, lag_200) )
+  mutate(reach_lac_end = abs(tmax_lag_fit-(t_lac_end-180))<1e-3) %>% 
+  mutate(gfp_lag=ifelse(is.infinite(gfp_lag) & !reach_lac_end, NA, gfp_lag),
+         growth_lag=ifelse(is.infinite(growth_lag) & !reach_lac_end, NA, growth_lag),
+         lag_200=ifelse(is.infinite(lag_200) & !reach_lac_end, NA, lag_200) )
 
 # add fit prediction and residual to myframes_switching
 myframes_switching <- myframes_switching %>% 
@@ -344,6 +344,44 @@ dev.off()
 
 ```
 
+```{r BZSposter, eval=FALSE}
+myframes_switching %>% 
+  filter(date==20150703, pos==0, gl==27, genealogy=='0:BBBBB') %>% 
+  semi_join(mycells_switching, by='ugen') %>% 
+  ungroup %>% 
+  filter(type!='1dg') %>%
+  gather(var, value, gfp_nb, length_um) %>% 
+  mutate(value=ifelse(var=='length_um', log(value), value),
+         # var=ifelse(var=='length_um', 'log(length)', var)
+         var=forcats::fct_recode(var, 'log(length)'='length_um', '# GFP molecules'='gfp_nb')) %>% 
+  group_by(ugen) %>% 
+  (function(.df){
+    ggplot(.df, aes((time_sec-t_lac_switch)/60, value, col=ugen)) +
+      facet_grid(var~., scales='free', as.table=FALSE) +
+      # add annotations
+      geom_vline(xintercept=0, col='grey70') +
+      # plot traces
+      geom_line(aes(alpha=type, lty=fit_lag, group=interaction(ugen, type, fit_lag, time_sec<t_lac_switch))) +
+      scale_colour_periodic_brewer(guide='none') +
+      # add lag estimations
+      geom_vline(aes(xintercept=(lvalue)/60, col=ugen, lty=lvar),
+                 data=.df%>% group_by(var, ugen) %>% slice(1) %>% ungroup %>% 
+                   gather(lvar, lvalue, gfp_lag, growth_lag) %>% 
+                   mutate(lvalue=ifelse(var!='log(length)' & lvar=='growth_lag', NA, lvalue),
+                          lvalue=ifelse(var!='# GFP molecules' & lvar%in%c('gfp_lag', 'lag_200'), NA, lvalue)) ) +
+      scale_linetype_manual(values=c('TRUE'=1, 'FALSE'=4, 
+                                     'growth_lag'=3, 'gfp_lag'=3, 'lag_200'=2), guide='none') +
+      # xlim(-30, 80) +
+      scale_alpha_manual(values=c("cell"=1, "2dg"=.5, "FALSE"=0.1, "TRUE"=0), guide='none') +
+      labs(x='time after the switch (min)') +
+      theme_classic(base_size=8) + 
+      theme(axis.line.x=element_line(), axis.line.y=element_line()) +
+      theme(strip.background=element_rect(fill='gray95', colour='transparent'))
+  })
+ggsave('plots/BZSposter2017/lags_inference.pdf', width=180/25.4/2, height=140/25.4/2)
+
+```
+
 
 ## Comparison of lag types
 
@@ -374,6 +412,35 @@ ggplot(data=mycells_switching, aes(growth_lag/60, lag_200/60)) +
 ```
 
 NB: the lower bound of the GFP lags probably comes from GFP maturation time.
+
+```{r BZSposter, eval=FALSE}
+mycells_switching %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  filter(switch_idx==1) %>%
+  mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag),
+         gfp_lag=ifelse(gfp_lag>240*60, Inf, gfp_lag) ) %>% 
+  group_by(growth_lag, gfp_lag) %>% 
+  summarise(n=n()) %>% ungroup %>% 
+  mutate(infinite=ifelse(is.infinite(growth_lag) | is.infinite(gfp_lag), TRUE, FALSE),
+         growth_lag=ifelse(is.infinite(growth_lag), 240*60, growth_lag),
+         gfp_lag=ifelse(is.infinite(gfp_lag), 240*60, gfp_lag) ) %>% 
+  ( function(.df)
+    ggplot(.df, aes(gfp_lag/60, growth_lag/60, size=n, shape=infinite)) +
+      geom_abline(col='red', alpha=0.9, size=.25) +
+      geom_point(stroke=.1) +
+      labs(x=expression(paste(italic('lac'), ' induction lag (min)')), y='growth lag (min)') +
+      scale_size_continuous(range=c(1.8/max(.df$n), 1.8), breaks=c(5, 20, 100)) +
+      scale_shape_manual(breaks=c(TRUE, FALSE), values=c(19, 1), guide='none') +
+      expand_limits(x=0, y=0) +
+      scale_x_continuous(breaks=seq(0, 200, 50)) + scale_y_continuous(breaks=seq(0, 200, 50)) +
+      theme_classic(base_size=8) + theme(axis.line.x=element_line(), axis.line.y=element_line()) +
+      theme(legend.position=c(0.01, 1), legend.justification=c(0, 1), legend.direction='horizontal')
+  )
+ggsave('plots/BZSposter2017/gfp_growth_lags.pdf', width=180/25.4/2, height=100/25.4/2)
+  
+```
+
 
 ## Overview of lag distributions
 

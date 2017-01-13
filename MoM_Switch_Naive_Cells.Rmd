@@ -39,7 +39,60 @@ mycells_switching %>% ungroup %>%
 
 ```
 
+
+```{r BZSposter, eval=FALSE}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  gather(variable, lag, growth_lag, gfp_lag, factor_key=TRUE) %>% 
+  mutate(variable=forcats::fct_recode(variable, 'growth lag'='growth_lag', 'lac induction lag'='gfp_lag'),
+         lag=ifelse(lag>240*60, Inf, lag) ) %>% #, 
+         # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         # lag=ifelse(is.na(lag), -200, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  # facet_grid(variable~.) +
+  geom_histogram(aes(fill=variable), binwidth=6, position='identity', 
+                 col='transparent', alpha=.1) +
+  geom_step_hist(aes(col=variable), binwidth=6, position='identity') +
+  labs(x='lag (min)') +
+      scale_x_continuous(breaks=seq(0, 200, 50)) +
+      theme_classic(base_size=8) + theme(axis.line.x=element_line(), axis.line.y=element_line()) +
+      theme(legend.position=c(1, 1), legend.justification=c(1, 1) )
+ggsave('plots/BZSposter2017/1st_switch_lags.pdf', width=180/25.4/2, height=100/25.4/2)
+  
+```
+
+
 how the bimodal lag of GFP induction becomes more unimodal for growth is not clear: it is tempting t hypothesize that there is some additional variability in the time different cells need to restart growing after expressing GFP / that they induce GFP at different rates, hence bluring the 2 peaks into a single broader peak.
+
+```{r}
+mycells_switching %>% 
+  mutate(lag_200=as.character(lag_200), lag_200=ifelse(is.na(lag_200), 'NA', lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)<50*60, '<50', lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)>=50*60, '≥50', lag_200) ) %>%
+  group_by(switch_idx, lag_200) %>% 
+  summarise(n=n()) %>% 
+  group_by(switch_idx) %>% mutate(p=n/sum(n)) %>% 
+  knitr::kable(digits=3)
+
+```
+
+Check the fraction of arrested cells in mother cells since they have no bias of long lags being more truncated:
+
+```{r}
+mycells_switching %>% 
+  filter(cell_num_from_bottom==0) %>% # keep only mother cells
+  mutate(lag_200=as.character(lag_200), lag_200=ifelse(is.na(lag_200), 'NA', lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)<50*60, '<50', lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)>=50*60, '≥50', lag_200) ) %>%
+  group_by(switch_idx, lag_200) %>% 
+  summarise(n=n()) %>% 
+  group_by(switch_idx) %>% mutate(p=n/sum(n)) %>% 
+  knitr::kable(digits=3)
+
+```
+
 
 
 ## Lag heritability
@@ -110,6 +163,41 @@ mypairs_constant %>%
 ```
 
 
+```{r BZSposter, eval=FALSE}
+bind_rows(
+  mypairs_constant %>% 
+  filter(div_min==div_max) %>% 
+  filter(condition=='lactose', variable %in% c('alpha', 'l_birth', 'c_birth')) %>% 
+  group_by(condition, variable, rel) %>% 
+  summarise(r2=cor(value_1,  value_2, use="complete.obs", method="pearson")^2, n=n()),
+  #
+  filter(mypairs_switching, rel!='niece') %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1, variable %in% c('gfp_lag', 'growth_lag')) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
+  mutate(both_finite=is.finite(value_1) & is.finite(value_2)) %>%
+  group_by(variable, rel) %>% 
+  summarise(r2=cor(value_1[both_finite], value_2[both_finite], method="pearson")^2, 
+            n=sum(both_finite))
+) %>% 
+  ungroup %>% mutate(variable=factor(variable, 
+    levels=c('gfp_lag', 'growth_lag', 'alpha', 'l_birth', 'c_birth')) %>% 
+      forcats::fct_recode('lac induction\nlag'='gfp_lag', 'growth lag'='growth_lag', 'growth rate'='alpha', 'size at birth'='l_birth', '[GFP] at birth'='c_birth') ) %>% 
+  ggplot(aes(variable, r2)) +
+  geom_bar(aes(fill=rel), stat='identity', pos='dodge') +
+  geom_text(aes(y=1, label=sprintf("(n = %d)", n), group=rel), 
+            angle=90, hjust=1, vjust=.0, pos=position_dodge(width=0.8), size=2) +
+  scale_x_discrete() +
+  labs(y='Pearson correlation coeff r2', fill='relationship') +
+  theme_classic(base_size=8) + 
+  theme(axis.line.x=element_line(), axis.line.y=element_line()) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1),
+        axis.title.x=element_blank())
+ggsave('plots/BZSposter2017/heritability.pdf', width=180/25.4/2, height=100/25.4/2)
+
+```
+
 We want to understand (i) the molecular processes underlying the multimodal distribution of the lags, and (ii) what are theounds shared by cellullarcompurelated cells that determines their lags. Actually these questions might very well be linked. 
 
 
@@ -173,4 +261,34 @@ mycells_switching %>% ungroup %>%
 
 ```
 
+
+```{r BZSposter, eval=FALSE}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(condition!='switch_lac_IPTG500uM') %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac', 'no IPTG', condition),
+         condition=forcats::fct_recode(condition, 'with 1µM IPTG'='switch_lac_withIPTG1uM',
+                                       'with 5µM IPTG'='switch_lac_withIPTG5uM') ) %>%
+  gather(variable, lag, growth_lag, gfp_lag, factor_key=TRUE) %>% 
+  mutate(variable=forcats::fct_recode(variable, 'growth lag'='growth_lag', 'lac induction lag'='gfp_lag')) %>% 
+  mutate(lag=ifelse(lag>240*60, Inf, lag),
+         lag=ifelse(!is.infinite(lag), lag, 241*60),
+         lag=ifelse(is.na(lag), -200, lag)) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(variable~., scales='free_y') +
+  geom_histogram(aes(y=..density.., fill=condition), binwidth=6, position='identity', 
+                 col='transparent', alpha=.2) +
+  geom_step_hist(aes(y=..density.., col=condition), binwidth=6, position='identity') +
+  labs(x='lag (min)') +
+  xlim(0, 240) +
+  theme_classic(base_size=8) + 
+  theme(axis.line.x=element_line(), axis.line.y=element_line()) +
+  theme(strip.background=element_rect(fill='gray95', colour='transparent'),
+        legend.key.size=unit(.6, "lines"), 
+        legend.position=c(1, 1.1), legend.justification=c(1, 1) )
+
+ggsave('plots/BZSposter2017/lags_with_iptg.pdf', width=180/25.4/2, height=100/25.4/2)
+  
+```
 
