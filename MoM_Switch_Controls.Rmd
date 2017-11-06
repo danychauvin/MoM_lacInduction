@@ -6,13 +6,49 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 
 ## Control experiments
 
-late switch
+late switch 
+
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | 
+           condition %in% c('switch_long_lac', 'switch_late') ) %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag),
+         cond=ifelse(condition=='switch_late', 'late switch', 'control')) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(.~variable) +
+  stat_ecdf(aes(y=1-..y.., col=cond, group=date)) +
+  labs(x='lag after the switch (min)', y='reverse cumulative probability', title='distribution of lags at 1st switch (without 8h)') +
+  expand_limits(x=0)
+
+```
+
 
 PDMS primed with lactose
 
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | 
+           condition %in% c('switch_long_lac', 'switch_lactose_priming') ) %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag),
+         cond=ifelse(condition=='switch_lactose_priming', 'lactose primed', 'control')) %>% 
+  ggplot(aes(x=lag/60)) +
+  facet_grid(.~variable) +
+  stat_ecdf(aes(y=1-..y.., col=cond, group=date)) +
+  labs(x='lag after the switch (min)', y='reverse cumulative probability', title='distribution of lags at 1st switch (without 8h)') +
+  expand_limits(x=0)
+
+```
+
+
 ## Sanity checks
-
-
 
 ### Position effect 
 
@@ -20,42 +56,59 @@ Position effect in the growth lane on induction lag:
 
 ```{r}
 # within GL correlation makes it irrelevant to look at the position/lag correl:
-ggplot(mycells_switching, aes(x=cell_num, y=lag_200/60, col=factor(switch_idx))) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
-  geom_point(alpha=.33, size=.5, show.legend=FALSE) +
-  stat_smooth(method='lm', se=FALSE) +
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  group_by(condition) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+ggplot(aes(x=cell_num, y=lag/60, col=factor(switch_idx))) +
+  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels), scales='free_y') +
+  geom_point(alpha=.33, size=.5) +
+  stat_smooth(method='lm', se=FALSE, show.legend=FALSE) +
   scale_x_reverse() + 
   expand_limits(y=0) +
-  labs(x='position (closed end -- exit)', y='induction lag \n(+200 GFP molecules; min)', col='switch') +
+  labs(x='position (closed end -- exit)', y='lag (min)', col='switch') +
   # scale_colour_brewer(palette='Set1', # breaks=1:3, 
   #                     labels=mycells_switching %>% group_by(switch_idx) %>% summarise(n=n(), r2=cor(cell_num, lag_200/60, use="complete.obs", method="pearson")^2) %>% (function(.df) sprintf('%d (r2=%.1e)', .df$switch_idx, .df$r2)) ) +
-  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
+  theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) 
 
 # relative to exit cell
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
-         mutate(gl_exit_lag=lag_200/lag_200[which.min(cell_num)],
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(gl_id=interaction(date, pos, gl)) %>% 
+  group_by(switch_idx, gl_id, variable) %>%
+         mutate(gl_exit_lag=lag/lag[which.min(cell_num)],
                 gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]) %>% 
+    group_by(condition) %>% 
+  # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+  #        lag=ifelse(is.na(lag), -1, lag)) %>% 
   ggplot(aes(gl_exit_cdist, gl_exit_lag, col=factor(switch_idx))) +
-  facet_grid(condition~., labeller=as_labeller(switch_facets_labels)) +
+  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels), scales='free_y') +
   geom_point(alpha=0.25, size=.5) +
   stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
   scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-  labs(x='distance to "exit" cell (cell position)', y='induction lag relative to exit cell', col='switch')
-# ggsave('plots/asc_gfp_lag200_position_exit.pdf', width=3, height=3.5)
+  labs(x='distance to "exit" cell (cell position)', y='lag relative to exit cell', col='switch')
 
-mycells_switching %>% group_by(switch_idx, gl_id) %>%
-         mutate(gl_rel_lag200=lag_200/mean(lag_200, na.rm=TRUE),
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(gl_id=interaction(date, pos, gl)) %>% 
+  group_by(switch_idx, gl_id) %>%
+         mutate(gl_rel_lag=lag/mean(lag, na.rm=TRUE),
                 gl_exit_cdist=cell_num-cell_num[which.min(cell_num)]) %>% 
-ggplot(aes(cell_num, gl_rel_lag200, col=factor(switch_idx))) +
+ggplot(aes(cell_num, gl_rel_lag, col=factor(switch_idx))) +
   geom_point(alpha=0.25, size=.5) +
   stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
   scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +
   expand_limits(y=2) +
   theme(legend.position='top') + guides(col=guide_legend(override.aes=list(size=3, alpha=1))) + 
-  labs(x='position (closed end -- exit)', y='induction lag relative to GL average', col='switch')
-# ggsave('plots/asc_gfp_lag200_position_avg.pdf', width=3, height=3.5)
-
+  labs(x='position (closed end -- exit)', y='lag relative to GL average', col='switch')
 
 # plot time btw cell 1 and cell k in each gl
 ```

@@ -148,7 +148,8 @@ filter(mypairs_switching, rel!='niece') %>%
   filter(is.finite(value_1), is.finite(value_2)) %>% 
   group_by(condition, date, variable, rel) %>% 
   summarise(r2=cor(value_1, value_2, method="pearson")^2, n=n()) %>% 
-  (function(.df) ggplot(.df, aes(rel, r2)) +
+  (function(.df) 
+    ggplot(.df, aes(rel, r2)) +
      facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
      geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
      geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
@@ -162,7 +163,8 @@ filter(mypairs_switching, rel!='niece') %>%
   filter(is.finite(value_1), is.finite(value_2)) %>% 
   group_by(condition, date, variable, rel) %>% 
   summarise(r2=cor(value_1, value_2, method="spearman", use="complete.obs")^2, n=n()) %>% 
-  (function(.df) ggplot(.df, aes(rel, r2)) +
+  (function(.df) 
+    ggplot(.df, aes(rel, r2)) +
      facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
      geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
      geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
@@ -172,4 +174,46 @@ filter(mypairs_switching, rel!='niece') %>%
 
 ```
 
+
+```{r eval=FALSE}
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  filter(variable != 'lag_200') %>% 
+  filter(switch_idx==1) %>% 
+  mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
+  filter(is.finite(value_1), is.finite(value_2)) %>% 
+  group_by(condition, date, variable, rel) %>% 
+  summarise(r2=cor(value_1, value_2, method="pearson")^2, n=n()) %>% 
+  (function(.df) 
+    ggplot(.df, aes(rel, r2)) +
+     facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+ggsave('plots/Rplot.pdf', width=8, height=4)
+
+mypairs_switching %>% ungroup %>% 
+  filter(rel!='niece') %>% 
+  filter(condition!='switch_lac_IPTG500uM') %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
+         'lactose', condition)) %>%
+  filter(variable != 'lag_200') %>% 
+  filter(switch_idx==1) %>% 
+  mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
+  filter(is.finite(value_1), is.finite(value_2)) %>% 
+  group_by(condition, variable, rel) %>% 
+  summarise(r2=cor(value_1, value_2, method="pearson")^2, n=n()) %>% 
+  (function(.df) 
+    ggplot(.df, aes(rel, r2)) +
+     facet_grid(variable~condition, labeller=as_labeller(switch_facets_labels)) +
+     geom_bar(aes(fill=rel), stat='identity', show.legend=FALSE) +
+     geom_text(aes(y=0.99, label=n), hjust="middle", vjust="top") +
+     expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
+     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+  )
+ggsave('plots/Rplot.pdf', width=5, height=4)
+
+```
 

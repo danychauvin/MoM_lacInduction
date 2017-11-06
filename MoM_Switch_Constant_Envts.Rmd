@@ -66,15 +66,6 @@ myframes_constant <- semi_join(myframes, mycells_constant) %>%
 ```
 
 
-```{r}
-mycells_constant <- mycells_constant %>% 
-  mutate(alpha=logl_time_slope, dt=log(2)/alpha, 
-         l_birth=exp(loglength_start), l_div=exp(loglength_end),
-         c_birth=g_first/l_birth, c_div=g_last/l_div)
-
-```
-
-
 
 ## Heritability of various life history traits
 
@@ -151,4 +142,24 @@ mypairs_constant %>%
 # ggsave('Rplot.pdf', width=7, height=5)
 
 ```
+
+
+## Fluo in glucose
+
+```{r}
+myframes_constant %>% 
+  filter(condition=='glucose') %>% 
+  filter(!discard_start, !discard_top) %>%  
+  ggplot(aes(gfp_nb, 1-..y..)) +
+  stat_ecdf(aes(col='ASC662\n(LacZ-GFP)', lty='glucose', group=date)) +
+  stat_ecdf(aes(col='MG1655', lty=medium),
+    data=myframes %>% ungroup %>% filter(!discard_start, !discard_top, condition=='mg1655', time_sec>m_start+2*3600)) +
+  stat_ecdf(aes(col=condition, lty='glucose'), data=myframes %>% ungroup %>% 
+              filter(!discard_start, !discard_top, medium=='glucose+IPTG', m_cycle==1,
+                     condition %in% c('switch_lac_withIPTG1uM', 'switch_lac_withIPTG5uM')) ) +
+  labs(x='GFP level (molecules)', y='reverse cumulative probability', col='strain', lty='medium') +
+  coord_cartesian(xlim=c(-50, 200))
+
+```
+
 

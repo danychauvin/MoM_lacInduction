@@ -80,6 +80,35 @@ mycells_switching %>% ungroup %>%
    )
 ggsave('plots/BZSposter2017/2nd_switch_lags.pdf', width=180/25.4/2, height=100/25.4/2)
 
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac' | condition=='switch_lactose_priming') %>%
+  gather(variable, lag, growth_lag, gfp_lag, factor_key=TRUE) %>% 
+  # mutate(lag=ifelse(lag>240*60, Inf, lag),
+  #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+1e6),
+  #        lag=ifelse(is.na(lag), -1e6, lag)) %>%
+  (function(.df)
+    ggplot(data=NULL, aes(x=lag/60)) +
+     facet_grid(.~variable) +
+     stat_ecdf(aes(y=1-..y.., col='first switch'), geom='line', size=.6,
+               data=filter(.df, switch_idx==1, condition!='switch_lactose_priming')) +
+     stat_ecdf(aes(y=1-..y.., col='first switch', lty='lactose\npriming'), geom='line', 
+               data=filter(.df, switch_idx==1, condition=='switch_lactose_priming')) +
+     stat_ecdf(aes(y=1-..y.., col=condition), geom='line', size=.3,
+               data=.df %>% filter(switch_idx==2, str_detect(condition, '^switch_[0-9]+h$'))) +
+     geom_rect(aes(x=NULL), xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, fill='white', col='transparent',
+               data=data.frame()) +
+     coord_cartesian(xlim=c(-10, 240), ylim=c(-.01, 1.01), expand=FALSE) +
+     scale_linetype_manual(breaks='lactose\npriming', values='dotted') +
+     labs(x='lag (min)', y='reverse cumulative probability', col='condition', lty='control') +
+     theme_classic(base_size=8) + theme(axis.line.x=element_line(), axis.line.y=element_line(),
+                                        strip.background=element_rect(fill='gray95', colour='transparent'), 
+                                        legend.key.height=unit(.6, "lines"))
+   )
+# ggsave('plots/BZSposter2017/2nd_switch_lags.pdf', width=180/25.4/2, height=100/25.4/2)
+ggsave('plots/BZSposter2017/2nd_switch_lags_finite.pdf', width=180/25.4/2, height=100/25.4/2)
+
+
 ```
 
 
@@ -268,6 +297,47 @@ mycells_switching %>%
 
 
 Do cells not induced at the first switch grow before the switch?
+
+```{r eval=FALSE}
+# visualize tracks before the switch
+mycells_switching %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  filter(switch_idx==1) %>%
+  filter(is.infinite(growth_lag) | is.infinite(gfp_lag) | is.infinite(lag_200)) %>%
+  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
+  semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .,
+            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
+  ungroup %>% filter(m_cycle==1, medium=='glucose') %>% 
+  filter(!discard_start, !discard_top) %>% 
+  # group_by(date, pos, gl, genealogy) %>%
+  # filter(time_sec==max(time_sec)) %>% # identify cells at the end of the lactose period
+  # select(date, pos, gl, genealogy, growth_lag, gfp_lag, lag_200) %>% 
+  # semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .) %>% 
+  qplot(time_sec, length_um, col=interaction(date, pos, gl, genealogy), data=., geom='line') +
+  scale_colour_periodic_brewer(guide='none') +
+  scale_x_hours(1)
+
+# growing vs non growing cells can be distinguised based on the number of points of their tracks
+mycells_switching %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  filter(switch_idx==1) %>%
+  filter(is.infinite(growth_lag) | is.infinite(gfp_lag) | is.infinite(lag_200)) %>%
+  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
+  semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .,
+            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
+  ungroup %>% filter(m_cycle==1, medium=='glucose') %>% 
+  filter(!discard_start, !discard_top) %>% 
+  group_by(condition, date, pos, gl, genealogy) %>%
+  do(mod=lm(log(length_um)~time_sec, data=.)) %>% 
+  mutate(gr_rate=coef(mod)[2], n_obs=length(residuals(mod))) %>% 
+  mutate(growing=between(n_obs, 3, 60)) %>% 
+  ggplot() +
+  geom_point(aes(n_obs, gr_rate, col=growing))
+
+```
+
 ```{r}
 mycells_switching %>% 
   filter(!date %in% discarded_date) %>%
@@ -278,65 +348,120 @@ mycells_switching %>%
   semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .,
             by=c('date', 'pos', 'gl', 'genealogy')) %>% 
   ungroup %>% filter(m_cycle==1, medium=='glucose') %>% 
-  filter(!discard_top) %>% 
-  # group_by(date, pos, gl, genealogy) %>% 
-  # filter(time_sec==max(time_sec)) %>% # identify cells at the end of the lactose period
-  # select(date, pos, gl, genealogy, growth_lag, gfp_lag, lag_200) %>% 
-  # semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .) %>% 
-  qplot(time_sec, length_um, col=interaction(date, pos, gl, genealogy), data=., geom='line') +scale_colour_periodic_brewer(guide='none')+scale_x_hours()
-
-```
-
-Do cells not induced at the first switch resume growth in glucose?
-```{r}
-mycells_switching %>% 
-  filter(!date %in% discarded_date) %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-  filter(switch_idx==1) %>%
-  filter(is.infinite(growth_lag) | is.infinite(gfp_lag) | is.infinite(lag_200)) %>%
-  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
-  semi_join(myframes_switching %>% filter(fit_lag) %>% mutate(genealogy=gsub(":", "", genealogy)), .,
-            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
-  group_by(date, pos, gl, genealogy) %>% 
-  filter(time_sec==max(time_sec)) %>% # identify cells at the end of the lactose period
-  select(date, pos, gl, genealogy, growth_lag, gfp_lag, lag_200) %>% 
-  semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .) %>% 
-  # filter()
-
-  qplot(time_sec, length_um, col=interaction(date, pos, gl, genealogy), data=., geom='line') +scale_colour_periodic_brewer(guide='none')+scale_x_hours()
-  group_by(condition, date, pos, gl, genealogy) %>% 
-  filter(time_sec==max(time_sec)) %>% 
-  with(interaction(medium, m_cycle)) %>% table
-  select(date, pos, gl, genealogy, id, medium, m_cycle, m_start, time_sec, end_time)
-  
-  # ungroup %>% filter(medium=='glucose', m_cycle==2) %>% 
-  with(interaction(date, pos, gl, genealogy)) %>% unique %>% length
-  filter(!discard_top) %>% 
-ggplot(aes(time_sec-m_start, length_um)) +
-  geom_line(aes(col=cell)) +
-  scale_x_hours(2, limits=c(0, 6*3600), name='time after switch to glucose (h)') +
-  scale_y_continuous(trans='log2') +
-  scale_colour_periodic_brewer(guide='none')
-  
+  filter(!discard_start, !discard_top) %>% 
+  group_by(condition, date, pos, gl, genealogy) %>%
+  do(mod=lm(log(length_um)~time_sec, data=.)) %>% 
+  mutate(gr_rate=coef(mod)[2], n_obs=length(residuals(mod))) %>% 
+  mutate(growing=between(n_obs, 3, 60)) %>% 
+  group_by(growing) %>% 
+  summarise(n=n()) %>% 
+  (knitr::kable)
 
 mycells_switching %>% 
   filter(!date %in% discarded_date) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
   filter(switch_idx==1) %>%
-  filter(is.infinite(growth_lag) | is.infinite(gfp_lag) | is.infinite(lag_200)) %>% 
-semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .) %>% 
-  ungroup %>% filter(medium=='glucose', m_cycle==2) %>% 
-  filter(!discard_top) %>% 
-  group_by(condition, date, pos, gl, genealogy) %>% 
-  summarise(n_points=n(), end_type=unique(end_type),
-            #logl_time_slope=lm(log(length_um)~time_sec, data=.)$coef[2],
-            logl_time_r2=cor(time_sec, log(length_um))^2)
-  
-
-  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
-  group_by(switch_idx, variable)
+  filter(is.infinite(growth_lag) | is.infinite(gfp_lag) | is.infinite(lag_200)) %>%
+  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
+  semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .,
+            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
+  ungroup %>% filter(m_cycle==1, medium=='glucose') %>% 
+  filter(!discard_start, !discard_top) %>% 
+  group_by(condition, date, pos, gl, genealogy) %>%
+  do(mod=lm(log(length_um)~time_sec, data=.)) %>% 
+  mutate(gr_rate=coef(mod)[2], n_obs=length(residuals(mod))) %>% 
+  # mutate(growing=between(n_obs, 3, 60)) %>% 
+  # filter(growing) %>% 
+  filter(n_obs>2) %>% 
+  ggplot() +
+  geom_step_hist(aes(gr_rate, ..density.., col='arrested'), position='identity') +
+  geom_step_hist(aes(logl_time_slope, ..density.., col='control'), position='identity', 
+                 data=mycells_constant %>% filter(condition=='glucose')) +
+  expand_limits(x=0) +
+  scale_x_continuous(breaks=(0:2)*1e-4) +
+  labs(x="growth rate")
 
 ```
+
+Two third or more of the cells that arrest after the first switch where growing before, rather slower than the rest of the cells.
+
+Do cells not induced at the first switch resume growth in glucose?
+
+```{r}
+# visualize tracks before and after the switch
+mycells_switching %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  filter(is.infinite(growth_lag)) %>% # | is.infinite(gfp_lag) | is.infinite(lag_200)
+  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
+  semi_join(myframes_switching %>% mutate(genealogy=gsub(":", "", genealogy)), .,
+            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
+  # group_by(date, pos, gl, genealogy) %>% 
+  # filter(time_sec==max(time_sec)) %>% # identify cells at the end of the lactose period
+  # select(date, pos, gl, genealogy, growth_lag, gfp_lag, lag_200) %>% 
+  # semi_join(myframes %>% mutate(genealogy=gsub(":", "", genealogy)), .) %>% 
+  # ungroup %>% filter(m_cycle==2, medium=='glucose') %>% 
+  # filter(!discard_start, !discard_top) %>% 
+  qplot(time_sec-2*3600, length_um, col=interaction(date, pos, gl, genealogy), alpha=fit_lag, data=., geom='line') +
+  scale_colour_periodic_brewer(guide='none')+
+  scale_x_hours(1, limits=c(1, 14)*3600) + 
+  scale_y_continuous(trans='log2')
+
+# growth after vs before the switch
+mycells_switching %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  filter(is.infinite(growth_lag)) %>% # | is.infinite(gfp_lag) | is.infinite(lag_200)
+  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
+  semi_join(myframes_switching %>% mutate(genealogy=gsub(":", "", genealogy)), .,
+            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
+  group_by(condition, date, pos, gl, genealogy) %>%
+  do((function(.df){
+    # browser()
+    .mod_glc_before <- lm(log(length_um)~time_sec, data=.df %>% filter(medium=='glucose', m_cycle==1))
+    .mod_lac <- lm(log(length_um)~time_sec, data=.df %>% filter(medium=='lactose', m_cycle==1))
+    .mod_glc_after <- lm(log(length_um)~time_sec, data=.df %>% filter(medium=='glucose', m_cycle==2))
+    data.frame(grate_glc_before=.mod_glc_before$coef[2], n_glc_before=length(.mod_glc_before$residuals),
+               grate_lac=.mod_lac$coef[2], n_lac=length(.mod_lac$residuals),
+               grate_glc_after=.mod_glc_after$coef[2], n_glc_after=length(.mod_glc_after$residuals) )
+    })(.)) %>% 
+  filter(n_glc_before>3) %>% 
+  mutate(grow_before=n_glc_before<60 & grate_glc_before>3e-5, grow_after=grate_glc_after>3e-5) %>% 
+  ggplot() +
+    # geom_step_hist(aes(grate_glc_after)) 
+  geom_point(aes(grate_glc_before, grate_glc_after, col=interaction(grow_before, grow_after))) +
+  geom_abline()
+  
+mycells_switching %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  filter(is.infinite(growth_lag)) %>% # | is.infinite(gfp_lag) | is.infinite(lag_200)
+  # select(date, pos, gl, genealogy, t_lac_switch, t_lac_end, tmax_lag_fit)
+  semi_join(myframes_switching %>% mutate(genealogy=gsub(":", "", genealogy)), .,
+            by=c('date', 'pos', 'gl', 'genealogy')) %>% 
+  group_by(condition, date, pos, gl, genealogy) %>%
+  do((function(.df){
+    # browser()
+    .mod_glc_before <- lm(log(length_um)~time_sec, data=.df %>% filter(medium=='glucose', m_cycle==1))
+    .mod_lac <- lm(log(length_um)~time_sec, data=.df %>% filter(medium=='lactose', m_cycle==1))
+    .mod_glc_after <- lm(log(length_um)~time_sec, data=.df %>% filter(medium=='glucose', m_cycle==2))
+    data.frame(grate_glc_before=.mod_glc_before$coef[2], n_glc_before=length(.mod_glc_before$residuals),
+               grate_lac=.mod_lac$coef[2], n_lac=length(.mod_lac$residuals),
+               grate_glc_after=.mod_glc_after$coef[2], n_glc_after=length(.mod_glc_after$residuals) )
+    })(.)) %>% 
+  filter(n_glc_before>3) %>% 
+  mutate(grow_before=n_glc_before<60 & grate_glc_before>3e-5, grow_after=grate_glc_after>3e-5) %>% 
+  with(table(grow_before, grow_after))
+
+# TODO: fit a lag + growth model at the switch to glucose
+
+```
+
+75% of the arrested cells were growing fine before and will do so after the lactose episode...
+
 
 Number of cells not induced at the first switch with progeny at the second switch:
 ```{r}

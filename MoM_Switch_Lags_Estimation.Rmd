@@ -30,7 +30,7 @@ myframes_switching <- myframes %>%
   (function(.df) bind_rows(
     mutate(.df, type='cell'),
     .df %>% 
-      group_by(date, pos, gl, id) %>% slice(1L) %>% 
+      group_by(date, pos, gl, id) %>% slice(1L) %>% # head(1) %>% # 
       (function(.df)
         # find the genealogy of the daughters and extract the corresponding rows from myframes
         bind_rows(mutate(.df, join_gen=paste0(genealogy, 'B')),
@@ -39,12 +39,13 @@ myframes_switching <- myframes %>%
                    ., by=c('date', 'pos', 'gl', 'join_gen')) ) %>%
       ungroup %>% mutate(genealogy=get_parent_cid(genealogy)) %>% 
       select(condition, date, pos, gl, id, genealogy, 
-             time_sec, medium, m_start, m_end, gfp_nb, length_um) %>% 
+             time_sec, medium, m_cycle, m_start, m_end, gfp_nb, length_um) %>% 
       # group by time, compute the stat of both daughters' and keep only the first row
       # compared to summarise, this keeps all other variables
       group_by(date, pos, gl, genealogy, time_sec) %>% 
       mutate(gfp_nb=ifelse(n()==2, sum(gfp_nb), 2*gfp_nb), 
              length_um=ifelse(n()==2, sum(length_um), 2*length_um), 
+             # medium=unique(medium), m_cycle=unique(m_cycle),
              type=paste0(n(), "dg")) %>%
       slice(1L) 
   ) ) %>% 
