@@ -4,6 +4,12 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
+
+
+todo: check growth in M9 before the first switch
+check heritability of growth lags at first switch
+
+
 ## Control experiments
 
 late switch 
@@ -41,7 +47,7 @@ mycells_switching %>% ungroup %>%
          cond=ifelse(condition=='switch_lactose_priming', 'lactose primed', 'control')) %>% 
   ggplot(aes(x=lag/60)) +
   facet_grid(.~variable) +
-  stat_ecdf(aes(y=1-..y.., col=cond, group=date)) +
+  stat_ecdf(aes(y=1-..y.., col=cond)) + #, group=date
   labs(x='lag after the switch (min)', y='reverse cumulative probability', title='distribution of lags at 1st switch (without 8h)') +
   expand_limits(x=0)
 

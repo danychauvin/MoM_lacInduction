@@ -174,6 +174,8 @@ Let's first look at fluorescence decay for cells in a given lane. The slopes are
 # te <- filter(condition_ts, condition=='switch_04h', medium=='glucose')$t_end
 
 p_decayGFP_lin <- myframes %>% 
+  ungroup %>% 
+  filter(! condition %in% c('switch_long_lac_hiExpr')) %>% 
   filter(!discard_start, !discard_top, end_type=='div') %>% 
   # filter(condition=='switch_04h') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
@@ -197,6 +199,8 @@ p_decayGFP_exp <- p_decayGFP_lin +
   scale_y_continuous(trans='log10', breaks=c(5e3, 1e4, 2e4, 4e4))
 
 bleaching_fits <- myframes %>% 
+  ungroup %>% 
+  filter(! condition %in% c('switch_long_lac_hiExpr')) %>% 
   filter(!discard_start, !discard_top, end_type=='div') %>% 
   # filter(condition=='switch_04h') %>% 
   filter(medium=='glucose', m_cycle>1, time_sec>m_start+30*60) %>%
@@ -319,7 +323,7 @@ p_decayfit_exp <- ggplot(filter(bleaching_fits, exp_slope<1e-4), aes(fluogfp_amp
   geom_errorbar(aes(ymin=exp_slope-exp_slope.sd/sqrt(npoints), ymax=exp_slope+exp_slope.sd/sqrt(npoints)), col=brewer_cols[2], alpha=.2, size=.2) +
   geom_point(col=brewer_cols[2], alpha=.2, size=1) + 
   stat_smooth(method='lm', se=FALSE, geom='line', col='black', alpha=.5) + # , aes(weight=(exp_slope.sd/sqrt(npoints))^(-2))
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous(labels = c(5, 10, 20, 40)*1000) +
   labs(x='GFP level at birth (AU)', y='decay rate (exp. fit)') +
   theme_classic()
 

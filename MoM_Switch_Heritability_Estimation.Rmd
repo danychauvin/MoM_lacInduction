@@ -9,9 +9,9 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 It is visually striking that cells in a given growth lane get induced and restart growing simultaneously, while the fluctuations between growth lanes are much larger. This can be quantified in two ways:
 
 - by showing that the cells' lags and the average lags per GL are correlated
-- by comparing the variance within growth lane and the global variance per condition, the fromer is smaller than the latter
+- by comparing the variance within growth lane and the global variance per condition, the former is smaller than the latter
 
-```{r eval=FALSE}
+```{r fig.height=15}
 # histogram of number of estimated lags per GL
 mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
   mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
@@ -23,11 +23,13 @@ mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
     
 # correlation lag and avg lag in GL
 mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
+  filter(is.finite(lag_200)) %>% 
   mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
          lag200_n=sum(!is.na(lac_200)), lag200_se=lag200_sd/sqrt(lag200_n)) %>% 
   filter(lag200_n>2) %>% 
   filter(!(switch_idx==2 & lag200_mean/60>100)) %>% #group_by(switch_idx) %>% 
   # summarise(n=n(), r2=cor(lag200_mean, lag_200, use="complete.obs", method="pearson")^2)
+  filter(lag_200<300*60, lag200_mean<300*60) %>% 
   ( function(.df) { #browser()
     ggplot(.df, aes(lag200_mean/60, lag_200/60, col=factor(switch_idx)) ) +
       facet_grid(condition~switch_idx, scales="free") +
@@ -45,6 +47,7 @@ mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
 
 # compare variance within GL versus global variance
 mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
+  filter(is.finite(lag_200)) %>% 
   mutate(lag200_mean=mean(lag_200, na.rm=TRUE), lag200_sd=sd(lag_200, na.rm=TRUE),
          lag200_n=sum(!is.na(lag_200))) %>% 
   filter(lag200_n>2) %>% 
@@ -65,10 +68,11 @@ mycells_switching %>% group_by(switch_idx, date, pos, gl) %>%
 ```
 
 
-Filter out the cells that have not been induced during the first switch:
-check that gfp at the end of trace (if before end of medium) or at end of medium is greater than gfp_switch + constant (1000 gfp).
 
 ```{r eval=FALSE}
+# To do: Filter out the cells that have not been induced during the first switch:
+# check that gfp at the end of trace (if before end of medium) or at end of medium is greater than gfp_switch + constant (1000 gfp).
+
 myframes_switching %>% 
   filter(type!='1dg') %>% 
   group_by(ugen) %>% 
@@ -77,8 +81,8 @@ myframes_switching %>%
          get_induced=ifelse(div_before_end, last(gfp_nb)>(mean(gfp_nb[pre_switch])+1000),
                             gfp_nb[time_sec==t_lac_end]>(mean(gfp_nb[pre_switch])+1000) ),
          tmp=ifelse(div_before_end, 0, as.numeric(length(time_sec))) ) %>% 
-           with(tmp) %>% table
-  with(paste(div_before_end, get_induced)) %>% table
+           # with(tmp) %>% table
+  # with(paste(div_before_end, get_induced)) %>% table
   # summarise(gi=first(get_induced)) %>% with(gi) %>% table
   filter(!get_induced & (last(time_sec)>=unique(t_lac_end)) ) %>% 
   # filter(time_div < t_lac_end) %>% 
@@ -93,6 +97,57 @@ myframes_switching %>%
   ylim(-100, 1e4) +   expand_limits(x=0, y=0) +
   labs(y='total fluorescence (GFP molecules)')
 
+```
+
+Two possible (non exclusive) mechanisms are:
+- that the determinants of the lags are heritable
+- that cells communicate within a growth lane (e.g. induiction is faster after the first cells has been induced)
+
+To quantify the heritability of the lag determinants, we will look at the correlation between cells at given genealogical distances. Conversely, cell-to-cell communication is expected to decrease with the distance between cells (since only diffusion occurs in the GLs), so we will look at the correlation between cells at given physical distances. 
+By stratifying by genealogical and physical distance, we expect to be able to identify whether one effect dominates  the other. Hence we need to compute the genealogical and physical distance for each pair of cells.
+
+
+## Controls
+
+Let's verify beforehand that there is no systematic effect, such as all cells having short or long lags in a given GL, or the bottom cell taking always longer.
+
+```{r fig.height=10}
+mycells_switching %>% 
+  ungroup %>% 
+  filter(condition!='switch_long_lac_hiExpr') %>% 
+  filter(switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+  #        lag=ifelse(is.na(lag), -1, lag)) %>% 
+  filter(variable=='lag_200') %>% 
+  # filter(condition=='switch_∆lacA') %>% 
+  ggplot() +
+  facet_wrap(~condition+date, scales='free_x') +
+  geom_segment(aes(x=interaction(date, pos, gl), xend=interaction(date, pos, gl), 
+                   y=cell_num_from_bottom, yend=cell_num_from_bottom+1, col=lag/60),
+               size=1) +
+  viridis::scale_color_viridis(trans='log2', direction=-1) +
+  theme(axis.text.x=element_blank())
+
+
+mycells_switching %>% 
+  ungroup %>% 
+  filter(condition!='switch_long_lac_hiExpr') %>% 
+  filter(switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag_categ=NA, lag_categ=ifelse(is.infinite(lag), 'Inf', lag_categ),
+         lag_categ=ifelse(!is.infinite(lag) & lag<55*60, 'short', lag_categ),
+         lag_categ=ifelse(!is.infinite(lag) & lag>=55*60, 'long', lag_categ)) %>% 
+  filter(variable=='lag_200') %>% 
+  # filter(condition=='switch_∆lacA') %>% 
+  ggplot() +
+  facet_wrap(~condition+date, scales='free_x') +
+  geom_segment(aes(x=interaction(date, pos, gl), xend=interaction(date, pos, gl), 
+                   y=cell_num_from_bottom, yend=cell_num_from_bottom+1, col=lag_categ),
+               size=1) +
+  viridis::scale_color_viridis(name='lag', discrete=TRUE, na.value='gray65') +
+  theme(axis.text.x=element_blank())
+# ggsave('Rplot.pdf', width=10, height=7)
 
 ```
 
@@ -139,6 +194,69 @@ filter(mypairs_switching, rel!='niece') %>%
 
 ```
 
+Look at the number of pairs (at first switch) stratified by genealogical relationship and lag types:
+
+```{r fig.height=10}
+mypairs_switching %>% ungroup %>% 
+  filter(switch_idx==1) %>% 
+  filter(variable=='lag_200') %>% 
+  filter(!condition %in% c('switch_lac_IPTG500uM', 'switch_long_lac_hiExpr')) %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$'), 'switch', condition)) %>%
+  mutate(cond=interaction(condition, date, drop = T),
+         rel=interaction(div_min, div_max, drop=TRUE),
+         lag_categ=NA, lag_categ=ifelse(value_1>=55*60 & value_2>=55*60, 'LL', lag_categ),
+         lag_categ=ifelse(value_1<55*60 & value_2<55*60, 'SS', lag_categ),
+         lag_categ=ifelse(value_1>=55*60 & value_2<55*60, 'SL', lag_categ),
+         lag_categ=ifelse(value_1<55*60 & value_2>=55*60, 'SL', lag_categ)) %>%
+  # with(table(rel))
+  ggplot() +
+  facet_grid(condition~., scales='free') +
+  stat_count(aes(rel, fill=lag_categ), position='dodge') # position_dodge(preserve="single")
+
+```
+
+
+
+```{r eval=FALSE}
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(condition %in% c('switch_04h', 'switch_∆lacA')) %>%
+  filter(switch_idx==1) %>% 
+  mutate(value_min=ifelse(value_1<value_2, value_1, value_2),
+         value_max=ifelse(value_1>=value_2, value_1, value_2)) %>% 
+  # filter(type=='pearson') %>% 
+  (function(.df) 
+    ggplot(.df, aes(value_max/60, value_min/60, col=condition)) +
+     facet_grid(rel~variable, labeller=as_labeller(switch_facets_labels)) +
+     geom_point(size=.5, alpha=.25)
+  )
+
+```
+
+Let's visualize the pairwise lags scatter to understand the heritability estimator. Since there is no natural order for the lags, the data are duplicated to obtain a symmetric scatter.
+
+```{r fig.height=10}
+mypairs_switching %>% ungroup %>% 
+  filter(switch_idx==1) %>% 
+  filter(rel!='niece') %>% 
+  # filter(variable=='lag_200') %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$'), 'switch', condition)) %>%
+  # create a symmetric scatter by duplicating
+  group_by(condition, date, rel, variable) %>% 
+  do((function(.df) bind_rows(.df, rename(.df, value_1=value_2, value_2=value_1)) )(.)) %>% 
+  filter(value_1/60 < 300, value_2/60 < 300) %>% 
+  ggplot(aes(value_1/60, value_2/60, col=rel)) +
+  facet_grid(condition~variable+rel, scales='free') +
+  geom_abline(col='gray50') +
+  geom_point(alpha=.25, size=.25) +
+  expand_limits(x=0, y=0) +
+  labs(x='induction lag cell 1 (min)', y='induction lag cell 2 (min)', col='relationship') +
+  # scale_colour_manual(values=c('sisters'=brewer_cols[1], 'cousins2'=brewer_cols[3])) +
+  guides(col='none') +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+```
+
+Visualize heritability at first switch:
 
 ```{r}
 # check the heritability estimated per experiment (pearson)
@@ -147,7 +265,7 @@ filter(mypairs_switching, rel!='niece') %>%
   mutate(value_1=ifelse(value_1<240*60, value_1, Inf), value_2=ifelse(value_2<240*60, value_2, Inf)) %>% 
   filter(is.finite(value_1), is.finite(value_2)) %>% 
   group_by(condition, date, variable, rel) %>% 
-  summarise(r2=cor(value_1, value_2, method="pearson")^2, n=n()) %>% 
+  summarise(r2=cor_sym(value_1, value_2, method="pearson")^2, n=n()) %>% 
   (function(.df) 
     ggplot(.df, aes(rel, r2)) +
      facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
@@ -162,7 +280,7 @@ filter(mypairs_switching, rel!='niece') %>%
   filter(switch_idx==1) %>% 
   filter(is.finite(value_1), is.finite(value_2)) %>% 
   group_by(condition, date, variable, rel) %>% 
-  summarise(r2=cor(value_1, value_2, method="spearman", use="complete.obs")^2, n=n()) %>% 
+  summarise(r2=cor_sym(value_1, value_2, method="spearman", use="complete.obs")^2, n=n()) %>% 
   (function(.df) 
     ggplot(.df, aes(rel, r2)) +
      facet_grid(variable~condition+date, labeller=as_labeller(switch_facets_labels)) +
@@ -192,7 +310,7 @@ filter(mypairs_switching, rel!='niece') %>%
      expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
      theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
   )
-ggsave('plots/Rplot.pdf', width=8, height=4)
+# ggsave('plots/Rplot.pdf', width=8, height=4)
 
 mypairs_switching %>% ungroup %>% 
   filter(rel!='niece') %>% 
@@ -213,7 +331,7 @@ mypairs_switching %>% ungroup %>%
      expand_limits(y=1) + labs(x='relationship', y='squared pearson correlation r2') +
      theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
   )
-ggsave('plots/Rplot.pdf', width=5, height=4)
+# ggsave('plots/Rplot.pdf', width=5, height=4)
 
 ```
 

@@ -156,9 +156,9 @@ myframes_constant %>%
     data=myframes %>% ungroup %>% filter(!discard_start, !discard_top, condition=='mg1655', time_sec>m_start+2*3600)) +
   stat_ecdf(aes(col=condition, lty='glucose'), data=myframes %>% ungroup %>% 
               filter(!discard_start, !discard_top, medium=='glucose+IPTG', m_cycle==1,
-                     condition %in% c('switch_lac_withIPTG1uM', 'switch_lac_withIPTG5uM')) ) +
+                     condition %in% c('switch_withIPTG1uM', 'switch_withIPTG5uM')) ) +
   labs(x='GFP level (molecules)', y='reverse cumulative probability', col='strain', lty='medium') +
-  coord_cartesian(xlim=c(-50, 200))
+  coord_cartesian(xlim=c(-100, 150))
 
 ```
 

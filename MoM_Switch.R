@@ -8,9 +8,6 @@ vertical_cutoff <- 4 / dl   # after it touched this coordinate a cell is discard
 use_eriks_params <- TRUE
 
 proj_path <- "~/Documents/Biozentrum/Projects/MoM_Switch"
-r_scripts_path <- c("~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine",
-                  "~/Documents/Biozentrum/Projects/vngWetLabR/ggplot")
-perl_scripts_path <- "~/Documents/Biozentrum/Projects/vngWetLabR/mother_machine"
 data2preproc_dir <- function(.d)
   str_match(.d, '20\\d{6}') %>% na.omit %>% as.character %>% 
   file.path('.', 'preproc', .)
@@ -58,27 +55,49 @@ myconditions <- list(
   list(condition='switch_24h', duration=c(360, 240, 1440, 360), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose'),
        paths=c("./data_thomas/20161007/20161007_curated")),
-  list(condition='switch_long_lac',
-       duration=c(360, 1800),
-       medium=c('glucose', 'lactose'),
-       paths=c("./data_thomas/20161104/20161104_curated")),
-  list(condition='switch_lac_withIPTG1uM',
-       duration=c(360, 240),
-       medium=c('glucose+IPTG', 'lactose+IPTG'),
-       paths=c("./data_thomas/20161130/20161130_switch_IPTG1uM_curated")),
-  list(condition='switch_lac_withIPTG5uM',
-       duration=c(360, 240),
-       medium=c('glucose+IPTG', 'lactose+IPTG'),
-       paths=c("./data_thomas/20161207/20161207_curated")),
-  list(condition='switch_lac_IPTG500uM', duration=c(360, 240, 240, 240, 240, 240),
-       medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
-       paths=c("./data_thomas/20151207/20151207_switch_iptg_curated")),
   list(condition='switch_lactose_priming', duration=c(240, 240), 
        medium=c('glucose', 'lactose'),
        paths=c("./data_thomas/20161212/20161212_curated")), 
   list(condition='switch_late', duration=c(1560, 360), 
        medium=c('glucose', 'lactose'),
-       paths=c("./data_thomas/20161021/20161021_curated"))
+       paths=c("./data_thomas/20161021/20161021_curated")),
+  list(condition='switch_glcLac_lac', duration=c(720, 240), 
+       medium=c('glucose+lac', 'lactose'),
+       paths=c("./data_thomas/20171114/20171114_glcLac_lac_switch_curated/")),
+  list(condition='switch_gly_lac', duration=c(480, 360), 
+       medium=c('glycerol', 'lactose'),
+       paths=c("./data_thomas/20170919/20170919_glyc_lac_curated/", "./data_thomas/20170920/20170920_glyc_lac_curated/")),
+  list(condition='switch_withIPTG1uM',
+       duration=c(360, 240),
+       medium=c('glucose+IPTG', 'lactose+IPTG'),
+       paths=c("./data_thomas/20161130/20161130_switch_IPTG1uM_curated")),
+  list(condition='switch_withIPTG5uM',
+       duration=c(360, 240),
+       medium=c('glucose+IPTG', 'lactose+IPTG'),
+       paths=c("./data_thomas/20161207/20161207_curated")),
+  list(condition='switch_∆lacA',
+       duration=c(360, 360),
+       medium=c('glucose', 'lactose'),
+       paths=c("./data_thomas/20171122/20171122_glu_lac_lacA_curated/")),
+  list(condition='switch_ramp15min',
+       duration=c(585, 255, 240),
+       medium=c('glucose', 'lactose', 'glucose'),
+       paths=c("./data_thomas/20170901/20170901_switch_glu_lac_ramp15min_curated/")),
+  list(condition='switch_ramp40min',
+       duration=c(414, 246),
+       medium=c('glucose', 'lactose'),
+       paths=c("./data_thomas/20171121/20171121_glu_lac_ramp40min_curated/")),
+  list(condition='switch_lac_IPTG500uM', duration=c(360, 240, 240, 240, 240, 240),
+       medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
+       paths=c("./data_thomas/20151207/20151207_switch_iptg_curated")),
+  list(condition='switch_long_lac',
+       duration=c(360, 1800),
+       medium=c('glucose', 'lactose'),
+       paths=c("./data_thomas/20161104/20161104_curated")),
+  list(condition='switch_long_lac_hiExpr',
+       duration=c(360, 1800, 240),
+       medium=c('glucose', 'lactose', 'glucose'),
+       paths=c("./data_thomas/20170926/20170926_glu_lac_30h_hiExpr_curated/"))
   
   # list(condition='switch_m9',
   #      duration=c(360, 120, 360, 720, 360, 240), 
@@ -87,9 +106,9 @@ myconditions <- list(
 )
 
 # SET ENVIRONMENT
-invisible(sapply(
-  list.files(r_scripts_path, pattern="\\.[Rr]$", full.names=TRUE, ignore.case=TRUE), 
-  source, .GlobalEnv))
+mylibs <- c('tidyverse', 'ggCustomTJ', 'vngMoM', 'tools', 'RcppArmadillo')
+invisible( suppressPackageStartupMessages( # don't use %>% before loading dplyr
+  lapply(mylibs, library, character.only=TRUE) ))
 
 setwd(proj_path)
 dir.create("qlogs", showWarnings=FALSE) # create a directory to store logs from the queue
@@ -132,22 +151,29 @@ nc <- min(nrow(myfiles), length(mycluster)) # this is a dirty hack because multi
 myframes <- myfiles %>% 
   # process exported files on the cluster if required (otherwise return the list of paths)
   ungroup %>% 
-  mutate(ppath=process_moma_data(path, .data2preproc=data2preproc, 
-                                 .scripts_path=perl_scripts_path, .qsub_name="MMex_pl", .force=FALSE) ) %>% 
+  mutate(ppath=process_moma_data(path, .data2preproc=data2preproc, .frames_pl_script="get_size_and_fluo_multich.pl", 
+                                 .qsub_name="MMex_pl", .force=FALSE) ) %>% 
+  filter(!is.na(ppath)) %>% 
   # load perl scripts output to dataframes (in parallel, using multidplyr)
   partition(condition, path, cluster=mycluster[1:nc] %>%
-              cluster_assign_func(parse_frames_stats, compute_genealogy, which_touch_exit, which_to_progeny) %>%
+              # cluster_assign_func(parse_frames_stats, compute_genealogy, compute_daughters_numbers, which_touch_exit, which_to_progeny) %>%
               cluster_assign_obj(dt, dl, vertical_cutoff)) %>%
   # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
     parse_frames_stats(.df$ppath) %>% 
       mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
              discard_start=(time_sec < 2*3600)) %>%
+      # fix end_type for pruned cells
+      mutate(ndgt=compute_daughters_numbers(cid)) %>%
+      ungroup %>%
+      mutate(end_type_moma=end_type,
+             end_type=ifelse(ndgt==0, "lost", "weird"),
+             end_type=ifelse(ndgt==2, "div", end_type)) %>% 
       # remove frames after touching the exit
       group_by(id) %>%
       mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
       mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
-      mutate(end_type=ifelse(any(discard_top), 'exit', end_type)) %>% # update end_type to exit for cells which have touched the vertical cutoff
+      mutate(end_type=ifelse(any(discard_top), 'touchtop', end_type)) %>% # update end_type to exit for cells which have touched the vertical cutoff
       # remove daughters of cells that touched the exit
       ungroup %>%
       mutate(discard_top=which_to_progeny(discard_top, cid))
@@ -158,8 +184,11 @@ myframes <- myfiles %>%
   extract(path, c("date", "pos", "gl"), ".*(\\d{8})_.*[Pp]os(\\d+).*_GL(\\d+).*", remove=FALSE, convert=TRUE) %>%
   # mutate_at(vars(date, pos, gl), factor) %>% # convert to factors (ad libidum)
   mutate(cell=paste(date, pos, gl, id, sep='.'),
+         ugen=paste(date, pos, gl, genealogy, sep='.'),
          gl_id=paste(date, pos, gl, sep='.'),
-         vertical_center=(vertical_bottom + vertical_top)/2) %>% 
+         vertical_center=(vertical_bottom + vertical_top)/2,
+         strain='ASC662', strain=ifelse(condition=='mg1655', 'MG1655', strain),
+         strain=ifelse(condition=='switch_long_lac_hiExpr', 'MG1655_pHi-GFP', strain) ) %>% 
   # propagate medium info
   group_by(condition) %>% 
   do((function(.df){
@@ -171,7 +200,9 @@ myframes <- myfiles %>%
   arrange(date, pos, gl, id, frame) %>%  # sort data after `partition()`
   group_by(date, pos, gl, id) %>%
   mutate(start_time=first(time_sec), end_time=last(time_sec),
-         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)))
+         b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)),
+         length_raw=(vertical_bottom-vertical_top)*dl,
+         length_erik=length_um, length_um=length_raw)
 
 
 # CONVERT FLUO UNITS ####
@@ -185,7 +216,8 @@ if (use_eriks_params)
   fp_per_dn <- 0.0361 * fp_per_oligomers
 myframes <- myframes %>%
   # convert to gfp units (after subtracting autofluorescence)
-  mutate(gfp_nb = fluogfp_amplitude * fp_per_dn )
+  mutate(gfp_nb = fluogfp_amplitude * fp_per_dn,
+         gfp_nb=ifelse(condition=='switch_∆lacA', 1800/140*gfp_nb, gfp_nb))
 
 
 # RENDER ANALYSIS FILES ####
@@ -214,7 +246,7 @@ switch_facets_labels <- function (.str) {
 knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
 # rmarkdown::clean_site()
 
-# rmarkdown::render_site('index.Rmd')
+rmarkdown::render_site('index.Rmd')
 rmarkdown::render_site('MoM_Switch_GFP_Estimation.Rmd')
 rmarkdown::render_site('MoM_Switch_Constant_Envts.Rmd')
 rmarkdown::render_site('MoM_Switch_Lags_Estimation.Rmd')
