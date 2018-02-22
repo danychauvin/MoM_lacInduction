@@ -29,8 +29,9 @@ myframes %>%
   group_by_(., .dots=names(.)) %>% # grouping by all variables
   # partition_(., groups=names(.), cluster=mycluster %>% cluster_assign_obj(myframes, vertical_cutoff) %>% 
   #              cluster_assign_func(plot_faceted_var_tracks)) %>% # grouping by all variables
-  do((function(.dff, .skip=FALSE){
+  do((function(.dff, .skip=TRUE){
     if (file.exists(.dff$filename) && .skip) return(data.frame())
+    # browser()
     .pls <- myframes %>% 
       ungroup %>% semi_join(as.data.frame(.dff)) %>% 
       mutate(gfp_conc=gfp_nb/length_um) %>% 
