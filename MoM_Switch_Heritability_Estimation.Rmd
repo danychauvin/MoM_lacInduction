@@ -224,11 +224,24 @@ filter(mypairs_switching, rel!='niece') %>%
   mutate(value_min=ifelse(value_1<value_2, value_1, value_2),
          value_max=ifelse(value_1>=value_2, value_1, value_2)) %>% 
   # filter(type=='pearson') %>% 
-  (function(.df) 
-    ggplot(.df, aes(value_max/60, value_min/60, col=condition)) +
-     facet_grid(rel~variable, labeller=as_labeller(switch_facets_labels)) +
-     geom_point(size=.5, alpha=.25)
-  )
+  ggplot(aes(value_max/60, value_min/60, col=condition)) +
+  facet_grid(rel~variable, labeller=as_labeller(switch_facets_labels)) +
+  geom_point(size=.5, alpha=.25)
+
+filter(mypairs_switching, rel!='niece') %>% 
+  filter(condition %in% c('switch_04h', 'switch_∆lacA')) %>%
+  filter(variable == 'lag_200') %>% 
+  filter(switch_idx==1) %>% 
+  group_by(condition, date, rel, variable) %>% 
+  do((function(.df) bind_rows(.df, rename(.df, value_1=value_2, value_2=value_1)) )(.)) %>% 
+  ggplot(aes(value_1/60, value_2/60, col=condition)) +
+  facet_grid(condition+date~rel, labeller=as_labeller(switch_facets_labels)) +
+  geom_point(size=.5, alpha=.25) +
+  geom_text(aes(Inf, 0, label=r2_str), hjust=1.1, vjust=0, parse=TRUE,
+            data=. %>% filter(is.finite(value_1), is.finite(value_2)) %>% group_by(condition, date, rel) %>%
+              summarise(r2=cor(value_1, value_2)^2, r2_str=sprintf('group("(", r^2 == %.2f, ")")', r2))) +
+  expand_limits(x=0, y=0) +
+  guides(col='none')
 
 ```
 

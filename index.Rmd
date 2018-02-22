@@ -8,3 +8,15 @@ output:
 ---
 
 <iframe width="853" height="480" src="https://www.youtube.com/embed/2Tznm868fmc?rel=0" frameborder="0" allowfullscreen></iframe>
+
+
+# Two categories of *lac* induction lags
+
+- n indep replicates
+
+
+- the long lacs arent seen in cells without LacZ-GFP fusion (what about AB460?)
+
+
+
+

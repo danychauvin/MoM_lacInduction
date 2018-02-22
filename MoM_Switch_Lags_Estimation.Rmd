@@ -29,7 +29,8 @@ myframes_switching <- myframes %>%
     # browser()
     .dfgl %>% 
       group_by(id) %>% 
-      mutate(is_lac=str_detect(medium, 'lactose') | str_detect(medium, 'lactose+IPTG'), 
+      mutate(is_lac=str_detect(medium, 'lactose') | str_detect(medium, 'lactose+IPTG') | 
+               str_detect(medium, 'lacCM'), 
              t_lac_switch=min(m_start[is_lac]), t_lac_end=min(m_end[is_lac])) %>% 
       filter(first(time_sec)<=t_lac_switch & last(time_sec)>=unique(t_lac_switch)) %>% 
       do((function(.dfc) bind_rows(
@@ -77,8 +78,9 @@ Let's visualise the data used to estimate the lags:
 ```{r fig.height=21}
 myframes_switching %>% 
   filter(fit_lag) %>% 
+  filter(condition!='switch_long_lac_hiExpr') %>%
   ggplot(aes(time_sec - 2*3600, gfp_nb, col=ugen, alpha=type)) +
-  facet_wrap(~condition, ncol=1) +
+  facet_wrap(~condition+date, ncol=2, dir="v") +
   # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
   geom_path() + # geom_point() +
   scale_colour_periodic_brewer(guide='none') +
@@ -417,6 +419,17 @@ myframes_switching %>%
 ```
 
 
+```{r eval=FALSE}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(!condition %in% c('switch_long_lac_hiExpr')) %>% 
+  select(-genealogy, -tmax_lag_fit, -cell_num, -lac_200, -lac_200_fail) %>% 
+  # gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  glimpse
+  write_csv("share/20171212_lacLags.csv")
+
+```
+
 ## Comparison of lag types
 
 ```{r}
@@ -475,6 +488,15 @@ mycells_switching %>%
   
 ```
 
+```{r eval=FALSE}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_date) %>%
+  filter(!condition %in% c('switch_long_lac_hiExpr')) %>% 
+  select(-genealogy, -tmax_lag_fit, -cell_num, -lac_200, -lac_200_fail) %>% 
+  # gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  write_csv("20171212_asc662
+
+```
 
 ## Overview of lag distributions
 
@@ -521,6 +543,23 @@ Focus on the first switch:
 
 ```{r  fig.height=10}
 mycells_switching %>% ungroup %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h') | condition=='switch_long_lac' ) %>%
+  filter(switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %>% 
+  ggplot(aes(lag/60)) +
+  facet_grid(condition~variable, scales='free_y', labeller=as_labeller(switch_facets_labels)) +
+  geom_histogram(aes(fill=factor(date)), alpha=.2, position='identity', binwidth=6) +
+  geom_step_hist(aes(col=factor(date)), position='identity', binwidth=6) +
+  xlim(0, 240) +
+  ggplot2::scale_color_discrete() + ggplot2::scale_fill_discrete() +
+  labs(x='lag after the switch (min)')
+
+```
+
+```{r  fig.height=10}
+mycells_switching %>% ungroup %>% 
   filter(!condition %in% c('switch_08h')) %>%
   mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
                           'switch', condition)) %>%
@@ -530,13 +569,13 @@ mycells_switching %>% ungroup %>%
          lag=ifelse(is.na(lag), -1, lag)) %>% 
   ggplot(aes(lag/60)) +
   facet_grid(condition~variable, scales='free_y', labeller=as_labeller(switch_facets_labels)) +
-  geom_histogram(aes(fill=condition, group=date), alpha=.2, position='identity', binwidth=6) +
-  geom_step_hist(aes(col=condition, group=date), position='identity', binwidth=6) +
+  geom_histogram(aes(fill=factor(date), group=date), alpha=.2, position='identity', binwidth=6) +
+  geom_step_hist(aes(col=factor(date), group=date), position='identity', binwidth=6) +
   xlim(0, 240) +
   ggplot2::scale_color_discrete() + ggplot2::scale_fill_discrete() +
   labs(x='lag after the switch (min)')
 
-  # mycells_switching %>% ungroup %>% 
+# mycells_switching %>% ungroup %>% 
 #   # filter(!condition %in% c('switch_08h')) %>% 
 #   filter(switch_idx==1) %>% 
 #   mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
@@ -554,4 +593,42 @@ mycells_switching %>% ungroup %>%
 ```
 
 
+```{r eval=FALSE}
+# plot for one specific condition
+
+(function(.condition='switch_lacIoe') {
+  .pl <- mycells_switching %>% ungroup %>% 
+    filter(!date %in% discarded_dates) %>%
+    filter(switch_idx==1) %>% 
+    filter(str_detect(condition, '^switch_[0-9]+h$') | condition==.condition) %>% 
+    mutate(date2=date, date2=ifelse(str_detect(condition, '^switch_[0-9]+h$') & condition!=.condition, NA, date2)) %>% 
+    mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') & condition!=.condition, 'switch', condition)) %>% 
+    # mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
+    #                         'switch', condition)) %>%
+    gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+    mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+           lag=ifelse(is.na(lag), -1, lag)) %>% 
+    ggplot(aes(lag/60)) +
+    facet_grid(condition~variable, scales='free_y', labeller=as_labeller(switch_facets_labels)) +
+    geom_histogram(aes(fill=factor(date2), group=date), alpha=.2, position='identity', binwidth=6) +
+    geom_step_hist(aes(col=factor(date2), group=date), position='identity', binwidth=6) +
+    xlim(0, 240) +
+    labs(x='lag after the switch (min)') 
+  print(.pl)
+  
+  mycells_switching %>% 
+    filter(!date %in% discarded_date) %>%
+    filter(condition==.condition) %>% 
+    filter(switch_idx==1) %>%
+    filter(!is.na(lag_200)) %>% 
+    mutate(lag_200=as.character(lag_200), lag_200=ifelse(is.na(lag_200), 'NA', lag_200),
+           lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)<50*60, '<50', lag_200),
+           lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)>=50*60, '≥50', lag_200) ) %>%
+    group_by(switch_idx, lag_200) %>% 
+    summarise(n=n()) %>% 
+    group_by(switch_idx) %>% mutate(p=n/sum(n)) %>% 
+    knitr::kable(digits=3)
+})()
+
+```
 
