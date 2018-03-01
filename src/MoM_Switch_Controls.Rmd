@@ -99,7 +99,8 @@ mycells_btw %>%
       stat_ecdf(col=brewer_cols[1]) +
       # stat_ecdf(aes(group=gl_id), col=brewer_cols[1], size=.2) +
       coord_cartesian(xlim=c(40, 300)) +
-      labs(x='doubling time (min)', title='initial growth rates (between t=2h and t=6h)')
+      labs(x='doubling time (min)', y='cdf', title='initial growth rates (between t=2h and t=6h)')
+      # theme(strip.text=element_text(size=6))
   })
 
 ```
@@ -148,10 +149,10 @@ mycells_btw %>%
       # facet_wrap(~condition+date) +
       # geom_point(aes(exp(loglength_start), log(2)/logl_time_slope / 60, col=factor(date)), alpha=.2, size=.2) +
       geom_point(aes(exp(lls_med), log(2)/lltsl_med / 60, col=condition), data=.dfs ) +
-      geom_errorbar(aes(exp(lls_med), ymin=log(2)/lltsl_pi_min / 60, ymax=log(2)/lltsl_pi_max / 60,
-                        col=condition), data=.dfs ) +
-      geom_errorbarh(aes(exp(lls_med), log(2)/lltsl_med / 60, xmin=exp(lls_pi_min), xmax=exp(lls_pi_max),
-                        col=condition), data=.dfs ) +
+      geom_errorbar(aes(exp(lls_med), ymin=log(2)/lltsl_pi_min / 60, ymax=log(2)/lltsl_pi_max / 60, col=condition), 
+                    alpha=.5, data=.dfs ) +
+      geom_errorbarh(aes(exp(lls_med), log(2)/lltsl_med / 60, xmin=exp(lls_pi_min), xmax=exp(lls_pi_max), col=condition),
+                     alpha=.5, data=.dfs ) +
       ggrepel::geom_text_repel(aes(exp(lls_med), log(2)/lltsl_med / 60, col=condition, label=date), alpha=0.3, data=.dfs) +
                                # force=4, point.padding=1) +
       coord_cartesian(xlim=c(1.25, 2.25), ylim=c(60, 140)) +
@@ -189,18 +190,20 @@ mycells_btw %>%
 
 ```{r}
 discarded_dates <- c(20151218, # switch_08h
-                    20160526, # switch_12h
                     20171122, # ∆lacA
-                    20161021, 20170108, # switch_late x 2!
+                    20161021, # switch_late
                     # 20180108, # (( glc+lac to lac ))
                     20170901  # switch_ramp 15'
                     # switch_withIPTG1uM ??
 )
 
 discarded_datesss <- c(discarded_dates,
+                       20160526, # switch_12h ???
                        # 20180207, # switch_12h 
+                       20170108, # switch_late x 2! ???
                        20180123  # switch_lacIoe (weird lag distrib)
                        )
+
 ```
 
 ?? check correl with inoc OD + loading duration + loading ratio
@@ -210,25 +213,154 @@ discarded_datesss <- c(discarded_dates,
 
 ```{r}
 mycells_btw %>% 
-  filter(!date %in% discarded_datesss) %>% 
-  filter(time_birth>m_start+1.5*3600, time_birth<m_start+4*3600) %>% 
+  filter(!date %in% discarded_dates) %>% 
   filter(!is.na(medium)) %>% 
   group_by(condition) %>% 
   mutate(m_col=as.numeric(fct_inorder(factor(medium))) %>% interaction(m_cycle)) %>% 
   filter(m_col=='2.1') %>% 
   ungroup %>% 
+  filter(time_birth>m_start+1.5*3600, time_birth<m_start+4*3600) %>% 
   ggplot(aes(log(2)/logl_time_slope / 60)) +
   facet_wrap(~condition+date) +
   stat_ecdf(alpha=.5, data=mycells_btw %>% ungroup %>% filter(condition=='lactose') %>% 
               filter(time_birth>m_start+7.5*3600, time_birth<m_start+10*3600) %>% select(-condition, -date)) +
   stat_ecdf(col=brewer_cols[1], alpha=.6) +
   coord_cartesian(xlim=c(40, 400)) +
-  labs(x='doubling time (min)', title='growth rates after first switch (between t=1.5h and t=4h)')
+  labs(x='doubling time (min)', y='cdf', title='after first switch (between t=1.5h and t=4h)')
+  # theme(strip.text=element_text(size=6))
+
+```
+
+```{r}
+mycells_btw %>% 
+  filter(!date %in% discarded_dates) %>% 
+  filter(!is.na(medium)) %>% 
+  group_by(condition) %>% 
+  mutate(m_col=as.numeric(fct_inorder(factor(medium))) %>% interaction(m_cycle),
+         m_col=ifelse(condition=='lactose', '2.1', m_col),
+         time_birth=ifelse(condition=='lactose', time_birth-6*3600, time_birth)) %>% 
+  filter(m_col=='2.1') %>% 
+  ungroup %>% 
+  filter(time_birth>m_start+1.5*3600, time_birth<m_start+4*3600) %>% 
+  mutate(condition=factor(condition)) %>% 
+  (function(.df) {
+    .dfs <- .df %>% group_by(condition, date) %>% 
+      do(median_pi(.$loglength_start) %>% setNames(c('lls_med', 'lls_pi_min', 'lls_pi_max')) ) %>% 
+      left_join(
+        .df %>% group_by(date) %>% 
+          do(median_pi(.$logl_time_slope) %>% setNames(c('lltsl_med', 'lltsl_pi_min', 'lltsl_pi_max')) )
+        )
+         
+    ggplot(.df) +
+      # facet_wrap(~condition+date) +
+      # geom_point(aes(exp(loglength_start), log(2)/logl_time_slope / 60, col=factor(date)), alpha=.2, size=.2) +
+      geom_point(aes(exp(lls_med), log(2)/lltsl_med / 60, col=condition), data=.dfs ) +
+      
+      geom_errorbar(aes(exp(lls_med), ymin=log(2)/lltsl_pi_min / 60, ymax=log(2)/lltsl_pi_max / 60, col=condition), 
+                    alpha=.5, data=.dfs ) +
+      geom_errorbarh(aes(exp(lls_med), log(2)/lltsl_med / 60, xmin=exp(lls_pi_min), xmax=exp(lls_pi_max), col=condition),
+                     alpha=.5, data=.dfs ) +
+      ggrepel::geom_text_repel(aes(exp(lls_med), log(2)/lltsl_med / 60, col=condition, label=date), alpha=0.3, data=.dfs) +
+                               # force=4, point.padding=1) +
+      coord_cartesian(xlim=c(1.25, 2.25), ylim=c(60, 140)) +
+      labs(x='birth length (µm)', y='doubling time (min)', title='after first switch (between t=1.5h and t=4h)') +
+      ggplot2::scale_color_discrete()
+  })
 
 ```
 
 
+
 check heritability of growth lags at first switch
+
+
+## Effect of growth rate before the switch
+
+```{r}
+mycells_switching %>% 
+  filter(condition != 'switch_gly_lac') %>% 
+  filter(! date %in% discarded_dates) %>% 
+  ggplot() +
+  geom_point(aes(logl_time_slope_pre / log(2) * 3600,  lag_200/60, size=n_preswitch), alpha=0.2) +
+  geom_vline(xintercept = 4e-5 / log(2) * 3600) +
+  # scale_color_gradient(low = "red", high = "blue", trans='log10') +
+  # scale_size_continuous(trans='log10') +
+  coord_cartesian(xlim=c(0, 1.5)) +
+  labs(x='growth rate before the switch (dbl/h)', y='induction lag (min)')
+
+mycells_switching %>% 
+  filter(condition != 'switch_gly_lac') %>% 
+  filter(! date %in% discarded_dates) %>% 
+  filter(switch_idx == 1) %>% 
+  ggplot() +
+  stat_bin(aes(logl_time_slope_pre / log(2) * 3600), binwidth=.05) +
+  geom_vline(xintercept = 4e-5 / log(2) * 3600) +
+  coord_cartesian(xlim=c(0, 1.5)) +
+  labs(x='growth rate before the switch (dbl/h)')
+
+```
+
+```{r}
+min_growth_rate <- 4e-5
+
+mycells_switching %>% 
+  filter(condition != 'switch_gly_lac') %>% 
+  filter(! date %in% discarded_dates) %>% 
+  filter(switch_idx == 1) %>% 
+  filter(logl_time_slope_pre <= min_growth_rate) %>% 
+  group_by(condition, date, switch_idx) %>% 
+  summarize(n=n()) %>% 
+  knitr::kable()
+
+```
+
+
+## Position / GL effect on lags
+
+Let's verify beforehand that there is no systematic effect, such as all cells having short or long lags in a given GL, or the bottom cell taking always longer.
+
+```{r fig.height=10}
+mycells_switching %>% 
+  ungroup %>% 
+  filter(! date %in% discarded_dates) %>% 
+  filter(condition!='switch_long_lac_hiExpr') %>% 
+  filter(switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+  #        lag=ifelse(is.na(lag), -1, lag)) %>% 
+  filter(variable=='lag_200') %>% 
+  # filter(condition=='switch_∆lacA') %>% 
+  ggplot() +
+  facet_wrap(~date+condition, scales='free_x') +
+  geom_segment(aes(x=interaction(date, pos, gl), xend=interaction(date, pos, gl), 
+                   y=cell_num_from_bottom, yend=cell_num_from_bottom+1, col=lag/60),
+               size=1) +
+  viridis::scale_color_viridis(trans='log2', direction=-1) +
+  theme(axis.text.x=element_blank())
+
+
+mycells_switching %>% 
+  ungroup %>% 
+  filter(! date %in% discarded_dates) %>% 
+  filter(condition!='switch_long_lac_hiExpr') %>% 
+  filter(switch_idx==1) %>% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+  mutate(lag_categ=NA, lag_categ=ifelse(is.infinite(lag), 'Inf', lag_categ),
+         lag_categ=ifelse(!is.infinite(lag) & lag<48*60, 'short', lag_categ),
+         lag_categ=ifelse(!is.infinite(lag) & lag>=48*60, 'long', lag_categ)) %>% 
+  filter(variable=='lag_200') %>% 
+  # filter(condition=='switch_∆lacA') %>% 
+  ggplot() +
+  facet_wrap(~date+condition, scales='free_x') + # , strip.position='right'
+  geom_segment(aes(x=interaction(date, pos, gl), xend=interaction(date, pos, gl), 
+                   y=cell_num_from_bottom, yend=cell_num_from_bottom+1, col=lag_categ),
+               size=1) +
+  viridis::scale_color_viridis(name='lag', discrete=TRUE, na.value='gray65') +
+  theme(axis.text.x=element_blank())
+# ggsave('Rplot.pdf', width=10, height=7)
+
+```
+
 
 
 ## Control experiments

@@ -10,6 +10,42 @@ output:
 <iframe width="853" height="480" src="https://www.youtube.com/embed/2Tznm868fmc?rel=0" frameborder="0" allowfullscreen></iframe>
 
 
+# Dataset description
+
+```{r}
+mygl <- myframes %>%
+  ungroup %>% 
+  filter(!discard_top, !discard_start) %>% 
+  # start from the total number of observations
+  group_by(condition, date, pos, gl) %>%
+  summarise(n_obs=n()) %>%
+  # add the number of dividing cells
+  left_join(myframes %>%
+              group_by(date, pos, gl, id) %>% 
+              filter(!discard_top, !any(discard_start), end_type=='div', row_number()==1) %>% 
+              group_by(date, pos, gl) %>% 
+              summarise(n_div_cells=n()) ) %>%
+  # add the number of frames
+  left_join(myframes %>%
+              group_by(date, pos, gl) %>% 
+              summarise(nframes=max(frame)) )
+
+```
+
+
+```{r}
+knitr::kable(mygl %>%
+               ungroup %>% 
+               mutate(condition=factor(condition, levels=levels(condition_ts$condition)) ) %>% 
+               group_by(condition, date) %>%
+               summarise(n_lanes=length(unique(interaction(date, pos, gl))),
+                         n_div_cells=sum(is.na(n_div_cells)),
+                         n_obs=sum(n_obs) )
+)
+
+```
+
+
 # Two categories of *lac* induction lags
 
 - n indep replicates

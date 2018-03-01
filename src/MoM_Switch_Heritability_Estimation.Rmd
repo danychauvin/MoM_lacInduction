@@ -107,51 +107,6 @@ To quantify the heritability of the lag determinants, we will look at the correl
 By stratifying by genealogical and physical distance, we expect to be able to identify whether one effect dominates  the other. Hence we need to compute the genealogical and physical distance for each pair of cells.
 
 
-## Controls
-
-Let's verify beforehand that there is no systematic effect, such as all cells having short or long lags in a given GL, or the bottom cell taking always longer.
-
-```{r fig.height=10}
-mycells_switching %>% 
-  ungroup %>% 
-  filter(condition!='switch_long_lac_hiExpr') %>% 
-  filter(switch_idx==1) %>% 
-  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
-  # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-  #        lag=ifelse(is.na(lag), -1, lag)) %>% 
-  filter(variable=='lag_200') %>% 
-  # filter(condition=='switch_∆lacA') %>% 
-  ggplot() +
-  facet_wrap(~condition+date, scales='free_x') +
-  geom_segment(aes(x=interaction(date, pos, gl), xend=interaction(date, pos, gl), 
-                   y=cell_num_from_bottom, yend=cell_num_from_bottom+1, col=lag/60),
-               size=1) +
-  viridis::scale_color_viridis(trans='log2', direction=-1) +
-  theme(axis.text.x=element_blank())
-
-
-mycells_switching %>% 
-  ungroup %>% 
-  filter(condition!='switch_long_lac_hiExpr') %>% 
-  filter(switch_idx==1) %>% 
-  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
-  mutate(lag_categ=NA, lag_categ=ifelse(is.infinite(lag), 'Inf', lag_categ),
-         lag_categ=ifelse(!is.infinite(lag) & lag<55*60, 'short', lag_categ),
-         lag_categ=ifelse(!is.infinite(lag) & lag>=55*60, 'long', lag_categ)) %>% 
-  filter(variable=='lag_200') %>% 
-  # filter(condition=='switch_∆lacA') %>% 
-  ggplot() +
-  facet_wrap(~condition+date, scales='free_x') +
-  geom_segment(aes(x=interaction(date, pos, gl), xend=interaction(date, pos, gl), 
-                   y=cell_num_from_bottom, yend=cell_num_from_bottom+1, col=lag_categ),
-               size=1) +
-  viridis::scale_color_viridis(name='lag', discrete=TRUE, na.value='gray65') +
-  theme(axis.text.x=element_blank())
-# ggsave('Rplot.pdf', width=10, height=7)
-
-```
-
-
 ## Lag heritability
 
 ```{r}
@@ -220,12 +175,13 @@ mypairs_switching %>% ungroup %>%
 ```{r eval=FALSE}
 filter(mypairs_switching, rel!='niece') %>% 
   filter(condition %in% c('switch_04h', 'switch_∆lacA')) %>%
+  filter(variable == 'lag_200') %>% 
   filter(switch_idx==1) %>% 
   mutate(value_min=ifelse(value_1<value_2, value_1, value_2),
          value_max=ifelse(value_1>=value_2, value_1, value_2)) %>% 
   # filter(type=='pearson') %>% 
   ggplot(aes(value_max/60, value_min/60, col=condition)) +
-  facet_grid(rel~variable, labeller=as_labeller(switch_facets_labels)) +
+  facet_grid(rel~date, labeller=as_labeller(switch_facets_labels)) +
   geom_point(size=.5, alpha=.25)
 
 filter(mypairs_switching, rel!='niece') %>% 

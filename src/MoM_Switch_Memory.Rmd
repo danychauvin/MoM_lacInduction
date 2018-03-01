@@ -10,34 +10,36 @@ Focus on the second switch only:
 
 ```{r}
 mycells_switching %>% ungroup %>% 
-  filter(!date %in% discarded_date) %>%
+  filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
   mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
          lag=ifelse(is.na(lag), -1, lag)) %>% 
   (function(.df)
     ggplot(data=NULL, aes(x=lag/60)) +
      facet_grid(switch_idx~variable) +
-     stat_ecdf(aes(y=1-..y.., col='lac_all'),
+     stat_ecdf(aes(y=1-..y.., col=condition, group=date), # col='lac_all'
                data=filter(.df, switch_idx==1)) +
-     stat_ecdf(aes(y=1-..y.., col=condition),
+     stat_ecdf(aes(y=1-..y.., col=condition, group=date),
                data=.df %>% filter(switch_idx==2)) +
      labs(x='lag after the switch (min)', y='reverse cumulative probability') +
      ggplot2::scale_colour_discrete() + labs(col='condition')
    )
 
 mycells_switching %>% ungroup %>% 
-  filter(!date %in% discarded_date) %>%
+  filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
   mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
          lag=ifelse(is.na(lag), -1, lag)) %>% 
   (function(.df)
-    ggplot(data=NULL, aes(x=lag/60, col=condition, fill=condition)) +
+    ggplot(data=NULL, aes(x=lag/60, col=condition, fill=condition, group=date)) +
      facet_grid(condition+switch_idx~variable, scales='free_y', labeller=as_labeller(switch_facets_labels)) +
-     geom_step_hist(binwidth=3, position='identity',
+     geom_step_hist(aes(group=1), binwidth=3, position='identity',
                     data=filter(.df, switch_idx==1) %>% mutate(condition='lac_all')) +
-     geom_histogram(binwidth=3, position='identity', col='transparent', alpha=.2,
+     geom_histogram(aes(group=1), binwidth=3, position='identity', col='transparent', alpha=.2,
                     data=filter(.df, switch_idx==1) %>% mutate(condition='lac_all')) +
      geom_step_hist(binwidth=3, position='identity',
                     data=.df %>% filter(switch_idx==2)) +
@@ -47,7 +49,7 @@ mycells_switching %>% ungroup %>%
      #           data=.df %>% filter(condition=='switch_iptg')) +
      labs(x='lag after the switch (min)', col='condition', fill='condition') +
      ggplot2::scale_colour_discrete() + ggplot2::scale_fill_discrete() +
-     xlim(0, 250)
+     xlim(-1, 250)
   )
 # ggsave('Rplot.pdf', width=7, height=4)
 
@@ -55,8 +57,9 @@ mycells_switching %>% ungroup %>%
 
 ```{r}
 mycells_switching %>% ungroup %>% 
-  filter(!date %in% discarded_date) %>%
+  filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
   gather(variable, lag, growth_lag, lag_200, factor_key=TRUE) %>% 
   mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
          lag=ifelse(is.na(lag), -1, lag)) %>% 
@@ -78,8 +81,9 @@ mycells_switching %>% ungroup %>%
 ```{r BZSposter, eval=FALSE}
 
 mycells_switching %>% ungroup %>% 
-  filter(!date %in% discarded_date) %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
+  filter(!date %in% discarded_dates) %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$'), condition!='switch_06h') %>%
   gather(variable, lag, growth_lag, gfp_lag, factor_key=TRUE) %>% 
   mutate(lag=ifelse(lag>240*60, Inf, lag),
          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+1e6),
@@ -87,6 +91,8 @@ mycells_switching %>% ungroup %>%
   (function(.df)
     ggplot(data=NULL, aes(x=lag/60)) +
      facet_grid(.~variable) +
+     # stat_ecdf(aes(y=1-..y.., group=date, col='first switch'), geom='line', size=.2,
+     #           data=filter(.df, switch_idx==1)) +
      stat_ecdf(aes(y=1-..y.., col='first switch'), geom='line', size=.6,
                data=filter(.df, switch_idx==1)) +
      stat_ecdf(aes(y=1-..y.., col=condition), geom='line', size=.3,
@@ -99,11 +105,12 @@ mycells_switching %>% ungroup %>%
                                         strip.background=element_rect(fill='gray95', colour='transparent'), 
                                         legend.key.height=unit(1, "lines"))
    )
-ggsave('plots/BZSposter2017/2nd_switch_lags.pdf', width=180/25.4/2, height=100/25.4/2)
+# ggsave('Rplot.pdf', width=180/25.4/2, height=100/25.4/2)
 
-mycells_switching %>% ungroup %>% 
-  filter(!date %in% discarded_date) %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac' | condition=='switch_lactose_priming') %>%
+mycells_switching %>% ungroup %>%
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_lactose_priming') %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
   gather(variable, lag, growth_lag, gfp_lag, factor_key=TRUE) %>% 
   # mutate(lag=ifelse(lag>240*60, Inf, lag),
   #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+1e6),
@@ -126,8 +133,6 @@ mycells_switching %>% ungroup %>%
                                         strip.background=element_rect(fill='gray95', colour='transparent'), 
                                         legend.key.height=unit(.6, "lines"))
    )
-# ggsave('plots/BZSposter2017/2nd_switch_lags.pdf', width=180/25.4/2, height=100/25.4/2)
-ggsave('plots/BZSposter2017/2nd_switch_lags_finite.pdf', width=180/25.4/2, height=100/25.4/2)
 
 
 ```
@@ -170,7 +175,7 @@ Memory of mother cells:
 
 ```{r}
 myframes %>% 
-  filter(!date %in% discarded_date) %>%
+  filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
   filter(!discard_start, cell_num_in_lane==total_cell_in_lane) %>% # bottom_cell
   (function(.df) 
@@ -186,8 +191,9 @@ myframes %>%
    )(.)
 
 mycells_switching %>% ungroup %>% 
-  filter(!date %in% discarded_date) %>%
+  filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
   filter(cell_num_from_bottom==0) %>% # bottom_cell
   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
   select(condition, date, pos, gl, switch_idx, variable, lag) %>% 

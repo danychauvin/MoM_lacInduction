@@ -218,6 +218,60 @@ We use the following convention:
 - Inf: lag longer than the lactose episode
 
 
+### Growth rate before the switch
+
+```{r}
+mycells_switching <- 
+  # extract relevant frames
+  bind_rows(
+    # switching cells
+    mycells_switching %>% ungroup %>% filter(!is.na(lag_200)) %>% 
+      mutate(type='pre', switch_ugen=ugen) %>% 
+      select(type, ugen, switch_ugen, switch_idx, t_lac_switch) %>% 
+      left_join(myframes) %>% 
+      filter(time_sec < t_lac_switch),
+    # parent cells
+    mycells_switching %>% ungroup %>% filter(!is.na(lag_200)) %>% 
+      left_join(select(myframes, date, gl, pos, id, parent_id, ugen) %>% group_by(ugen) %>% slice(1)) %>% 
+      mutate(type='parent', switch_ugen=ugen, 
+             # cell=paste(date, pos, gl, parent_id, sep='.')) %>% 
+             ugen=get_parent_cid(ugen) ) %>% 
+      select(type, ugen, switch_ugen, switch_idx, t_lac_switch) %>% 
+      left_join(myframes) %>% 
+      filter(medium=='glucose')
+  ) %>% 
+  # compute elongation rate for these cells
+  group_by(type, ugen, switch_ugen) %>% 
+  do((function(.df) {
+    # browser()
+    if (dim(.df)[1] < 5) return(data.frame())
+    
+    .mod <- lm( log(length_um)~time_sec, .df)
+    data.frame(logl_time_slope=.mod$coefficients[2],
+               logl_time_r2=cor(.df$time_sec, log(.df$length_um))^2)
+  })(.)) %>% 
+  # reshape and join to mycells_switching
+  ungroup %>% 
+  mutate(ugen=switch_ugen, switch_ugen=NULL) %>% 
+  gather(var, val, -type, -ugen) %>% 
+  mutate(var=paste(var, type, sep='_'), type=NULL) %>% 
+  spread(var, val) %>% 
+  right_join(mycells_switching) %>% 
+  mutate(n_preswitch=(t_lac_switch-time_birth)/dt/60)
+  
+# ggplot(mycells_switching) +
+#   geom_abline() +
+#   geom_point(aes(logl_time_slope_parent, logl_time_slope_pre, size=n_preswitch), alpha=0.2) +
+#   coord_cartesian(ylim=c(0, 3e-4))
+
+# ggplot(mycells_switching) +
+#   geom_point(aes(n_preswitch, 1-logl_time_r2_pre), size=0.2, alpha=0.2) +
+#   scale_y_log10() +
+#   xlim(0, 50)
+
+```
+
+
 ## Validation of the lag estimation
 
 Let's look at the proportion of cells for which a lag can be estimated and identify the different types of indetermination (based on the interaction between the different estimates):
@@ -462,7 +516,8 @@ NB: the lower bound of the GFP lags probably comes from GFP maturation time.
 
 ```{r BZSposter, eval=FALSE}
 mycells_switching %>% 
-  filter(!date %in% discarded_date) %>%
+  filter(!date %in% discarded_dates) %>%
+  filter(logl_time_slope_pre > min_growth_rate) %>% 
   filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac') %>%
   filter(switch_idx==1) %>%
   mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag),
