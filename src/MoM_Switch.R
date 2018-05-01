@@ -57,7 +57,8 @@ myconditions <- list(
        paths=c("./data_thomas/20161014/20161014_curated")),
   list(condition='switch_24h', duration=c(360, 240, 1440, 360), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose'),
-       paths=c("./data_thomas/20161007/20161007_curated")),
+       paths=c("./data_thomas/20161007/20161007_curated", "./data_thomas/20180313/20180313_glu_lac_switch24h_curated/")),
+  # paths=c("./data_thomas/20161007/20161007_curated")),
   list(condition='switch_12h_old', duration=c(240, 240, 720, 360), 
        medium=c('glucose', 'lactose', 'glucose', 'lactose'),
        paths=c("./data_thomas/20160526/20160526_curated")),
@@ -82,7 +83,7 @@ myconditions <- list(
   list(condition='switch_gly_lac', duration=c(480, 360), 
        medium=c('glycerol', 'lactose'),
        paths=c("./data_thomas/20170919/20170919_glyc_lac_curated/", "./data_thomas/20170920/20170920_glyc_lac_curated/")),
-
+  
   # STOCHASTIC EXPRESSION PERTURBATION
   list(condition='switch_withIPTG1uM',
        duration=c(360, 240),
@@ -118,10 +119,27 @@ myconditions <- list(
        duration=c(360, 360, 360),
        medium=c('glucose', 'lactose', 'glucose'),
        paths=c("./data_thomas/20171122/20171122_glu_lac_lacA_curated/", "./data_thomas/20180110/20180110_glu_lac_lacA-_curated/")),
-  list(condition='switch_glu_lacCM',
+  # list(condition='switch_glu_lacCM',
+  list(condition='switch_glu_lacCM_0.05',
        duration=c(360, 360),
        medium=c('glucose', 'lacCM'),
        paths=c("./data_thomas/20180205/20180205_glu_lacCM_curated/", "./data_thomas/20180213/20180213_glu_lacCM_curated/")),
+  list(condition='switch_glu_lacCM_0.27',
+       duration=c(360, 240),
+       medium=c('glucose', 'lacCM'),
+       paths=c("./data_thomas/20180320/20180320_glu_lacCM_curated/")),
+  list(condition='switch_glu_lacCM_0.45',
+       duration=c(360, 360),
+       medium=c('glucose', 'lacCM'),
+       paths=c("./data_thomas/20180315/20180315_glu_lacCM_curated/")),
+  list(condition='switch_glu_lacCM_ara0.83',
+       duration=c(360, 360),
+       medium=c('glucose', 'lacCM'),
+       paths=c("./data_thomas/20180404/20180404_glu_lacCM-ara_curated/")),
+  list(condition='switch_glu_lacCM-∆lacA',
+       duration=c(360, 240),
+       medium=c('glucose', 'lacCM'),
+       paths=c("./data_thomas/20180321/20180321_glu_lacCM-lacA_curated/")),
   list(condition='switch_lac_IPTG500uM', duration=c(360, 240, 240, 240, 240, 240),
        medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
        paths=c("./data_thomas/20151207/20151207_switch_iptg_curated"))
@@ -188,6 +206,7 @@ myframes <- myfiles %>%
               cluster_assign_obj(dt, dl, vertical_cutoff)) %>%
   # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
+    # browser()
     parse_frames_stats(.df$ppath) %>% 
       mutate(time_sec=frame*dt*60, length_um=length_pixel*dl,
              discard_start=(time_sec < 2*3600)) %>%
@@ -279,16 +298,15 @@ knitr::opts_chunk$set(
 )
 # rmarkdown::clean_site()
 
-rmarkdown::render_site('./src/index.Rmd')
-rmarkdown::render_site('./src/MoM_Switch_GFP_Estimation.Rmd')
+# rmarkdown::render_site('./src/index.Rmd')
+# rmarkdown::render_site('./src/MoM_Switch_GFP_Estimation.Rmd')
 rmarkdown::render_site('./src/MoM_Switch_Constant_Envts.Rmd')
 rmarkdown::render_site('./src/MoM_Switch_Lags_Estimation.Rmd')
 rmarkdown::render_site('./src/MoM_Switch_Heritability_Estimation.Rmd')
 
 # DISCARD SOME DATASETS
-discarded_date <- c('20151218') # switch_08h
-
 rmarkdown::render_site('./src/MoM_Switch_Controls.Rmd')
+
 rmarkdown::render_site('./src/MoM_Switch_Naive_Cells.Rmd')
 rmarkdown::render_site('./src/MoM_Switch_Memory.Rmd')
 
