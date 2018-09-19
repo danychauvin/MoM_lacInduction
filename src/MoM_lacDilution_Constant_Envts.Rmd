@@ -71,7 +71,7 @@ myframes_constant <- semi_join(myframes, mycells_constant) %>%
 
 ```{r}
 mycells_constant <- mycells_constant %>% 
-  mutate(alpha=logl_time_slope, dt=log(2)/alpha, 
+  mutate(alpha=logl_time_slope, dblt=log(2)/alpha, 
          l_birth=exp(loglength_start), l_div=exp(loglength_end),
          c_birth=g_first/l_birth, c_div=g_last/l_div)
 
@@ -89,11 +89,11 @@ mypairs_constant <- mycells_constant %>%
   })(.)) %>% 
   collect() %>% 
   left_join(mycells_constant %>% ungroup %>% 
-              select(gl_id, genealogy, alpha, dt, l_birth, l_div, c_birth, c_div) %>%
+              select(gl_id, genealogy, alpha, dblt, l_birth, l_div, c_birth, c_div) %>%
               rename(genealogy_1=genealogy) %>% 
               gather(variable, value_1, -gl_id, -genealogy_1) ) %>% 
   left_join(mycells_constant %>% ungroup %>% 
-              select(gl_id, genealogy, alpha, dt, l_birth, l_div, c_birth, c_div) %>%
+              select(gl_id, genealogy, alpha, dblt, l_birth, l_div, c_birth, c_div) %>%
               rename(genealogy_2=genealogy) %>% 
               gather(variable, value_2, -gl_id, -genealogy_2) ) %>% 
   mutate(variable=factor(variable, levels=unique(variable)),

@@ -11,20 +11,25 @@ author: Thomas Julou
 navbar:
   title: "Single-cell analysis of the glucose/lactose diauxic shift"
   left:
-    - text: "Analysis"
+    - text: "Prerequisites"
       icon: fa-gear
       menu:
         - text: "GFP Estimation"
-          href: MoM_Switch_GFP_Estimation.html
+          href: MoM_lacDilution_GFP_Estimation.html
         - text: "Lags estimation"
-          href: MoM_Switch_Lags_Estimation.html
-        - text: "Heritability estimation"
-          href: MoM_Switch_Heritability_Estimation.html
-        - text: "Controls"
-          href: MoM_Switch_Controls.html
+          href: MoM_lacDilution_Lags_Estimation.html
+#        - text: "Heritability estimation"
+#          href: MoM_lacDilution_Heritability_Estimation.html
         - text: "---------"
-        - text: "Naive cells"
-          href: MoM_Switch_Naive_Cells.html
-        - text: "Memory"
-          href: MoM_Switch_Memory.html
+        - text: "Controls"
+          href: MoM_lacDilution_Controls.html
+    - text: "Analysis"
+      icon: fa-flask
+      menu:
+        - text: "Induction and memory of the native *lac* operon"
+          href: MoM_lacDilution_Native.html
+        - text: "Perturbations of the repressed lac operon expression"
+          href: MoM_lacDilution_PerturbRepressed.html
+        - text: "Sensitivity to inducers"
+          href: MoM_lacDilution_Sensitivity.html
 

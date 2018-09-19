@@ -9,3 +9,5 @@ old
 qlogs
 share
 debug
+packrat/lib*/
+packrat/src/

@@ -150,7 +150,7 @@ ggplot(aes(time_sec, fluo_amplitude/length_um)) +
 ### Rationale
 We assume that fluorescent proteins (FPs) are present in two states: unbleached (U) and bleached (B). FPs are produced as unbleached at a rate $\alpha$. Unbleached proteins are bleached at a rate $\beta$ and all proteins are degraded at a rate $\delta$. The total fluorescence measured in a cell is proportional to U. \
 NB: the assumption that the probablity of degradation is constant with time is not realistic, contrary to the assumption of a constant rate of bleaching. \
-![bleaching process](material/bleachingProcess.png)
+![bleaching process](bleachingProcess.png)
 
 When FPs are produced (lactose): $\frac{dU}{dt} = \alpha - (\beta + \delta) U$ \
 When no FPs are produced (glucose): $\frac{dU}{dt} = -(\beta + \delta) U$ \
@@ -394,8 +394,7 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch_
   filter(cell_num_in_lane < total_cell_in_lane) %>% 
   # group_by(date, pos, gl) %>%
   partition(date, pos, gl,
-            cluster=mycluster %>% cluster_assign_obj(dt) %>% cluster_assign_obj(bleaching_rate) %>%
-              cluster_assign_obj(triad_avgw) %>% cluster_assign_obj(triad_fitw) %>%
+            cluster=mycluster %>% cluster_assign_obj(bleaching_rate, triad_avgw, triad_fitw) %>%
               cluster_assign_func(autofluo_predict)) %>%
   do( (function(.df1){
     # first loop on all growth lanes
@@ -404,13 +403,13 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch_
       filter(mean(fluogfp_amplitude) > mean(autofluo_predict(length_um))) %>%
       do( (function(.df1, .dfp){
           # then loop on all cells
-         .dfp <- mutate(.dfp, time_to_div = time_sec - (last(time_sec)+dt/2*60))
+         .dfp <- mutate(.dfp, time_to_div = time_sec - (last(time_sec)+dt/2))
          if (sum(.dfp$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
          .dfcb <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='BOTTOM') %>%
-           mutate(time_from_birth = time_sec - (first(time_sec)-dt/2*60))
+           mutate(time_from_birth = time_sec - (first(time_sec)-dt/2))
          if (sum(.dfcb$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
          .dfct <- filter(.df1, parent_id==unique(.dfp$id), daughter_type=='TOP') %>%
-           mutate(time_from_birth = time_sec - (first(time_sec)-dt/2*60))
+           mutate(time_from_birth = time_sec - (first(time_sec)-dt/2))
          if (sum(.dfct$fluogfp_amplitude>0) < max(triad_avgw, triad_fitw)) return(data.frame())
 
          length_modp <- fastLmPure(cbind(1, .dfp$time_to_div), log(.dfp$length_um))
@@ -443,7 +442,7 @@ swi_triads <- filter(myframes, !discard_start, !discard_top, condition=='switch_
            filter(.dfp, row_number() > dim(.dfp)[1] - triad_avgw) %>%
              select(end_time, length_avg=length_um, fluo_avg=fluogfp_amplitude) %>%
              summarise_each(funs(mean)) %>%
-             mutate(div_time=unique(.dfp$end_time)+dt/2*60, n_fit=dim(.dfp)[1],
+             mutate(div_time=unique(.dfp$end_time)+dt/2, n_fit=dim(.dfp)[1],
                     fluo_fit=mean(.dfp$fluogfp_div), fluo_fit_sd=sd(.dfp$fluogfp_div)*sqrt((n_fit-1)/n_fit),
                     length_fit=mean(.dfp$length_div), length_fit_sd=sd(.dfp$length_div)*sqrt((n_fit-1)/n_fit)),
            

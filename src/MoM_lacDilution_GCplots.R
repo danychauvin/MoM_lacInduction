@@ -52,7 +52,7 @@ myframes %>%
         if (nrow(.dfgl) == 0) return(list())
         
         .pl <- .dfgl %>% 
-          plot_faceted_var_tracks(.var_col=.dff$var, .show_all=TRUE, .show_cellid=TRUE, .log=.dff$log, .facet_labeller=custom_labels) +
+          plot_faceted_var_tracks(.var_col=.dff$var, .show_all=TRUE, .show_cellid=TRUE, .log=.dff$log, .facet_labeller=custom_labels, .dt=first(.dfgl$dt)) +
           # mask early frames (requires a dummy df!)
           geom_rect(xmin=-Inf, xmax=0, ymin=ifelse(.dff$log, 0, -Inf), ymax=Inf, fill='white', alpha=.6, col='transparent', data=data.frame(a=1)) +
           scale_x_hours(4) 
