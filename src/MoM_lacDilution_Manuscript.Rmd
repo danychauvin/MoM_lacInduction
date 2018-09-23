@@ -1,0 +1,370 @@
+---
+title: "Induction lags of the native *lac* operon"
+author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r}
+theme_set(theme_cowplot())
+
+```
+
+
+```{r}
+# gfp_nb offset ≈ 100 to avoid stripping values and to keep background fluctuations visually small xxx
+plot_raw_traces <- 
+  myframes %>% ungroup() %>% 
+  filter(date==20180206) %>% 
+  group_by(date, pos, gl) %>% 
+  ggCustomTJ::slice_groups(c(1)) %>% 
+  filter(!discard_start, !discard_top,
+         time_sec>2*3600) %>%
+  filter(total_cell_in_lane-cell_num_in_lane<5,
+         end_type %in% c('div', 'lost')) %>% 
+  # ungroup() %>% mutate(gfp_nb=gfp_nb - 2*min(gfp_nb)) %>% 
+  ungroup() %>% mutate(gfp_nb=gfp_nb + 135) %>% 
+  gather(variable, value, length_um, gfp_nb) %>% 
+  ggplot() +
+  # facet_grid(pos+gl~.) +
+  facet_wrap(~variable, scales='free_y', ncol=1, strip.position='left',
+             labeller=as_labeller(function(.str) {
+               .str <- str_replace(.str, "gfp_nb", "LacZ-GFP\n(molecules)")
+               .str <- str_replace(.str, "length_um", "cell length (µm)")
+               return(.str)
+             }) ) +
+  geom_line(aes(time_sec-2*3600, value, col=ugen)) +
+  scale_colour_periodic(.n=3, guide='none') +
+  # show medium bar
+  geom_vline(aes(xintercept=t_start - 2*3600, group=1), alpha=.2, size=.5, 
+            data=filter(condition_ts, condition=='switch_08h')) +
+  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=1.2, ymax=1.5, fill=medium, group=1), show.legend=FALSE, #size=0.2,
+            data=filter(condition_ts, condition=='switch_08h') %>% mutate(variable='length_um')) +
+  geom_text(aes(x=t_start+(t_end-t_start)/2 - 2*3600, y=1.2, label=medium, group=1), size=4, col='white', hjust=0.5, vjust=-0.5, 
+            data=filter(condition_ts, condition=='switch_08h') %>% mutate(variable='length_um', t_start=ifelse(t_start<2*3600, 2*3600, t_start))) +
+  # scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
+  coord_cartesian(xlim=c(-3600/2, 19.9*3600), expand=FALSE) +
+  scale_x_hours(4) +
+  scale_y_continuous(trans='log2') +
+  theme(strip.placement='outside', strip.background.y=element_blank(),
+        axis.title.y=element_blank(), strip.text.y=element_text(size=rel(1.2))) +
+  NULL
+
+
+plot_lags_hist <- 
+  mycells_switching %>% ungroup() %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  # mutate(lag=ifelse(lag<240*60, lag, 245*60),
+         # lag=ifelse(is.na(lag), -10, lag)) %>% 
+  ggplot(aes(x=lag_200/60)) +
+  geom_freqpoly(aes(col=switch_idx), binwidth=3, show.legend=FALSE) +
+  labs(x=lac_lags_label) + #, subtitle='naive cells (9 independent experiments)'
+  coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+  theme(axis.title.x = element_blank()) +
+  NULL
+
+
+plot_memory_cdf <- 
+mycells_switching %>% ungroup() %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_late') %>%
+  mutate(lag=lag_200,
+         lag=ifelse(lag>240*60, Inf, lag),
+         # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+1e6),
+         lag=ifelse(is.na(lag), -1e6, lag)) %>% 
+  # group_by(condition, switch_idx) %>% summarise(n())
+  (function(.df)
+    ggplot(data=NULL, aes(x=lag/60, y=1-..y.., col=condition)) +
+     stat_ecdf(aes(col='control'), geom='line', size=rel(0.75),
+               data=filter(.df, switch_idx==1, condition != 'switch_late')) +
+     stat_ecdf(geom='line', size=rel(0.75),
+               data=filter(.df, switch_idx==1, condition == 'switch_late')) +
+     stat_ecdf(geom='line', #size=.3,
+               data=.df %>% filter(switch_idx==2)) +
+     geom_rect(aes(x=NULL), xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, fill='white', col='transparent',
+               data=data.frame()) +
+     scale_color_manual(name='delay between\nlactose exposure',
+                        limits=c(sprintf('switch_%02dh', seq(4, 24, 4)), 'control', 'switch_late'),
+                        labels=c(sprintf('%dh', seq(4, 24, 4)), 'control', 'control (late)'),
+                        values=c(scales::viridis_pal()(6), 'gray40', 'gray70') ) +
+     coord_cartesian(xlim=c(-10, 240), ylim=c(-.01, 1.01), expand=FALSE) +
+     labs(x=lac_lags_label,  y='reverse cumul.\nprobability') +
+     guides(col=guide_legend(ncol=2)) +
+     theme(axis.line.x=element_line(), axis.line.y=element_line(),
+           strip.background=element_rect(fill='gray95', colour='transparent'), 
+           legend.position = c(1, 1), legend.justification = c(1,1),
+           legend.title=element_text(size=rel(0.7), face='bold'),
+           legend.text=element_text(size=rel(0.7)),
+           legend.margin=margin()
+           # legend.key.height=unit(0.7, "lines")
+           ) +
+     NULL
+  )
+
+plot_memory_frac_short <- 
+  mycells_switching_memory %>% ungroup() %>% 
+  mutate(gfp_inherit=parent_gfp/2^divs_since_par,
+         gfp_inherit_bin=as.numeric(as.character(Hmisc::cut2(gfp_inherit, cuts=c(-Inf, 10^seq(-1.1, 3.8, .3)), levels.mean=TRUE))) ) %>% 
+  (function(.df) 
+    ggplot() + 
+     geom_hline(aes(yintercept=prop), lty='dashed',
+                data=mycells_switching %>% ungroup %>%
+                  filter(!date %in% discarded_dates) %>%
+                  filter(!discard_arrested) %>% 
+                  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+                  filter(switch_idx==1) %>%
+                  summarise(n=n(), prop=sum(lag_200/60<48)/n)
+     ) +
+     geom_rect(aes(xmin=0, xmax=Inf, ymin=prop-sqrt(prop*(1-prop)/n), ymax=prop+sqrt(prop*(1-prop)/n)),
+               fill='grey50', alpha=0.1,
+                data=mycells_switching %>% ungroup %>% 
+                  filter(!date %in% discarded_dates) %>%
+                  filter(logl_time_slope_pre > min_growth_rate) %>% 
+                  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+                  filter(switch_idx==1) %>% 
+                  group_by(date) %>% 
+                  summarise(n=n(), prop=sum(lag_200/60<48)/n)
+     ) +
+     geom_pointrange(aes(gfp_inherit_bin, prop, size=n, ymin=prop-se, ymax=prop+se), 
+                data=.df %>% group_by(gfp_inherit_bin) %>% summarise(n=n(), prop=sum(lag_200/60<48)/n, se=sqrt(prop*(1-prop)/n))) +
+     scale_size_continuous(range=c(0.05, .5), breaks=c(50, 150)) +
+     scale_x_continuous(breaks=10^(0:3),
+                        trans=scales::trans_new(name='log10_rev', 
+                                        transform=function(x) -log(x, 10), 
+                                        inverse=function(x) 10^(-x))
+                        ) +
+     coord_cartesian(xlim=c(0.1, 3e3)) +
+     expand_limits(y=0) +
+     labs(x='inherited LacZ-GFP (molecules)', y='fraction of short lags', size='sample size') +
+     guides(size=guide_legend(direction='horizontal')) +
+     theme(legend.position=c(0, 0), legend.justification=c(-0.1, -0.5), #'top', 
+           legend.margin=margin(),
+           legend.title=element_text(size=rel(0.7), face='bold'),
+           legend.text=element_text(size=rel(0.7)),
+     ) +
+     # theme(legend.position=c(0.99, 0.99), legend.justification=c(1, 1)) +
+     NULL
+  )
+
+```
+
+```{r}
+fig1 <- 
+  plot_grid(
+    # plot_grid(
+    #   NULL, 
+    #   NULL,
+    #   labels=c('A', 'B'), nrow=1, rel_widths=c(2, 1)
+    # ),
+    plot_raw_traces,
+    plot_grid(
+      plot_grid(
+        plot_lags_hist,
+        plot_memory_cdf,
+        labels=c('B', 'C'), ncol=1, rel_heights=c(0.7, 1), align='v'
+      ),
+      plot_memory_frac_short,
+      labels=c('', 'D'), nrow=1, rel_widths=c(1.2, 1)
+    ),
+    labels=c('A', ''), ncol=1, rel_heights=c(1, 1.1)
+  )
+
+save_plot(here("plots", "MoM_lacDilution_fig1.pdf"), fig1,
+          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_aspect_ratio = 1.1
+)
+
+```
+
+
+```{r}
+plot_basal_perturb <-
+  mycells_switching %>% ungroup() %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>% 
+  filter(switch_idx==1) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') |
+           str_detect(condition, 'preIPTG') | str_detect(condition, 'lacIoe$')) %>% 
+  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+         laci=fct_recode(condition, 'lower'='switch_preIPTG5uM',
+                         'lower'='switch_lacIoe_preIPTG10uM',
+                         'higher'='switch_lacIoe') %>% 
+           fct_relevel('lower', 'control'),
+         condition=fct_relevel(condition, 'switch_lacIoe', "control",
+                               'switch_lacIoe_preIPTG10uM', 'switch_preIPTG5uM') %>% 
+           fct_recode('with 5µM IPTG'='switch_preIPTG5uM',
+                      'with LacI plasmid'='switch_lacIoe', 
+                      'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
+  mutate(lag=lag_200,
+         lag=ifelse(lag>240*60, Inf, lag)
+  ) %>% 
+  ggplot(aes(x=condition, y=lag/60)) +
+  geom_hline(yintercept=48, lty='dashed') +
+  geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, alpha=.4, position='identity') +
+  expand_limits(y=0) +
+  labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+  guides(fill=guide_legend(override.aes=list(alpha=1))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=rel(1), colour='black',
+                                 angle=45, hjust=0.8, vjust=0.9),
+        legend.margin=margin(),
+        legend.title=element_text(size=rel(0.7), face='bold'),
+        legend.text=element_text(size=rel(0.7)),
+        legend.position='top') +
+  NULL
+
+
+plot_glyc_frac_short <- 
+  mycells_switching %>% ungroup %>% 
+  filter(! date %in% discarded_dates) %>% 
+  # filter(!discard_arrested) %>%
+  filter(switch_idx==1) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$') | condition %in% c('switch_glcLac_lac', 'switch_gly_lac') ) %>%
+  mutate(lag=lag_200) %>% 
+  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+         # condition=fct_recode(factor(condition), 'glucose + lactose > lactose'='switch_glcLac_lac',
+         #                      'glycerol > lactose'='switch_gly_lac',
+         #                      'glucose > lactose (control)'='control') ) %>%
+         condition=fct_recode(factor(condition), 'gluc + lac > lac'='switch_glcLac_lac',
+                              'glyc > lac'='switch_gly_lac',
+                              'gluc > lac (control)'='control') ) %>%
+  group_by(condition) %>% 
+  summarise(n=n(), type='short', prop=sum(lag/60<48, na.rm=TRUE)/sum(!is.na(lag)), 
+            prop_se=sqrt(prop*(1-prop)/n)) %>% 
+  (function(.df) 
+    bind_rows(.df, .df %>% mutate(type='long', prop=1-prop, prop_se=NA, n=NA)) %>% 
+     ggplot(aes(x=condition, y=prop)) +
+     geom_bar(aes(fill=type), stat='identity') +
+     geom_rect(aes(xmin=as.numeric(condition)-.45, xmax=as.numeric(condition)+.45, 
+                   ymin=prop-prop_se, ymax=prop+prop_se), data=.df) +
+     geom_text(aes(y=0, label=sprintf('n=%d', n)), vjust=-0.3, data=.df) +
+     labs(y='proportion', fill="type of lag" ) +
+     # expression(paste("type of ", italic("lac"), " induction lag"))
+     theme(axis.title.x=element_blank(),
+           axis.text.x=element_text(size=rel(1), colour='black',
+                                    angle=45, hjust=0.8, vjust=0.9),
+           legend.margin=margin(),
+           legend.title=element_text(size=rel(0.7), face='bold'),
+           legend.text=element_text(size=rel(0.7)),
+           legend.position='top') +
+     NULL
+  )
+
+```
+
+```{r}
+fig2 <- 
+  plot_grid(
+    plot_basal_perturb,
+    plot_glyc_frac_short,
+    labels="AUTO", nrow=1, rel_widths=c(2, 1), align='h'
+  )
+
+save_plot(here("plots", "MoM_lacDilution_fig2.pdf"), fig2,
+          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_aspect_ratio = 2.2
+)
+
+```
+
+
+```{r}
+plot_lac_arrest_frac <-
+  mycells_switching %>% ungroup() %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  (function(.df, .delay=c(9, 15)) {
+    .lags <- .df %>% pull(growth_lag)
+    data.frame(delay=.delay) %>% group_by(delay) %>% 
+      mutate(p_arrest=sum(.lags/60 > delay, na.rm=TRUE)/sum(!is.na(.lags)))
+  }) %>% 
+  (function(.df)
+    ggplot(.df, aes(x=factor(1), p_arrest)) +
+     geom_col(aes(y=1, fill='0'), position='identity') +
+     geom_col(aes(fill=factor(delay)), position='identity') +
+     coord_polar(theta='y') +
+     scale_fill_manual(name='growth arrest', breaks=c(0, 9, 15),
+                       values=qual_cols[c(1, 2, 3)],
+                       labels=c('shorter than 9 min', 'between 9 and 15 min', 'longer than 15 min')) +
+     theme_void() +
+     theme(legend.position = 'left') +
+     NULL
+  )
+
+
+plot_lacl_arrest_induction_frac <-
+  bind_rows(
+  myframes %>% 
+    ungroup() %>% 
+    filter(str_detect(condition, 'TMG')) %>% 
+    filter(!discard_top) %>% 
+    filter(time_sec/3600==8+7) %>%
+    group_by(condition) %>% 
+    summarise(variable='lac induction', n_true=sum(gfp_nb/length_um>250), n=n(), 
+              # p_induced=n_true/n,
+            ),
+  tribble(
+    ~variable, ~condition, ~n_true, ~n,
+    'growth arrest', 'switch_glycerol_TMG20', 0, 110,
+    'growth arrest', 'switch_lactulose_TMG20', 101, 105)
+) %>% 
+  group_by(condition, variable) %>% 
+  mutate(p_true=n_true/n, p_false=1-p_true, n_true, n=NULL) %>% 
+
+  gather(type, value, p_true, p_false) %>% 
+  mutate(type=str_replace(type, 'p_', '')) %>% 
+  ggplot() +
+  facet_grid(variable~condition, labeller=as_labeller(rename_conds), switch='y') +
+  geom_col(aes(x=factor(1), value, fill=factor(type))) +
+  geom_rect(
+    aes(xmin=.55, xmax=1.45, ymin=p_min, ymax=p_max), fill='white', alpha=.8,
+    data=myrates_lactulose %>% 
+      ungroup() %>% 
+      filter(condition=='switch_lactulose_TMG20') %>% 
+      filter(time_sec/3600==8+7) %>%
+      # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
+      left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>%
+      mutate(arrested=islope_ll_time/log(2)*3600<0.1, induced=gfp_nb/length_um>250) %>% 
+      group_by(condition, arrested, induced) %>% 
+      summarise(n=n()) %>% 
+      group_by(condition, induced) %>% 
+      summarise(n_arrest=n[arrested], n=sum(n)) %>% 
+      group_by(condition) %>% 
+      do((function(.df) 
+        with(.df, data.frame(p_min=c(0, 1-n_arrest[!induced]/sum(n)), 
+                             p_max=c(n_arrest[induced]/sum(n), 1)) ))(.)) %>% 
+      mutate(variable='lac induction')
+  ) +
+  coord_polar(theta='y') +
+  theme_void() +
+  theme(strip.text.x=element_text(size=rel(1.2)),
+        strip.text.y=element_text(size=rel(1.2), angle=180),
+        legend.position='bottom', 
+        legend.title = element_blank(),
+        ) +
+  NULL
+
+```
+
+
+```{r}
+fig3 <- 
+  plot_grid(
+    plot_lac_arrest_frac,
+    plot_lacl_arrest_induction_frac,
+    NULL,
+    labels="AUTO", ncol=1, rel_heights=c(0.45, 1, 1)
+  )
+
+save_plot(here("plots", "MoM_lacDilution_fig3.pdf"), fig3,
+          base_height=NULL, base_width=2.25 * 14/8, # 1 col
+          base_aspect_ratio = 1/2.2
+)
+
+```
+

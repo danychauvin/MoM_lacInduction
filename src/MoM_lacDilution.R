@@ -368,5 +368,5 @@ rmarkdown::render_site('./src/MoM_lacDilution_Controls.Rmd')
 
 rmarkdown::render_site('./src/MoM_lacDilution_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_PerturbRepressed.Rmd')
-rmarkdown::render_site('./src/MoM_lacDilution_sensitivity.Rmd')
+rmarkdown::render_site('./src/MoM_lacDilution_Sensitivity.Rmd')
 

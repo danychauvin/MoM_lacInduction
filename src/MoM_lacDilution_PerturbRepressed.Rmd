@@ -4,13 +4,14 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
+Our memory experiments revealed that the threshold of Lac proteins required to be readily sensitive to lactose as an inducer is on the order of 1 molecule. Accordingly, we predict that the fraction of short and long lags will change if we perturb the expression of the *lac* operon in its repressed state.
 
 ## Perturbing LacI activity
 
-hypothesized to explain how the positive feedback kicks off.
-can be manipulated by titrating a given fraction of LacI with IPTG.
+First, we perturb the repressed *lac* operon expression by manipulating LacI activity: using minute amounts of artificial inducer (IPTG), we can titrate a given fraction of LacI, conversly, LacI can be mildly overexpressed from a low copy number plasmid.
 
-how to titrate LacI with IPTG?
+In a series of preliminary experiments, we check how to titrate LacI with IPTG: xxx
+In the following, we add IPTG only before the switch.
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -34,7 +35,7 @@ mycells_switching %>% ungroup() %>%
                    labels=c('glucose\n> lactose', 'glucose+IPTG\n> lactose+IPTG', 
                             'glucose\n> lactose+IPTG', 'glucose+IPTG\n> lactose') )+ 
   expand_limits(y=0) +
-  labs(title='with [IPTG] = 5µM', y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+  labs(subtitle='with [IPTG] = 5µM', y=lac_lags_label, col='LacI activity', fill='LacI activity') +
   theme(#axis.text.x=element_text(angle=45, hjust=1.25, vjust=1.1), 
         axis.text.x=element_text(size=rel(1), colour='black'),
         axis.title.x=element_blank(),
@@ -59,7 +60,7 @@ mycells_switching %>% ungroup() %>%
          lag=ifelse(is.na(lag), -1, lag)) %>% 
   ggplot(aes(x=lag/60)) +
   stat_ecdf(aes(y=1-..y.., col=condition)) +
-  labs(x=lac_lags_label, y='reverse cumulative probability', title='naive cells') +
+  labs(x=lac_lags_label, y='reverse cumulative probability', subtitle='naive cells') +
   expand_limits(x=0) + 
   xlim(0, 240)
 
@@ -83,6 +84,7 @@ mycells_switching %>% ungroup() %>%
 
 ```
 
+According to our prediction, no short lags are observed with reduced basal expression and the fraction of long lags increases dramatically when basal expression is increased with 5µM IPTG. Supplementing IPTG can also compensate the effect of LacI overexpression.
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -92,11 +94,13 @@ mycells_switching %>% ungroup() %>%
   filter(str_detect(condition, '^switch_[0-9]+h$') |
            str_detect(condition, 'preIPTG') | str_detect(condition, 'lacIoe$')) %>% 
   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
-         laci=fct_recode(condition, 'lower'='switch_preIPTG5uM',
-                         'higher'='switch_lacIoe', 'higher'='switch_lacIoe_preIPTG10uM') %>% 
+         laci=fct_recode(condition, 'lower'='switch_preIPTG5uM', 
+                         'lower'='switch_lacIoe_preIPTG10uM',
+                         'higher'='switch_lacIoe') %>% 
            fct_relevel('lower', 'control'),
-         condition=fct_relevel(condition, 'switch_lacIoe', 'switch_lacIoe_preIPTG10uM', 
-                               "control", 'switch_preIPTG5uM') %>% 
+         condition=fct_relevel(condition, 'switch_lacIoe', "control", 
+                               'switch_lacIoe_preIPTG10uM', 
+                               'switch_preIPTG5uM') %>% 
            fct_recode('with 5µM IPTG'='switch_preIPTG5uM',
                       'with LacI plasmid'='switch_lacIoe', 
                       'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
@@ -107,9 +111,9 @@ mycells_switching %>% ungroup() %>%
   ) %>% 
   ggplot(aes(x=condition, y=lag/60)) +
   geom_hline(yintercept=48, lty='dashed') +
-  geom_violin(aes(group=date, fill=laci, col=laci), alpha=.4, position='identity') +
+  geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, alpha=.4, position='identity') +
   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-  # expand_limits(y=0) + 
+  expand_limits(y=0) +
   theme(axis.title.x=element_blank(),
         # axis.text.x=element_text(angle=45, hjust=0.8, vjust=0.9), 
         axis.text.x=element_text(size=rel(1), colour='black'),
@@ -119,7 +123,7 @@ mycells_switching %>% ungroup() %>%
 ```
 
 
-A similar picture is obtained when IPTG Is added before and after the switch:
+A similar picture is obtained when IPTG is added before and after the switch:
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -144,9 +148,9 @@ mycells_switching %>% ungroup() %>%
   ) %>% 
   ggplot(aes(x=condition, y=lag/60)) +
   geom_hline(yintercept=48, lty='dashed') +
-  geom_violin(aes(group=date, fill=laci, col=laci), alpha=.4, position='identity') +
+  geom_violin(aes(group=date, fill=laci, col=laci), adjust=0.7, alpha=.4, position='identity') +
   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-  # expand_limits(y=0) + 
+  expand_limits(y=0) +
   theme(axis.title.x=element_blank(),
         # axis.text.x=element_text(angle=45, hjust=0.8, vjust=0.9), 
         axis.text.x=element_text(size=rel(1), colour='black'),
@@ -156,7 +160,8 @@ mycells_switching %>% ungroup() %>%
 ```
 
 
-Let's check that the *lac* promoter is not induced before the switch:
+Importantly, we perturb the basal expression such that the *lac* promoter is not induced before the switch.
+xxx add induced levels
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -175,7 +180,7 @@ mycells_switching %>% ungroup() %>%
          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
          lag=ifelse(is.na(lag), -200, lag)) %>% 
   ggplot(aes(condition, gfp_ini)) +
-  geom_violin(aes(group=date, col=laci, fill=laci), alpha=.4, position='identity') +
+  geom_violin(aes(group=date, col=laci, fill=laci), adjust=0.7, alpha=.4, position='identity') +
   labs(x='', y='LacZ-GFP at the switch (molecules / cell)', col='LacI activity', fill='LacI activity') +
   theme(axis.title.x=element_blank(),
         # axis.text.x=element_text(angle=20, hjust=0.8, vjust=0.9), 
@@ -187,6 +192,11 @@ mycells_switching %>% ungroup() %>%
 
 
 ## Perturbing repressed expression with different media
+
+Another prediction of our interpretation is that the proportion of short lag should increase when cells are switched from conditions where the basal expresion of the *lac* operon is higher than in M9 + 0.2% glucose:
+
+- in M9 + 0.4% glycerol, cells grow slower and CRP is active which is expecetd to produce more frequent bursts of spontaneous *lac* epxression <!-- cite Alon on CRP -->
+- in M9 + 0.2% glucose + 0.2% lactose (which is the initial condition used in classical diauxie experiments), the fraction of fast switching cells is also increased which we interpret as each burst being larger (since it can be transiently amplified by teh presence of lactose which is an inducer; note that the cells are still kept off mostly due to inducer exclusion)
 
 ```{r eval=FALSE}
 mycells_switching %>% ungroup %>% 
@@ -202,7 +212,7 @@ mycells_switching %>% ungroup %>%
   ggplot(aes(lag/60, ..density..)) +
   geom_freqpoly(aes(col=condition), binwidth=6) +
   coord_cartesian(xlim=c(0, 240)) +
-  labs(x=lac_lags_label, title='naive cells')
+  labs(x=lac_lags_label, subtitle='naive cells')
 
 mycells_switching %>% ungroup %>% 
   filter(! date %in% discarded_dates) %>% 
@@ -217,7 +227,7 @@ mycells_switching %>% ungroup %>%
   ggplot(aes(lag/60, ..density..)) +
   geom_freqpoly(aes(col=condition), binwidth=6) +
   coord_cartesian(xlim=c(0, 240)) +
-  labs(x=lac_lags_label, title='naive cells')
+  labs(x=lac_lags_label, subtitle='naive cells')
 
 ```
 
@@ -236,7 +246,7 @@ mycells_switching %>% ungroup %>%
   ggplot(aes(lag/60, ..density..)) +
   geom_freqpoly(aes(col=condition), binwidth=6) +
   coord_cartesian(xlim=c(0, 240)) +
-  labs(x=lac_lags_label, title='naive cells')
+  labs(x=lac_lags_label, subtitle='naive cells')
 
 
 ```

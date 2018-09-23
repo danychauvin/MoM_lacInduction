@@ -6,7 +6,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 
 ## Growth arrest at the switch to lactose
 
-All cells stop growing for at least 9', 99% for at least 15'.
+All naive cells stop growing for at least 9', 99% for at least 15'.
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -19,7 +19,7 @@ mycells_switching %>% ungroup() %>%
   ggplot(aes(x=growth_lag/60)) +
   stat_ecdf(aes(y=1-..y.., col=switch_idx), show.legend=FALSE) +
   labs(x='time after the switch (min)', y='fraction of growth arrested cells',
-       title='naive cells (9 independent experiments)') +
+       subtitle='naive cells (9 independent experiments)') +
   coord_cartesian(xlim=c(0, 220)) +
   NULL
 
@@ -36,6 +36,39 @@ mycells_switching %>% ungroup() %>%
   labs(x='time after the switch (min)', y='fraction of growth arrested cells') +
   coord_cartesian(xlim=c(0, 30), ylim=c(0.95, 1)) +
   NULL
+
+```
+
+
+```{r}
+mycells_switching %>% ungroup() %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  (function(.df, .delay=c(9, 15)) {
+    .lags <- .df %>% pull(growth_lag)
+    data.frame(delay=.delay) %>% group_by(delay) %>% 
+      mutate(p_arrest=sum(.lags/60 > delay, na.rm=TRUE)/sum(!is.na(.lags)))
+  }) %>% 
+  (function(.df)
+    ggplot(.df, aes(x=factor(1), p_arrest)) +
+     geom_col(aes(y=1, fill='0'), position='identity') +
+     geom_col(aes(fill=factor(delay)), position='identity') +
+
+     # geom_col(aes(fill='growth arrest'), position='identity', 
+     #          data=.df %>% filter(delay==9)) +
+     # geom_col(position='identity', fill='black', alpha=.1,
+     #          data=.df %>% filter(delay==15)) +
+
+     # scale_x_discrete(breaks=c(9,15,21), labels=rep(1, 3)) +
+     # labs(x='time after the switch (min)', y='fraction of growth arrested cells') +
+     coord_polar(theta='y') +
+labs(fill='growth arrest') +
+          theme_void() +
+     theme(legend.position = 'bottom') +
+     NULL
+  )
 
 ```
 
@@ -128,7 +161,7 @@ By increasing the induction threshold (+1000 LacZ-GFP molecules instead of +200 
 mycells_switching %>% 
   filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose'), 
          condition!='switch_glycerol_TMG20') %>% 
-  mutate(lag=growth_lag,
+  mutate(lag=lag_1000,
          # mutate(lag=lag_200,
          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
          lag=ifelse(is.na(lag), -1, lag)
@@ -159,7 +192,7 @@ myframes %>%
   ggplot(aes(gfp_nb/length_um)) +
   geom_freqpoly(aes(y=..density.., col=condition, group=date), binwidth=50) +
   # coord_cartesian(xlim=c(-0.2, 1)) +
-  labs(x='LacZ-GFP concentration (molecules/µm)', title='7h after the switch') +
+  labs(x='LacZ-GFP concentration (molecules/µm)', subtitle='7h after the switch') +
   NULL
 
 ```
@@ -255,16 +288,16 @@ bind_rows(
     filter(!discard_top) %>% 
     filter(time_sec/3600==8+7) %>%
     group_by(condition) %>% 
-    summarise(variable='induction',n_true=sum(gfp_nb/length_um>250), n=n(), 
-              # p_induced=n_induced/n,
+    summarise(variable='induction', n_true=sum(gfp_nb/length_um>250), n=n(), 
+              # p_induced=n_true/n,
             ),
   tribble(
     ~variable, ~condition, ~n_true, ~n,
     'arrest', 'switch_glycerol_TMG20', 0, 110,
-    'arrest', 'switch_lactulose_TMG20', 101, 105) 
+    'arrest', 'switch_lactulose_TMG20', 101, 105)
 ) %>% 
   group_by(condition, variable) %>% 
-  mutate(p_true=n_true/n, p_false=1-p_true, n=NULL) %>% 
+  mutate(p_true=n_true/n, p_false=1-p_true, n_true, n=NULL) %>% 
 
 # tribble(
 #   ~variable, ~condition, ~n, ~n_not,
@@ -276,17 +309,54 @@ bind_rows(
 # mutate(n_not=n_tot-n, n_tot=NULL) %>% 
 
   gather(type, value, p_true, p_false) %>% 
+  mutate(type=str_replace(type, 'p_', '')) %>% 
   ggplot() +
   facet_grid(variable~condition, labeller=as_labeller(rename_conds), switch='y') +
-  geom_bar(aes(x=factor(1), value, fill=factor(type)), stat='identity') +
-  geom_rect(aes(xmin=.55, xmax=1.45, ymin=pmin, ymax=pmax), fill='black', alpha=.4,
-            data=data.frame(condition='switch_lactulose_TMG20', variable='induction', pmin=c(0, 0.9), pmax=c(0.05, 1))) +
+  geom_col(aes(x=factor(1), value, fill=factor(type))) +
+  geom_rect(
+    aes(xmin=.55, xmax=1.45, ymin=p_min, ymax=p_max), fill='white', alpha=.8,
+    data=myrates_lactulose %>% 
+      ungroup() %>% 
+      filter(condition=='switch_lactulose_TMG20') %>% 
+      filter(time_sec/3600==8+7) %>%
+      # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
+      left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>%
+      mutate(arrested=islope_ll_time/log(2)*3600<0.1, induced=gfp_nb/length_um>250) %>% 
+      group_by(condition, arrested, induced) %>% 
+      summarise(n=n()) %>% 
+      group_by(condition, induced) %>% 
+      summarise(n_arrest=n[arrested], n=sum(n)) %>% 
+      group_by(condition) %>% 
+      do((function(.df) 
+        with(.df, data.frame(p_min=c(0, 1-n_arrest[!induced]/sum(n)), 
+                             p_max=c(n_arrest[induced]/sum(n), 1)) ))(.)) %>% 
+      mutate(variable='induction')
+  ) +
   coord_polar(theta='y') +
   theme_void() +
   theme(legend.position='bottom', 
-        strip.text.y=element_text(angle=180)) +
+        strip.text.y=element_text(angle=180),
+        legend.title = element_blank()) +
   NULL
  
 ```
 
+
+```{r}
+mycells_switching %>% 
+  filter(condition=='switch_lactulose_TMG20') %>% 
+  mutate(lag=lag_1000,
+         # mutate(lag=lag_200,
+         # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         # lag=ifelse(is.na(lag), -1, lag)
+  ) %>% 
+  ggplot(aes(lag/60)) +
+  geom_freqpoly(aes(col=rename_conds(condition)), alpha=.8, binwidth=18) +
+  expand_limits(x=0) +
+  labs(x=lac_lags_label, col='') +
+  theme(legend.position = c(1,1), legend.justification = c(1,1), legend.title = element_blank()) +
+  NULL
+
+
+```
 

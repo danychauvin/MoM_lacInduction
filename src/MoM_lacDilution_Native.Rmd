@@ -4,9 +4,10 @@ author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
+From mother machine experiments, we obtain time series of cell length (used as a proxy for biomass) and LacZ-GFP. Here is an example obtained in a given growth channel.
 
 ```{r}
-# gfp_nb offset ≈ 100 to avoid stripping values and to keep background fluctuations visually small
+# gfp_nb offset ≈ 100 to avoid stripping values and to keep background fluctuations visually small xxx
 myframes %>% ungroup() %>% 
   filter(date==20180206) %>% 
   group_by(date, pos, gl) %>% 
@@ -14,7 +15,7 @@ myframes %>% ungroup() %>%
   filter(!discard_start, !discard_top,
          time_sec>2*3600) %>%
   filter(total_cell_in_lane-cell_num_in_lane<5,
-         end_type=='div') %>% 
+         end_type %in% c('div', 'lost')) %>% 
   # ungroup() %>% mutate(gfp_nb=gfp_nb - 2*min(gfp_nb)) %>% 
   ungroup() %>% mutate(gfp_nb=gfp_nb + 135) %>% 
   gather(variable, value, length_um, gfp_nb) %>% 
@@ -36,7 +37,6 @@ myframes %>% ungroup() %>%
   geom_text(aes(x=t_start+(t_end-t_start)/2 - 2*3600, y=1.3, label=medium, group=1), size=4, col='white', hjust=0.5, vjust=-0.5, 
             data=filter(condition_ts, condition=='switch_08h') %>% mutate(variable='length_um', t_start=ifelse(t_start<2*3600, 2*3600, t_start))) +
   # scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
-
   coord_cartesian(xlim=c(0, 19*3600)) +
   scale_x_hours(4) +
   scale_y_continuous(trans='log2') +
@@ -49,7 +49,7 @@ myframes %>% ungroup() %>%
 
 ## *lac* induction lags in naive cells
 
-For the first switch, all experiments with variable duration in glucose before the second switch are equivalent:
+We are interested in the time taken by cells to induce the *lac* operon when exposed to lactose as the only nutrient. This "*lac* induction lag" is estimated from the LacZ-GFP time series of each cell after the switch. Note that at the first switch, all experiments with variable duration in glucose before the second switch are equivalent and are used together to plot the distribution of lags in "naive" cells (which have not seen lactose before).
   
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -61,8 +61,8 @@ mycells_switching %>% ungroup() %>%
          # lag=ifelse(is.na(lag), -10, lag)) %>% 
   ggplot(aes(x=lag_200/60)) +
   geom_freqpoly(aes(col=switch_idx), binwidth=3, show.legend=FALSE) +
-  labs(x=lac_lags_label, title='naive cells (9 independent experiments)') +
-  coord_cartesian(xlim=c(0, 240)) +
+  labs(x=lac_lags_label, subtitle='naive cells (9 independent experiments)') +
+  coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
   NULL
 
 ```
@@ -79,7 +79,7 @@ mycells_switching %>% ungroup() %>%
   ggplot(aes(x=lag/60)) +
   facet_grid(variable~.) +
   geom_freqpoly(aes(col=factor(switch_idx)), binwidth=3, position='identity') +
-  labs(x='lag after the switch (min)', title='naive cells', col='switch', fill='switch') +
+  labs(x='lag after the switch (min)', subtitle='naive cells', col='switch', fill='switch') +
   # xlim(-1, 240) +
   guides(col='none', fill='none') +
   NULL
@@ -87,9 +87,9 @@ mycells_switching %>% ungroup() %>%
 ```
 
 
-check for a possible day effect:
+Although the distributions vary from day to day, the bimodality is obserevd in all replicates (particularly visible in the panel with overlayed distributions).
 
-```{r}
+```{r fig.height=10}
 mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -108,8 +108,8 @@ mycells_switching %>% ungroup %>%
      geom_freqpoly(binwidth=6, show.legend=FALSE) + 
      geom_freqpoly(aes(col=factor(date_col)), binwidth=6, show.legend=FALSE,
                    data=.df %>% mutate(date_col=date, date=NA, condition='all')) +
-     labs(x=lac_lags_label, title='naive cells') +
-     xlim(-10, 250) +
+     labs(x=lac_lags_label, subtitle='naive cells') +
+     coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
      scale_colour_periodic() +
      NULL
   )
@@ -117,7 +117,7 @@ mycells_switching %>% ungroup %>%
 ```
 
 
-Check the fraction of arrested cells in mother cells since they dont have the bias of long lags being more truncated:
+Noticeably a small fraction of cells don't induce even after 4h; here we check that this fraction is not higher in bottom cells (otherwise it would indicate that this fraction is overall underestimated since bottom cells don't have the bias of long lags being more truncated).
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -125,31 +125,35 @@ mycells_switching %>% ungroup() %>%
   filter(!discard_arrested) %>% 
   filter(str_detect(condition, '^switch_[0-9]+h$') ) %>%
   filter(switch_idx==1) %>%
-  filter(cell_num_from_bottom==0) %>% # keep only mother cells
+  (function(.df) bind_rows(
+    .df %>% mutate(sample='all cells'),
+    .df %>% filter(cell_num_from_bottom==0) %>% mutate(sample='bottom cells') )) %>% 
   mutate(lag_200=as.character(lag_200), lag_200=ifelse(is.na(lag_200), 'NA', lag_200),
-         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)<50*60, '<50', lag_200),
-         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)>=50*60, '≥50', lag_200) ) %>%
-  group_by(switch_idx, lag_200) %>% 
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)<50*60, 'short lags', lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) & as.numeric(lag_200)>=50*60, 'long lags', lag_200) ) %>%
+  group_by(sample, lag_200) %>% 
   summarise(n=n()) %>% 
-  group_by(switch_idx) %>% mutate(p=n/sum(n)) %>% 
+  group_by(sample) %>% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %>% 
+  rename("lag type"=lag_200) %>% 
   knitr::kable(digits=3)
 
 ```
 
 
-Distribution of *lac* induction lags are also bimodal when the transition to lactose is gradual.  
+Using a gradual transition for glucose to lactose over 40 minutes, we verify that the bimodal distribution of *lac* induction lags is not a consequence of the abrupt change.  
 NB: since the concentration at which cells start to sense the low glucose / lactose is unknown, the lag in the gradual transition experiments are shifted so as to match the value of the step condition.
 
 <!-- in order to have a not-too-short period with low glucose (> 0) and lactose, cells are switched from 0.002% glucose (≈100µM) to 0.2% lactose. CRP is supposed to kick in around 20-50µM (cf T. Hwa) -->
 
 
 ```{r}
+# xxx add n per condition
 mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
   filter(switch_idx==1) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_ramp40min') %>% 
-  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$'), 'step', 'ramp (40 min)'),
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$'), 'step (control)', 'ramp (40 min)'),
          condition=fct_relevel(condition, 'step') ) %>% 
   mutate(lag=lag_200, 
          # lag=ifelse(lag>240*60, Inf, lag),
@@ -170,6 +174,8 @@ mycells_switching %>% ungroup() %>%
 
 
 ## Memory of lag between switches
+
+At the second switch, we observe that there is no effect of the lag of the ancestor at the first switch.
 
 ```{r}
 mypairs_memory <- mycells_switching %>% 
@@ -221,6 +227,8 @@ mypairs_memory %>%
 ```
 
 
+This is also true when looking only at bottom cells (which are present at both switch, or which might be different in case of molecular deterimnants of the lag would be accumulated at the old cell pole), or when looking at the average in each growth channel (since lags are highly correlated within a lineage) <!-- cite Kaiser2018 -->
+
 ```{r}
 mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
@@ -239,11 +247,10 @@ mycells_switching %>% ungroup() %>%
   scale_x_continuous(breaks=seq(0, 1000, by=100)) +
   scale_y_continuous(breaks=seq(0, 1000, by=100)) +
   expand_limits(x=0, y=0) +
-  labs(title='bottom cells', x='lag at first switch (min)', y='lag at second switch (min)') +
+  labs(subtitle='bottom cells', x='lag at first switch (min)', y='lag at second switch (min)') +
   NULL
 
 ```
-
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -264,7 +271,7 @@ mycells_switching %>% ungroup() %>%
   geom_abline(col='red', alpha=.5) +
   geom_point(alpha=.4) +
   scale_x_continuous(breaks=seq(0, 1000, by=100)) +
-  labs(title='average in growth channel', x='lag at first switch (min)', y='lag at second switch (min)') +
+  labs(subtitle='average in growth channel', x='lag at first switch (min)', y='lag at second switch (min)') +
   NULL
 
 ```
@@ -272,7 +279,9 @@ mycells_switching %>% ungroup() %>%
 
 ## Effect of Lac proteins inheritance at the second switch
 
-Focus on the second switch only:
+In contrastm, we can analyse the impact of LacZ-GFP molecules inherited from the ancestor's induction during the first switch. 
+
+First, let's look at the distribution of induction lags at the second switch. The medians are ordered according to the delay between the two lactose exposures (which supports the idea of a molecular memory). It takes surprising long (16 to 20h i.e. 12 to 16 divisions) to relax to the lag distribution observed in naive cells.
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -332,7 +341,7 @@ mycells_switching %>% ungroup() %>%
 
 ```
 
-
+In order to estimate the inherited LacZ-GFP of a given cell at the second switch, we compute the maximum LacZ-GFP level of its ancestor (at the end of the first lactoise exposure) and account for the dilution given the number of division until the second switch (assuming even partitioning at each division).
 
 ```{r}
 mycells_switching_memory <- mycells_switching %>% ungroup() %>% 
@@ -411,7 +420,7 @@ mycells_switching_memory %>%
 
 ```
 
-fraction of short/long lags
+Importantly, as long as a cell inherits more than a few molecules from the first exposure to lactose, it is granted to have a short lag at the second switch. This reveals that the threshold of Lac proteins required to be readily sensitive to lactose as an inducer is on the order of 1 molecule.
 
 ```{r}
 mycells_switching_memory %>% ungroup() %>% 
@@ -440,14 +449,14 @@ mycells_switching_memory %>% ungroup() %>%
      geom_pointrange(aes(gfp_inherit_bin, prop, size=n, ymin=prop-se, ymax=prop+se), 
                 data=.df %>% group_by(gfp_inherit_bin) %>% summarise(n=n(), prop=sum(lag_200/60<48)/n, se=sqrt(prop*(1-prop)/n))) +
      scale_size_continuous(range=c(0.05, .5), breaks=c(50, 150)) +
-     scale_x_continuous(breaks=10^(0:3),
+     scale_x_continuous(breaks=10^(-1:3),
                         trans=scales::trans_new(name='log10_rev', 
                                         transform=function(x) -log(x, 10), 
                                         inverse=function(x) 10^(-x))
                         ) +
      coord_cartesian(xlim=c(0.1, 3e3)) +
      expand_limits(y=0) +
-     labs(x='inherited GFP (molecules)', y='fraction of short lags', size='sample size') +
+     labs(x='inherited LacZ-GFP (molecules)', y='fraction of short lags', size='sample size') +
      theme(legend.position=c(0.99, 0.99), legend.justification=c(1, 1)) +
      NULL
   )
