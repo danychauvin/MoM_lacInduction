@@ -9,39 +9,28 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 All naive cells stop growing for at least 9', 99% for at least 15'.
 
 ```{r}
-mycells_switching %>% ungroup() %>% 
-  filter(!date %in% discarded_dates) %>%
-  filter(!discard_arrested) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-  filter(switch_idx==1) %>%
-  # mutate(lag=ifelse(lag<240*60, lag, 245*60),
-         # lag=ifelse(is.na(lag), -10, lag)) %>% 
-  ggplot(aes(x=growth_lag/60)) +
-  stat_ecdf(aes(y=1-..y.., col=switch_idx), show.legend=FALSE) +
-  labs(x='time after the switch (min)', y='fraction of growth arrested cells',
-       subtitle='naive cells (9 independent experiments)') +
-  coord_cartesian(xlim=c(0, 220)) +
-  NULL
-
-mycells_switching %>% ungroup() %>% 
-  filter(!date %in% discarded_dates) %>%
-  filter(!discard_arrested) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-  filter(switch_idx==1) %>%
-  # mutate(lag=ifelse(lag<240*60, lag, 245*60),
-         # lag=ifelse(is.na(lag), -10, lag)) %>% 
-  ggplot(aes(x=growth_lag/60)) +
-  stat_ecdf(aes(y=1-..y.., col=switch_idx), show.legend=FALSE) +
-  geom_hline(yintercept = 0.99) +
-  labs(x='time after the switch (min)', y='fraction of growth arrested cells') +
-  coord_cartesian(xlim=c(0, 30), ylim=c(0.95, 1)) +
-  NULL
+(myplots[['naive_arrest_cdf']] <-
+   mycells_switching %>% ungroup() %>% 
+   filter(!date %in% discarded_dates) %>%
+   filter(!discard_arrested) %>% 
+   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+   filter(switch_idx==1) %>%
+   # mutate(lag=ifelse(lag<240*60, lag, 245*60),
+   # lag=ifelse(is.na(lag), -10, lag)) %>% 
+   ggplot(aes(x=growth_lag/60)) +
+   stat_ecdf(aes(y=1-..y.., col=switch_idx), show.legend=FALSE) +
+   labs(x='time after the switch (min)', y='fraction of growth arrested cells',
+        subtitle='naive cells (9 independent experiments)') +
+   coord_cartesian(xlim=c(0, 220)) +
+   NULL
+)
 
 ```
 
 
 ```{r}
-mycells_switching %>% ungroup() %>% 
+(myplots[['naive_arrest_frac']] <-
+  mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
@@ -55,20 +44,14 @@ mycells_switching %>% ungroup() %>%
     ggplot(.df, aes(x=factor(1), p_arrest)) +
      geom_col(aes(y=1, fill='0'), position='identity') +
      geom_col(aes(fill=factor(delay)), position='identity') +
-
-     # geom_col(aes(fill='growth arrest'), position='identity', 
-     #          data=.df %>% filter(delay==9)) +
-     # geom_col(position='identity', fill='black', alpha=.1,
-     #          data=.df %>% filter(delay==15)) +
-
-     # scale_x_discrete(breaks=c(9,15,21), labels=rep(1, 3)) +
-     # labs(x='time after the switch (min)', y='fraction of growth arrested cells') +
      coord_polar(theta='y') +
-labs(fill='growth arrest') +
-          theme_void() +
-     theme(legend.position = 'bottom') +
+     scale_fill_manual(name='growth arrest', breaks=c(0, 9, 15),
+                       values=qual_cols[c(1, 2, 3)],
+                       labels=c('shorter than 9 min', 'between 9 and 15 min', 'longer than 15 min')) +
+     theme_void() +
+     theme(legend.position = 'left') +
      NULL
-  )
+  ))
 
 ```
 
@@ -78,7 +61,7 @@ labs(fill='growth arrest') +
 xxx intro
 
 
-```{r eval=FALSE}
+```{r}
 myrates_lactulose <- myframes %>% 
   ungroup %>% 
   filter(!discard_top) %>% 
@@ -112,26 +95,28 @@ First let's look at some raw length traces, coloured using an arbitrary fluoresc
 This constitutes a confounding effect since we need to distinguish the inducing effect of the TMG from the weak spontaneous induction observed in lactulose only.
 
 ```{r fig.height=12}
-myframes %>% 
-  ungroup() %>% 
-  filter(time_sec > 2*3600, !discard_top) %>% 
-  filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose')) %>%
-  group_by(date, pos, gl) %>% sample_n_groups(20) %>% 
-  # filter(end_type == 'lost') %>% 
-  ggplot(aes(time_sec - 2*3600, length_um, col=gfp_nb/length_um>250)) +
-  facet_wrap(~ condition+date + pos+gl, dir="v", ncol=2,
-             labeller=labeller(condition=as_labeller(rename_conds), .multi_line=FALSE)) +
-  # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
-  geom_path(aes(group=ugen)) + # geom_point() +
-  # scale_colour_periodic_brewer(guide='none') +
-  # scale_alpha_discrete(range=c(0.1, 0.6)) +
-  scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
-  scale_y_continuous(trans='log2') +
-  labs(y='length (µm)', col='induced') +
-  theme(legend.position="top")
+(myplots[['lacl_time_series']] <-
+   myframes %>% 
+   ungroup() %>% 
+   filter(time_sec > 2*3600, !discard_top) %>% 
+   filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose')) %>%
+   group_by(date, pos, gl) %>% sample_n_groups(20) %>% 
+   # filter(end_type == 'lost') %>% 
+   ggplot(aes(time_sec - 2*3600, length_um, col=gfp_nb/length_um>250)) +
+   facet_wrap(~ condition+date + pos+gl, dir="v", ncol=2,
+              labeller=labeller(condition=as_labeller(rename_conds), .multi_line=FALSE)) +
+   # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col='red', data=filter(condition_ts, condition=='switch', medium=='lactose')) +
+   geom_path(aes(group=ugen)) + # geom_point() +
+   # scale_colour_periodic_brewer(guide='none') +
+   # scale_alpha_discrete(range=c(0.1, 0.6)) +
+   scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
+   scale_y_continuous(trans='log2') +
+   labs(y='length (µm)', col='induced') +
+   theme(legend.position="top")
+)
 
 ```
-
+ 
 ```{r eval=FALSE}
 myframes_switching %>% 
   filter(fit_lag) %>% 
@@ -158,21 +143,22 @@ By increasing the induction threshold (+1000 LacZ-GFP molecules instead of +200 
 
 
 ```{r}
-mycells_switching %>% 
-  filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose'), 
-         condition!='switch_glycerol_TMG20') %>% 
-  mutate(lag=lag_1000,
-         # mutate(lag=lag_200,
-         lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-         lag=ifelse(is.na(lag), -1, lag)
-  ) %>% 
-  ggplot(aes(lag/60)) +
-  facet_wrap(~condition, scales='free_y', labeller=as_labeller(rename_conds)) +
-  geom_freqpoly(aes(col=condition, group=factor(date)), alpha=.8, position='identity', binwidth=18, show.legend=FALSE) +
-  expand_limits(x=0) +
-  scale_y_log10() +
-  labs(x=lac_lags_label)
-
+(myplots[['lags_hist_lacl_facets']] <-
+   mycells_switching %>% 
+   filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose'), 
+          condition!='switch_glycerol_TMG20') %>% 
+   mutate(lag=lag_1000,
+          # mutate(lag=lag_200,
+          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          lag=ifelse(is.na(lag), -1, lag)
+   ) %>% 
+   ggplot(aes(lag/60)) +
+   facet_wrap(~condition, scales='free_y', labeller=as_labeller(rename_conds)) +
+   geom_freqpoly(aes(col=condition, group=factor(date)), alpha=.8, position='identity', binwidth=18, show.legend=FALSE) +
+   expand_limits(x=0) +
+   scale_y_log10() +
+   labs(x=lac_lags_label)
+)
 ```
 
 We focus on cells seen 7h after the switch (i.e. after all inducible cells have switched on. Three expression states can be distinguised in the distributions of LacZ-GFP concentration:
@@ -183,34 +169,38 @@ We focus on cells seen 7h after the switch (i.e. after all inducible cells have 
 
 
 ```{r}
-myframes %>% 
-  ungroup() %>% 
-  filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose')) %>%
-  filter(!discard_top) %>% 
-  filter(time_sec/3600==8+7) %>%
-  mutate(condition=rename_conds(condition)) %>% 
-  ggplot(aes(gfp_nb/length_um)) +
-  geom_freqpoly(aes(y=..density.., col=condition, group=date), binwidth=50) +
-  # coord_cartesian(xlim=c(-0.2, 1)) +
-  labs(x='LacZ-GFP concentration (molecules/µm)', subtitle='7h after the switch') +
-  NULL
+(myplots[['lacl_gfp_snapshot_hist']] <-
+   myframes %>% 
+   ungroup() %>% 
+   filter(str_detect(condition, 'TMG') | str_detect(condition, 'lactulose')) %>%
+   filter(!discard_top) %>% 
+   filter(time_sec/3600==8+7) %>%
+   mutate(condition=rename_conds(condition)) %>% 
+   ggplot(aes(gfp_nb/length_um)) +
+   geom_freqpoly(aes(y=..density.., col=condition, group=date), binwidth=50) +
+   # coord_cartesian(xlim=c(-0.2, 1)) +
+   labs(x='LacZ-GFP concentration (molecules/µm)', subtitle='7h after the switch') +
+   NULL
+)
 
 ```
 
 ```{r}
-myrates_lactulose %>% 
-  ungroup() %>% 
-  # filter(between(time_sec/3600, 14, 15.99)) %>% 
-  # filter(between(time_sec/3600, 16, 18)) %>%
-  filter(time_sec/3600==8+7) %>%
-  # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
-  left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>% 
-  ggplot(aes(islope_ll_time/log(2)*3600)) +
-  facet_grid(condition~., labeller=as_labeller(rename_conds)) +
-  geom_freqpoly(aes(y=..count.., col=gfp_nb/length_um>250), binwidth=.025) +
-  coord_cartesian(xlim=c(-0.2, 1)) +
-  labs(x='inst. growth rate (dbl/h)', col='induced') +
-  NULL
+(myplots[['lacl_gr_facets']] <-
+   myrates_lactulose %>% 
+   ungroup() %>% 
+   # filter(between(time_sec/3600, 14, 15.99)) %>% 
+   # filter(between(time_sec/3600, 16, 18)) %>%
+   filter(time_sec/3600==8+7) %>%
+   # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
+   left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>% 
+   ggplot(aes(islope_ll_time/log(2)*3600)) +
+   facet_grid(condition~., labeller=as_labeller(rename_conds)) +
+   geom_freqpoly(aes(y=..count.., col=gfp_nb/length_um>250), binwidth=.025) +
+   coord_cartesian(xlim=c(-0.2, 1)) +
+   labs(x='inst. growth rate (dbl/h)', col='induced') +
+   NULL
+)
 
 # a1 <- rnorm(20)
 # b1 <- ggplot2:::bin_breaks_width(range(a1), .1)
@@ -257,106 +247,103 @@ Since lactulose is not an inducer of the *lac* operon, the quantity of catabolic
 NB: not all data is shown.
 
 ```{r}
-myrates_lactulose %>% 
-  ungroup() %>% 
-  filter(condition!='switch_glycerol_TMG20') %>% 
-  left_join(myframes) %>% 
-  filter(between(time_sec/3600, 8+18/60, 15.99)) %>% 
-  # filter(irate_npoints>3, ir2_ll_time>0.8) %>%
-  group_by(condition) %>%
-  mutate(gfp_conc_cut=Hmisc::cut2(gfp_nb/length_um, cuts=seq(-100, 2e4, 100), levels.mean=TRUE)) %>% 
-  # summarise(n=n(), r2=cor(igfp_nb, islope_ll_time)^2)
-  (function(.df)
-    ggplot(.df, aes(gfp_nb/length_um, islope_ll_time/log(2)*3600, col=condition)) +
-     facet_wrap(~condition, labeller=as_labeller(rename_conds)) +
-     geom_point(alpha=.2, size=.2, data=sample_n(ungroup(.df), 5e3)) +
-     stat_summary(aes(as.numeric(as.character(gfp_conc_cut))), fun.data=mean_se, geom="pointrange", col='black') +
-     coord_cartesian(xlim=c(-50, 1500), ylim=c(-0.2, 1)) +
-     guides(col='none') +
-     labs(x='LacZ-GFP concentration (molecules/µm)', y='inst. growth rate (dbl/h)') +
-     NULL
-  )
+(myplots[['lacl_gr_lacz']] <-
+   myrates_lactulose %>% 
+   ungroup() %>% 
+   filter(condition!='switch_glycerol_TMG20') %>% 
+   left_join(myframes) %>% 
+   filter(between(time_sec/3600, 8+18/60, 15.99)) %>% 
+   # filter(irate_npoints>3, ir2_ll_time>0.8) %>%
+   group_by(condition) %>%
+   mutate(gfp_conc_cut=Hmisc::cut2(gfp_nb/length_um, cuts=seq(-100, 2e4, 100), levels.mean=TRUE)) %>% 
+   # summarise(n=n(), r2=cor(igfp_nb, islope_ll_time)^2)
+   (function(.df)
+     ggplot(.df, aes(gfp_nb/length_um, islope_ll_time/log(2)*3600, col=condition)) +
+      facet_wrap(~condition, labeller=as_labeller(rename_conds)) +
+      geom_point(alpha=.2, size=.2, data=sample_n(ungroup(.df), 5e3)) +
+      stat_summary(aes(as.numeric(as.character(gfp_conc_cut))), fun.data=mean_se, geom="pointrange", col='black') +
+      coord_cartesian(xlim=c(-50, 1500), ylim=c(-0.2, 1)) +
+      guides(col='none') +
+      labs(x='LacZ-GFP concentration (molecules/µm)', y='inst. growth rate (dbl/h)') +
+      NULL
+   ))
    
 ```
 
 
 ```{r}
-bind_rows(
-  myframes %>% 
-    ungroup() %>% 
-    filter(str_detect(condition, 'TMG')) %>% 
-    filter(!discard_top) %>% 
-    filter(time_sec/3600==8+7) %>%
-    group_by(condition) %>% 
-    summarise(variable='induction', n_true=sum(gfp_nb/length_um>250), n=n(), 
-              # p_induced=n_true/n,
-            ),
-  tribble(
-    ~variable, ~condition, ~n_true, ~n,
-    'arrest', 'switch_glycerol_TMG20', 0, 110,
-    'arrest', 'switch_lactulose_TMG20', 101, 105)
-) %>% 
-  group_by(condition, variable) %>% 
-  mutate(p_true=n_true/n, p_false=1-p_true, n_true, n=NULL) %>% 
+(myplots[['lacl_arrest_induction_fracs']] <-
+   bind_rows(
+     myframes %>% 
+       ungroup() %>% 
+       filter(str_detect(condition, 'TMG')) %>% 
+       filter(!discard_top) %>% 
+       filter(time_sec/3600==8+7) %>%
+       group_by(condition) %>% 
+       summarise(variable='lac induction', n_true=sum(gfp_nb/length_um>250), n=n(), 
+                 # p_induced=n_true/n,
+       ),
+     tribble(
+       ~variable, ~condition, ~n_true, ~n,
+       'growth arrest', 'switch_glycerol_TMG20', 0, 110,
+       'growth arrest', 'switch_lactulose_TMG20', 101, 105)
+   ) %>% 
+   group_by(condition, variable) %>% 
+   mutate(p_true=n_true/n, p_false=1-p_true, n_true, n=NULL) %>% 
+   
+   gather(type, value, p_true, p_false) %>% 
+   mutate(type=str_replace(type, 'p_', '')) %>% 
+   ggplot() +
+   facet_grid(variable~condition, labeller=as_labeller(rename_conds), switch='y') +
+   geom_col(aes(x=factor(1), value, fill=factor(type))) +
+   geom_rect(
+     aes(xmin=.55, xmax=1.45, ymin=p_min, ymax=p_max), fill='white', alpha=.8,
+     data=myrates_lactulose %>% 
+       ungroup() %>% 
+       filter(condition=='switch_lactulose_TMG20') %>% 
+       filter(time_sec/3600==8+7) %>%
+       # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
+       left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>%
+       mutate(arrested=islope_ll_time/log(2)*3600<0.1, induced=gfp_nb/length_um>250) %>% 
+       group_by(condition, arrested, induced) %>% 
+       summarise(n=n()) %>% 
+       group_by(condition, induced) %>% 
+       summarise(n_arrest=n[arrested], n=sum(n)) %>% 
+       group_by(condition) %>% 
+       do((function(.df) 
+         with(.df, data.frame(p_min=c(0, 1-n_arrest[!induced]/sum(n)), 
+                              p_max=c(n_arrest[induced]/sum(n), 1)) ))(.)) %>% 
+       mutate(variable='lac induction')
+   ) +
+   coord_polar(theta='y') +
+   theme_void() +
+   theme(strip.text.x=element_text(size=rel(1.2)),
+         strip.text.y=element_text(size=rel(1.2), angle=180),
+         legend.position='bottom', 
+         legend.title = element_blank(),
+   ) +
+   NULL
+) 
 
-# tribble(
-#   ~variable, ~condition, ~n, ~n_not,
-#   'arrest', 'gly', 0, 1,
-#   'arrest', 'lacl', 0.95, 0.05,
-#   'induction', 'gly', 0, 1,
-#   'induction', 'lacl', 0.45, 0.55
-# ) %>% 
-# mutate(n_not=n_tot-n, n_tot=NULL) %>% 
-
-  gather(type, value, p_true, p_false) %>% 
-  mutate(type=str_replace(type, 'p_', '')) %>% 
-  ggplot() +
-  facet_grid(variable~condition, labeller=as_labeller(rename_conds), switch='y') +
-  geom_col(aes(x=factor(1), value, fill=factor(type))) +
-  geom_rect(
-    aes(xmin=.55, xmax=1.45, ymin=p_min, ymax=p_max), fill='white', alpha=.8,
-    data=myrates_lactulose %>% 
-      ungroup() %>% 
-      filter(condition=='switch_lactulose_TMG20') %>% 
-      filter(time_sec/3600==8+7) %>%
-      # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
-      left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>%
-      mutate(arrested=islope_ll_time/log(2)*3600<0.1, induced=gfp_nb/length_um>250) %>% 
-      group_by(condition, arrested, induced) %>% 
-      summarise(n=n()) %>% 
-      group_by(condition, induced) %>% 
-      summarise(n_arrest=n[arrested], n=sum(n)) %>% 
-      group_by(condition) %>% 
-      do((function(.df) 
-        with(.df, data.frame(p_min=c(0, 1-n_arrest[!induced]/sum(n)), 
-                             p_max=c(n_arrest[induced]/sum(n), 1)) ))(.)) %>% 
-      mutate(variable='induction')
-  ) +
-  coord_polar(theta='y') +
-  theme_void() +
-  theme(legend.position='bottom', 
-        strip.text.y=element_text(angle=180),
-        legend.title = element_blank()) +
-  NULL
- 
 ```
 
 
 ```{r}
-mycells_switching %>% 
-  filter(condition=='switch_lactulose_TMG20') %>% 
-  mutate(lag=lag_1000,
-         # mutate(lag=lag_200,
-         # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-         # lag=ifelse(is.na(lag), -1, lag)
-  ) %>% 
-  ggplot(aes(lag/60)) +
-  geom_freqpoly(aes(col=rename_conds(condition)), alpha=.8, binwidth=18) +
-  expand_limits(x=0) +
-  labs(x=lac_lags_label, col='') +
-  theme(legend.position = c(1,1), legend.justification = c(1,1), legend.title = element_blank()) +
-  NULL
-
+(myplots[['lags_hist_lacl']] <-
+   mycells_switching %>% 
+   filter(condition=='switch_lactulose_TMG20') %>% 
+   mutate(lag=lag_1000,
+          # mutate(lag=lag_200,
+          # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          # lag=ifelse(is.na(lag), -1, lag)
+   ) %>% 
+   ggplot(aes(lag/60)) +
+   geom_freqpoly(aes(col=rename_conds(condition)), alpha=.8, binwidth=18) +
+   expand_limits(x=0) +
+   labs(x=lac_lags_label, col='') +
+   theme(legend.position = c(1,1), legend.justification = c(1,1), legend.title = element_blank()) +
+   NULL
+)
 
 ```
 

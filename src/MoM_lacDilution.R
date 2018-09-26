@@ -329,10 +329,7 @@ discarded_datesss <- c(discarded_dates
 # calling `render()` or `render_site()` from the command line allows to execute the function 
 # in the global envt (hence inheriting existing variables and keeping the newly created ones)...
 
-# render control plots of each GC
-# source('./src/MoM_lacDilution_GCplots.R')
-
-
+myplots <- list()
 rename_conds <- function (.str) {
 # TODO: check NAs for all conditions
   .labels <- .str
@@ -350,12 +347,15 @@ rename_conds <- function (.str) {
 }
 lac_lags_label <- expression(paste(italic('lac'), ' induction lag (min)'))
 
+
 knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE,
   dev="svglite"
 )
 # rmarkdown::clean_site()
 
+# render control plots of each GC
+# source('./src/MoM_lacDilution_GCplots.R')
 
 rmarkdown::render_site('./src/index.Rmd')
 # rmarkdown::render_site('./src/MoM_lacDilution_GFP_Estimation.Rmd')
@@ -370,3 +370,4 @@ rmarkdown::render_site('./src/MoM_lacDilution_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_PerturbRepressed.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_Sensitivity.Rmd')
 
+source('./src/MoM_lacDilution_Figs.R')

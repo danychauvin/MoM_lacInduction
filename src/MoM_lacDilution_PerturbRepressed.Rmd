@@ -14,6 +14,7 @@ In a series of preliminary experiments, we check how to titrate LacI with IPTG: 
 In the following, we add IPTG only before the switch.
 
 ```{r}
+(myplots[['cmp_iptg_inhib']] <- 
 mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -29,18 +30,20 @@ mycells_switching %>% ungroup() %>%
   ggplot(aes(x=condition, y=lag/60)) +
   geom_violin(aes(group=date, col=laci, fill=laci), adjust=0.7, 
               alpha=.4, position='identity') +
-  geom_hline(yintercept=48, lty='dashed') +
+  geom_hline(yintercept=50, lty='dashed') +
   # ylim(0, 240) +
   scale_x_discrete(breaks=c('lactose', 'switch_withIPTG5uM', 'switch_lacIPTG5uM', 'switch_preIPTG5uM'), 
                    labels=c('glucose\n> lactose', 'glucose+IPTG\n> lactose+IPTG', 
                             'glucose\n> lactose+IPTG', 'glucose+IPTG\n> lactose') )+ 
   expand_limits(y=0) +
-  labs(subtitle='with [IPTG] = 5µM', y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+  labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
   theme(#axis.text.x=element_text(angle=45, hjust=1.25, vjust=1.1), 
         axis.text.x=element_text(size=rel(1), colour='black'),
         axis.title.x=element_blank(),
         legend.position='top') +
   NULL
+) +
+  labs(subtitle='with [IPTG] = 5µM')
 
 ```
 
@@ -78,13 +81,52 @@ mycells_switching %>% ungroup() %>%
   ggplot(aes(x=condition, y=lag/60)) +
   facet_grid(variable~.) +
   geom_violin(aes(group=date, fill=condition), col='transparent', alpha=.4, position='identity') +
-  geom_hline(yintercept=48, lty='dashed') +
+  geom_hline(yintercept=50, lty='dashed') +
   labs(y=lac_lags_label) +
   ylim(0, 240)
 
 ```
 
 According to our prediction, no short lags are observed with reduced basal expression and the fraction of long lags increases dramatically when basal expression is increased with 5µM IPTG. Supplementing IPTG can also compensate the effect of LacI overexpression.
+
+```{r}
+(myplots[['basal_perturb_pre']] <- 
+   mycells_switching %>% ungroup() %>% 
+   filter(!date %in% discarded_dates) %>%
+   filter(!discard_arrested) %>% 
+   filter(switch_idx==1) %>%
+   filter(str_detect(condition, '^switch_[0-9]+h$') |
+            str_detect(condition, 'preIPTG') | str_detect(condition, 'lacIoe$')) %>% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+          laci=fct_recode(condition, 'lower'='switch_preIPTG5uM',
+                          'lower'='switch_lacIoe_preIPTG10uM',
+                          'higher'='switch_lacIoe') %>% 
+            fct_relevel('lower', 'control'),
+          condition=fct_relevel(condition, 'switch_lacIoe', "control",
+                                'switch_lacIoe_preIPTG10uM', 'switch_preIPTG5uM') %>% 
+            fct_recode('with 5µM IPTG'='switch_preIPTG5uM',
+                       'with LacI plasmid'='switch_lacIoe', 
+                       'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
+   mutate(lag=lag_200,
+          lag=ifelse(lag>240*60, Inf, lag)
+   ) %>% 
+   ggplot(aes(x=condition, y=lag/60)) +
+   geom_hline(yintercept=50, lty='dashed') +
+   geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, alpha=.4, position='identity') +
+   expand_limits(y=0) +
+   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+   guides(fill=guide_legend(override.aes=list(alpha=1))) +
+   theme(axis.title.x=element_blank(),
+         axis.text.x=element_text(size=rel(1), colour='black',
+                                  angle=45, hjust=0.8, vjust=0.9),
+         legend.margin=margin(),
+         legend.title=element_text(size=rel(0.7), face='bold'),
+         legend.text=element_text(size=rel(0.7)),
+         legend.position='top') +
+   NULL
+)
+
+```
 
 ```{r}
 mycells_switching %>% ungroup() %>% 
@@ -104,58 +146,55 @@ mycells_switching %>% ungroup() %>%
            fct_recode('with 5µM IPTG'='switch_preIPTG5uM',
                       'with LacI plasmid'='switch_lacIoe', 
                       'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
-  mutate(lag=lag_200,
-         lag=ifelse(lag>240*60, Inf, lag)
-  #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-  #        lag=ifelse(is.na(lag), -200, lag)
-  ) %>% 
-  ggplot(aes(x=condition, y=lag/60)) +
-  geom_hline(yintercept=48, lty='dashed') +
-  geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, alpha=.4, position='identity') +
-  labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-  expand_limits(y=0) +
-  theme(axis.title.x=element_blank(),
-        # axis.text.x=element_text(angle=45, hjust=0.8, vjust=0.9), 
-        axis.text.x=element_text(size=rel(1), colour='black'),
-        legend.position='top') +
-  NULL
+  mutate(
+    lag_type=lag_200,
+    lag_type=as.character(lag_type), lag_type=ifelse(is.na(lag_type), 'NA', lag_type),
+    lag_type=ifelse(is.finite(as.numeric(lag_type)) & as.numeric(lag_type)<50*60, 'short lags', lag_type),
+    lag_type=ifelse(is.finite(as.numeric(lag_type)) & as.numeric(lag_type)>=50*60, 'long lags', lag_type) ) %>%
+  group_by(condition, lag_type) %>% 
+  summarise(n=n(), m=mean(lag_200/60), sd=sd(lag_200/60)) %>% 
+  group_by(condition) %>% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %>% 
+  knitr::kable(digits=3)
 
 ```
+
 
 
 A similar picture is obtained when IPTG is added before and after the switch:
 
 ```{r}
-mycells_switching %>% ungroup() %>% 
-  filter(!date %in% discarded_dates) %>%
-  filter(!discard_arrested) %>% 
-  filter(switch_idx==1) %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$') |
-           str_detect(condition, 'withIPTG') | str_detect(condition, 'lacIoe$')) %>% 
-  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
-         laci=fct_recode(condition, 'lower'='switch_withIPTG5uM', 'lower'='switch_withIPTG1uM',
-                         'higher'='switch_lacIoe', 'higher'='switch_lacIoe_withIPTG10uM') %>% 
-           fct_relevel('lower', 'control'),
-         condition=fct_relevel(condition, 'switch_lacIoe', 'switch_lacIoe_withIPTG10uM', 
-                               "control", 'switch_withIPTG1uM', 'switch_withIPTG5uM') %>% 
-           fct_recode('with 5µM IPTG'='switch_withIPTG5uM', 'with 1µM IPTG'='switch_withIPTG1uM',
-                      'with LacI plasmid'='switch_lacIoe', 
-                      'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_withIPTG10uM') ) %>% 
-  mutate(lag=lag_200,
-         lag=ifelse(lag>240*60, Inf, lag)
-  #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-  #        lag=ifelse(is.na(lag), -200, lag)
-  ) %>% 
-  ggplot(aes(x=condition, y=lag/60)) +
-  geom_hline(yintercept=48, lty='dashed') +
-  geom_violin(aes(group=date, fill=laci, col=laci), adjust=0.7, alpha=.4, position='identity') +
-  labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-  expand_limits(y=0) +
-  theme(axis.title.x=element_blank(),
-        # axis.text.x=element_text(angle=45, hjust=0.8, vjust=0.9), 
-        axis.text.x=element_text(size=rel(1), colour='black'),
-        legend.position='top') +
-  NULL
+(myplots[['basal_perturb_with']] <- 
+   mycells_switching %>% ungroup() %>% 
+   filter(!date %in% discarded_dates) %>%
+   filter(!discard_arrested) %>% 
+   filter(switch_idx==1) %>%
+   filter(str_detect(condition, '^switch_[0-9]+h$') |
+            str_detect(condition, 'withIPTG') | str_detect(condition, 'lacIoe$')) %>% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+          laci=fct_recode(condition, 'lower'='switch_withIPTG5uM', 'lower'='switch_withIPTG1uM',
+                          'higher'='switch_lacIoe', 'higher'='switch_lacIoe_withIPTG10uM') %>% 
+            fct_relevel('lower', 'control'),
+          condition=fct_relevel(condition, 'switch_lacIoe', 'switch_lacIoe_withIPTG10uM', 
+                                "control", 'switch_withIPTG1uM', 'switch_withIPTG5uM') %>% 
+            fct_recode('with 5µM IPTG'='switch_withIPTG5uM', 'with 1µM IPTG'='switch_withIPTG1uM',
+                       'with LacI plasmid'='switch_lacIoe', 
+                       'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_withIPTG10uM') ) %>% 
+   mutate(lag=lag_200,
+          lag=ifelse(lag>240*60, Inf, lag)
+          #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          #        lag=ifelse(is.na(lag), -200, lag)
+   ) %>% 
+   ggplot(aes(x=condition, y=lag/60)) +
+   geom_hline(yintercept=50, lty='dashed') +
+   geom_violin(aes(group=date, fill=laci, col=laci), adjust=0.7, alpha=.4, position='identity') +
+   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+   expand_limits(y=0) +
+   theme(axis.title.x=element_blank(),
+         # axis.text.x=element_text(angle=45, hjust=0.8, vjust=0.9), 
+         axis.text.x=element_text(size=rel(1), colour='black'),
+         legend.position='top') +
+   NULL
+)
 
 ```
 
@@ -164,29 +203,31 @@ Importantly, we perturb the basal expression such that the *lac* promoter is not
 xxx add induced levels
 
 ```{r}
-mycells_switching %>% ungroup() %>% 
-  filter(!date %in% discarded_dates) %>%
-  filter(!discard_arrested) %>% 
-  filter(switch_idx==1) %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$') | str_detect(condition, 'preIPTG') ) %>% 
-  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
-         laci=fct_recode(condition, 'lower'='switch_preIPTG5uM', 'higher'='switch_lacIoe_preIPTG10uM') %>% 
-           fct_relevel('lower', 'control'),
-         condition=fct_relevel(condition, 'switch_lacIoe', 'switch_lacIoe_preIPTG10uM', 
-                               "control", 'switch_preIPTG5uM') %>% 
-           fct_recode('with 5µM IPTG'='switch_preIPTG5uM', 'no IPTG'='control',
-                      'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
-  mutate(lag=lag_200,
-         lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-         lag=ifelse(is.na(lag), -200, lag)) %>% 
-  ggplot(aes(condition, gfp_ini)) +
-  geom_violin(aes(group=date, col=laci, fill=laci), adjust=0.7, alpha=.4, position='identity') +
-  labs(x='', y='LacZ-GFP at the switch (molecules / cell)', col='LacI activity', fill='LacI activity') +
-  theme(axis.title.x=element_blank(),
-        # axis.text.x=element_text(angle=20, hjust=0.8, vjust=0.9), 
-        axis.text.x=element_text(size=rel(1), colour='black'),
-        legend.position='top') +
-  NULL
+(myplots[['basal_perturb_gfp']] <- 
+   mycells_switching %>% ungroup() %>% 
+   filter(!date %in% discarded_dates) %>%
+   filter(!discard_arrested) %>% 
+   filter(switch_idx==1) %>%
+   filter(str_detect(condition, '^switch_[0-9]+h$') | str_detect(condition, 'preIPTG') ) %>% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+          laci=fct_recode(condition, 'lower'='switch_preIPTG5uM', 'higher'='switch_lacIoe_preIPTG10uM') %>% 
+            fct_relevel('lower', 'control'),
+          condition=fct_relevel(condition, 'switch_lacIoe', 'switch_lacIoe_preIPTG10uM', 
+                                "control", 'switch_preIPTG5uM') %>% 
+            fct_recode('with 5µM IPTG'='switch_preIPTG5uM', 'no IPTG'='control',
+                       'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
+   mutate(lag=lag_200,
+          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          lag=ifelse(is.na(lag), -200, lag)) %>% 
+   ggplot(aes(condition, gfp_ini)) +
+   geom_violin(aes(group=date, col=laci, fill=laci), adjust=0.7, alpha=.4, position='identity') +
+   labs(x='', y='LacZ-GFP at the switch (molecules / cell)', col='LacI activity', fill='LacI activity') +
+   theme(axis.title.x=element_blank(),
+         # axis.text.x=element_text(angle=20, hjust=0.8, vjust=0.9), 
+         axis.text.x=element_text(size=rel(1), colour='black'),
+         legend.position='top') +
+   NULL
+)
 
 ```
 
@@ -199,7 +240,8 @@ Another prediction of our interpretation is that the proportion of short lag sho
 - in M9 + 0.2% glucose + 0.2% lactose (which is the initial condition used in classical diauxie experiments), the fraction of fast switching cells is also increased which we interpret as each burst being larger (since it can be transiently amplified by teh presence of lactose which is an inducer; note that the cells are still kept off mostly due to inducer exclusion)
 
 ```{r eval=FALSE}
-mycells_switching %>% ungroup %>% 
+myplots[['lags_hist_glcLac']] <- 
+  mycells_switching %>% ungroup %>% 
   filter(! date %in% discarded_dates) %>% 
   filter(!discard_arrested) %>%
   filter(switch_idx==1) %>% 
@@ -214,7 +256,8 @@ mycells_switching %>% ungroup %>%
   coord_cartesian(xlim=c(0, 240)) +
   labs(x=lac_lags_label, subtitle='naive cells')
 
-mycells_switching %>% ungroup %>% 
+myplots[['lags_hist_glyc']] <- 
+  mycells_switching %>% ungroup %>% 
   filter(! date %in% discarded_dates) %>% 
   # filter(!discard_arrested) %>%
   filter(switch_idx==1) %>% 
@@ -232,22 +275,23 @@ mycells_switching %>% ungroup %>%
 ```
 
 ```{r}
-mycells_switching %>% ungroup %>% 
-  filter(! date %in% discarded_dates) %>% 
-  # filter(!discard_arrested) %>%
-  filter(switch_idx==1) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$') | condition %in% c('switch_glcLac_lac', 'switch_gly_lac') ) %>%
-  mutate(lag=lag_200, 
-         lag=ifelse(is.na(lag), -1000, lag) ) %>% 
-  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
-         condition=fct_recode(factor(condition), 'glucose + lactose > lactose'='switch_glcLac_lac',
-                              'glycerol > lactose'='switch_gly_lac',
-                              'glucose > lactose (control)'='control') ) %>%
-  ggplot(aes(lag/60, ..density..)) +
-  geom_freqpoly(aes(col=condition), binwidth=6) +
-  coord_cartesian(xlim=c(0, 240)) +
-  labs(x=lac_lags_label, subtitle='naive cells')
-
+(myplots[['lags_hist_glyc_glcLac']] <- 
+   mycells_switching %>% ungroup %>% 
+   filter(! date %in% discarded_dates) %>% 
+   # filter(!discard_arrested) %>%
+   filter(switch_idx==1) %>% 
+   filter(str_detect(condition, '^switch_[0-9]+h$') | condition %in% c('switch_glcLac_lac', 'switch_gly_lac') ) %>%
+   mutate(lag=lag_200, 
+          lag=ifelse(is.na(lag), -1000, lag) ) %>% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+          condition=fct_recode(factor(condition), 'glucose + lactose > lactose'='switch_glcLac_lac',
+                               'glycerol > lactose'='switch_gly_lac',
+                               'glucose > lactose (control)'='control') ) %>%
+   ggplot(aes(lag/60, ..density..)) +
+   geom_freqpoly(aes(col=condition), binwidth=6) +
+   coord_cartesian(xlim=c(0, 240)) +
+   labs(x=lac_lags_label, subtitle='naive cells')
+)
 
 ```
 
@@ -263,7 +307,7 @@ mycells_switching %>% ungroup %>%
 #                               'glycerol > lactose'='switch_gly_lac',
 #                               'glucose > lactose (control)'='control') ) %>%
 #   group_by(condition) %>% 
-#   summarise(n=n(), p_short=sum(lag/60<48, na.rm=TRUE)/sum(!is.na(lag)), p_short_se=sqrt(p_short*(1-p_short)/n)) %>% 
+#   summarise(n=n(), p_short=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)), p_short_se=sqrt(p_short*(1-p_short)/n)) %>% 
 #   ggplot(aes(x=condition, y=p_short)) +
 #   geom_bar(stat='identity') +
 #   geom_errorbar(aes(ymin=p_short-p_short_se, ymax=p_short+p_short_se), width=.4) +
@@ -273,33 +317,41 @@ mycells_switching %>% ungroup %>%
 #   theme(axis.text.x=element_text(size=rel(1), colour='black'), axis.title.x=element_blank()) +
 #   NULL
 
-mycells_switching %>% ungroup %>% 
-  filter(! date %in% discarded_dates) %>% 
-  # filter(!discard_arrested) %>%
-  filter(switch_idx==1) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$') | condition %in% c('switch_glcLac_lac', 'switch_gly_lac') ) %>%
-  mutate(lag=lag_200) %>% 
-  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
-         condition=fct_recode(factor(condition), 'glucose + lactose > lactose'='switch_glcLac_lac',
-                              'glycerol > lactose'='switch_gly_lac',
-                              'glucose > lactose (control)'='control') ) %>%
-  group_by(condition) %>% 
-  summarise(n=n(), type='short', prop=sum(lag/60<48, na.rm=TRUE)/sum(!is.na(lag)), 
-            prop_se=sqrt(prop*(1-prop)/n)) %>% 
-  (function(.df) 
-    bind_rows(.df, .df %>% mutate(type='long', prop=1-prop, prop_se=NA, n=NA)) %>% 
-     ggplot(aes(x=condition, y=prop)) +
-     geom_bar(aes(fill=type), stat='identity') +
-     geom_rect(aes(xmin=as.numeric(condition)-.45, xmax=as.numeric(condition)+.45, 
-                   ymin=prop-prop_se, ymax=prop+prop_se), data=.df) +
-     geom_text(aes(y=0, label=sprintf('n=%d', n)), vjust=-0.3, data=.df) +
-     # coord_cartesian(xlim=c(0, 240)) +
-     labs(y='proportion', fill=expression(paste("type of ", italic("lac"), " induction lag")) ) +
-     theme(axis.text.x=element_text(size=rel(1), colour='black'), 
-           axis.title.x=element_blank(),
-           legend.position='top') +
-     NULL
-  )
+(myplots[['glyc_frac_short']] <- 
+   mycells_switching %>% ungroup %>% 
+   filter(! date %in% discarded_dates) %>% 
+   # filter(!discard_arrested) %>%
+   filter(switch_idx==1) %>% 
+   filter(str_detect(condition, '^switch_[0-9]+h$') | condition %in% c('switch_glcLac_lac', 'switch_gly_lac') ) %>%
+   mutate(lag=lag_200) %>% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, '^switch_[0-9]+h$'), 'control', .x)),
+          # condition=fct_recode(factor(condition), 'glucose + lactose > lactose'='switch_glcLac_lac',
+          #                      'glycerol > lactose'='switch_gly_lac',
+          #                      'glucose > lactose (control)'='control') ) %>%
+          condition=fct_recode(factor(condition), 'gluc + lac > lac'='switch_glcLac_lac',
+                               'glyc > lac'='switch_gly_lac',
+                               'gluc > lac (control)'='control') ) %>%
+   group_by(condition) %>% 
+   summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)), 
+             prop_se=sqrt(prop*(1-prop)/n)) %>% 
+   (function(.df) 
+     bind_rows(.df, .df %>% mutate(type='long', prop=1-prop, prop_se=NA, n=NA)) %>% 
+      ggplot(aes(x=condition, y=prop)) +
+      geom_bar(aes(fill=type), stat='identity') +
+      geom_rect(aes(xmin=as.numeric(condition)-.45, xmax=as.numeric(condition)+.45, 
+                    ymin=prop-prop_se, ymax=prop+prop_se), data=.df) +
+      geom_text(aes(y=0, label=sprintf('n=%d', n)), vjust=-0.3, data=.df) +
+      labs(y='proportion', fill="type of lag" ) +
+      # expression(paste("type of ", italic("lac"), " induction lag"))
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour='black',
+                                     angle=45, hjust=0.8, vjust=0.9),
+            legend.margin=margin(),
+            legend.title=element_text(size=rel(0.7), face='bold'),
+            legend.text=element_text(size=rel(0.7)),
+            legend.position='top') +
+      NULL
+   ))
 
 ```
 
