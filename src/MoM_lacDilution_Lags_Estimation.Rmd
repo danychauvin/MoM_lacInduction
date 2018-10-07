@@ -234,15 +234,18 @@ We use the following convention:
 ```{r growth rate before the switch}
 mycells_switching <- 
   # extract relevant frames
+  # don't discard NA lags otherwise filter(!discard_arrested) also discard NA lags
   bind_rows(
     # switching cells
-    mycells_switching %>% ungroup %>% filter(!is.na(lag_200)) %>% 
+    mycells_switching %>% ungroup %>% 
+      # filter(!is.na(lag_200)) %>% 
       mutate(type='pre', switch_ugen=ugen) %>% 
       select(type, ugen, switch_ugen, switch_idx, t_lac_switch) %>% 
       left_join(myframes) %>% 
       filter(time_sec <= t_lac_switch),
     # parent cells
-    mycells_switching %>% ungroup %>% filter(!is.na(lag_200)) %>% 
+    mycells_switching %>% ungroup %>% 
+      # filter(!is.na(lag_200)) %>% 
       left_join(select(myframes, date, gl, pos, id, parent_id, ugen) %>% group_by(ugen) %>% slice(1)) %>% 
       mutate(type='parent', switch_ugen=ugen, 
              # cell=paste(date, pos, gl, parent_id, sep='.')) %>% 
@@ -271,7 +274,9 @@ mycells_switching <-
   mutate(n_preswitch=(t_lac_switch-time_birth)/dt,
          logl_time_slope_before=ifelse(n_preswitch<5, 
                                        logl_time_slope_parent, logl_time_slope_pre),
-         discard_arrested=ifelse(condition=='switch_gly_lac', NA, logl_time_slope_before <= min_growth_rate) )
+         discard_arrested=ifelse(condition=='switch_gly_lac', NA, logl_time_slope_before <= min_growth_rate),
+         # discard_arrested=FALSE, 
+         )
   
 
 # ggplot(mycells_switching) +
