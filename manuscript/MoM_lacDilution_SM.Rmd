@@ -1,0 +1,106 @@
+---
+title: Supplementary Materials \newline
+  Growth-mediated dilution controls the response of gene regulatory networks
+author:
+  - name: Thomas Julou
+    # email: thomas.julou@normalesup.org
+    # corresponding: TRUE
+    # affiliation: 
+    #   - BZ
+    #   - SIB
+  - name: Athos Fiori
+    # affiliation: BZ
+  - name: Diana Blank
+    # affiliation: BZ
+  - name: Erik van Nimwegen
+    # email: erik.vannimwegen@unibas.ch
+    # corresponding: TRUE
+    # affiliation: 
+    #   - BZ
+    #   - SIB
+address:
+  - code: BZ
+    address: Biozentrum, University of Basel, Klingelbergstrasse 50/70, 4056 Basel, Switzerland.
+  - code: SIB
+    address: Swiss Institute of Bioinformatics.
+
+# author_summary: |
+#   *to be written*
+
+# output: rticles::plos_article
+output:
+  bookdown::pdf_book:
+    base_format: rticles::plos_article
+csl: plos.csl
+bibliography: MoM_lacDilution_SM.bib
+
+header-includes:
+#  \usepackage{float} \floatplacement{figure}{H} 
+  \setcounter{table}{0}  \renewcommand{\thetable}{S\arabic{table}}
+  \setcounter{figure}{0} \renewcommand{\thefigure}{S\arabic{figure}}
+  \usepackage{xr} \externaldocument{MoM_lacDilution_ms}
+---
+
+# Bacterial strains and media
+The main strain used in this study is ASC662 (MG1655 lacZ-GFPmut2) [@kiviet2014stochasticity]. 
+We confirmed by sequencing that this strains has no mutation in the *lac* operon and identified the GFP sequence used in the lacZ translational fusion as a GFPmut2 lacking the monomeric substitution A206K; fortunately this doesn’t affect its spectrum nor its maturation time [@balleza2018systematic].
+For perturbation experiments, plasmid xx was constructed by restriction-ligation cloning of MG1655's native lacI promoter and gene (pos xxx to xxx) into a pSC101 vector (pUA66 using xxx and xxx , hence removing the plasmid's promoter and GFP loci).
+
+All experiments were done using M9 minimal media supplemented with 2mM MgSO4, 0.1mM CaCl2, and sugars as indicated (typically 0.2% for glucose or lactose and 0.4% for glycerol). TMG and IPTG were diluted from frozen stocks in water (at 0.1M and xxx respectively).
+
+All experiments were carried out at 37ºC.
+
+# Microfluidic device fabrication
+The Dual Input Mother Machine microfluidic design used in this study has been described elsewhere [@kaiser2018monitoring] and is freely available online [@dimm]: in brief it combines comb-like structures enabling to grow bacteria in steady state conditions over long times with a special type of junction allowing fast and accurate mixing of two input media. Several microfluidics masters were produced using soft lithography technics by micro-resist Gmbh; one master with regular growth channels of suitable size (0.7µm width × 0.9µm height) was used for all experiments.
+
+For each experiment, a new chip was produced by pouring PDMS (Sylgard 184 with 1:9w/w ratio of curing agent) on the master and baking it for 4h or more at 80ºC. After cutting the chip and punching inlets, the chip was bonded to a #1.5 glass coverslip as follows: the coverlsip was sonicated 3 to 5 min in acetone, rinsed in water then isopropanol; the chip cleaned from dust using MagicTape, rinsed in isopropanol then water; surfaces were activated with air plasma (40 sec at 1500µm of Hg) before being put in contact; the assembled chip was cooked 1h or more at 80ºC.
+
+Before running the experiment, the chip was primed with passivation buffer (2.5 mg/mL salmon sperm DNA, 7.5 mg/mL bovine serum albumin) for the mother machine part and with water for the part with overflow channels, and incubated 1h at 37ºC.
+
+# Experiment setup and conditions
+Bacteria were streaked onto LB agar plates from frozen glycerol stocks thawed from −80ºC. Overnight precultures were grown from single colonies in M9 minimal medium supplemented with the same sugar that the cells were to experience in the initial condition of the experiment. The next day, cells were diluted 100-fold into fresh medium with the same sugar and harvested after 4–6 h. 
+
+The experimental apparatus was initialized, pre- warmed and equilibrated. Flow control was achieved using a syringe pump for early experiments and using a pressure controller later on. A total flow of ≈3µL/min was used in all cases (corresponding to a pressure of ≈2000 mbar on both inlet). Polystyrene beads (Polybead® 1 μm) were added to one of the two media to allow controlling the flow at the mixing junction.
+<!-- see table -->
+
+The primed microfluidic chip was mounted, connected to media supply and flushed with running media for 30 min or more. The grown cell culture was centrifuged at 4000×g for 5 min, and the pellet resuspended in a few μl supernatant and injected into the device using a syringe. Since flow was running, the pressure had to be continuously adjusted to make sure the cells stopped flowing in the main channel and could enter the growth channels (typically 10 to 40 min).
+
+After loading, bacteria were incubated during 2h before starting image acquisition. Every 3 min (6min for experiments in glycerol), phase contrast and fluorescence images were acquired for several positions in parallel (typically 6), including the dial-a-wave junction with short phase contrast exposure (10 ms) so as to control the flow ratio between the two inputs. 
+
+# Microscopy and image analysis
+An inverted Nikon Ti-E microscope, equipped with a motorized xy-stage and enclosed in a temperature incubator (TheCube, Life Imaging Systems), was used to perform all experiments. The sample was fixed on the stage using metal clamps and focus was maintained using hardware autofocus (Perfect Focus System., Nikon). Images were recorded using a CFI Plan Apochromat Lambda DM ×100 objective (NA 1.45, WD 0.13 mm) and a CMOS camera (Hamamatsu Orca-Flash 4.0). The setup was controlled using µManager [@edelstein2010computer] and timelapse movies were recorded with its Multi-Dimensional Acquisition engine (customized using runnables). Phase contrast images were acquired using 100 ms exposure (CoolLED pE-100, full power). Images of GFP fluorescence (ex 475/35 nm; em 525/50 nm; bs 495 nm) were acquired using 2 s exposure (Lumencor SpectraX, Cyan LED at 17% with ND4). 
+
+Image analysis was performed using MoMA [@kaiser2018monitoring] as described in its documentation [@moma]. Raw image datasets were transfered to a centralised storage and preprocessed in batch. For each experiments, 30 growth channels were picked randomly (after discarding channels with structural defects or no cells growing at the first siwthc of condition) and curated manually in MoMA. MoMA's default post-processing was used in order to refine the measurements of cell length and total fluorescence. Fluorescence arbitrary units were converted to number of GFP molecules using the procedure and conversion factors described previously [@kaiser2018monitoring].
+
+# Estimation of *lac* induction lags
+The time until the *lac* operon is induced in a given cell after a switch to lactose is estimated as follows: we compute the pre-induction LacZ-GFP level is computed as the mean value in the 9 min following the switch (for which we checked visually that no cell had induced yet) and measure the delay after the switch until the cell has increased its LacZ-GFP level by 200 molecules (xxx autofluo sd=30); hence we need to observe a cell for at least 4 time points after the switch to be able to successfully detect an induction. In order to successfully estimate a lag for as many cells as possible, if a cell divided before inducing, the total GFP of its two daughters was summed and their cell traces considered until the induction threshold was passed, or one of the two daughters was lost (because it left the channel). We note that this *lac* induction lag will include the maturation time of the LacZ-GFP fusion proteins (half time = 5.6 ± 0.4 min @balleza2018systematic).
+
+xxx proba accouting for exiting cells ???
+
+# Estimation of growth lags
+
+
+# Quality control and data filtering
+expt: gr cdf
+cell: growth
+visual: bars???
+
+<!-- \@ref(fig:naive-lags-per-expt) -->
+
+# Decreasing LacI activity with IPTG
+
+
+# Decoupling induction and growth using lactulose and TMG
+
+
+# Supplementary figures
+
+(ref:naive-lags-per-expt-caption) Foo bar
+
+```{r naive-lags-per-expt, fig.cap="(ref:naive-lags-per-expt-caption)"}
+myplots[['naive_lags_per_expt']]
+
+```
+
+
+# References

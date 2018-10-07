@@ -189,10 +189,8 @@ dir.create(here("slogs"), showWarnings=FALSE) # create a directory to store logs
 
 # set a parallel environment to run multidplyr
 library(multidplyr)
-numCores <- min(30, parallel::detectCores()-1) # do not use more than 30 cores
-mycluster <- create_cluster(numCores)
-for (.l in mylibs) { mycluster %>% cluster_library(.l) } # load all libraries on each core
-
+mycluster <- min(30, parallel::detectCores()-1) %>%  # do not use more than 30 cores
+  create_cluster() %>% cluster_library(mylibs)       # load libraries on each core
 
 # LOAD MoMA DATA ####
 # find raw data files from myconditions and store them in a dataframe
@@ -315,7 +313,8 @@ discarded_dates <- c(
   20180313, # switch_24h only 10GLs analysed
   # other reasons
   20180123, # switch_lacIoe (weird lag distrib, but all longer than without overexpressing LacI)
-  20180615  # weird late switch control (all switch fast!)
+  20180615,  # weird late switch control (all switch fast!)
+  20180606  # weird late switch control (all switch fast!)
   
   # TODO: check whether the heritability at first switch can be used as a criteria
 )
@@ -330,6 +329,7 @@ discarded_datesss <- c(discarded_dates
 # in the global envt (hence inheriting existing variables and keeping the newly created ones)...
 
 myplots <- list()
+mytables <- list()
 rename_conds <- function (.str) {
 # TODO: check NAs for all conditions
   .labels <- .str
@@ -370,4 +370,30 @@ rmarkdown::render_site('./src/MoM_lacDilution_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_PerturbRepressed.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_Sensitivity.Rmd')
 
+
+# RENDER ARTICLE FILES ####
+
+knitr::opts_chunk$set(
+  echo=FALSE, message=FALSE, warning=FALSE
+  )
+
 source('./src/MoM_lacDilution_Figs.R')
+
+rmarkdown::render("MoM_lacDilution_ms.Rmd", 
+                  bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
+                  clean=FALSE)
+
+rmarkdown::render("MoM_lacDilution_SM.Rmd", 
+                  bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
+                  clean=FALSE)
+
+# resolve references
+(function(.dir, .files) {
+  setwd("manuscript")
+  tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=FALSE)
+  tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=FALSE)
+  
+  tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=TRUE)
+  tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=TRUE)
+  setwd('..')
+})()
