@@ -50,7 +50,8 @@ myframes %>%
         .dfgl <- .dfgl %>% ungroup %>% filter(!discard_top, vertical_top>vertical_cutoff) %>% 
           mutate(time_sec=time_sec-2*3600, b_rank=ifelse(b_rank>.b_rank_max, .b_rank_max, b_rank))
         if (nrow(.dfgl) == 0) return(list())
-        
+        if (.dff$var %in% c("gfp_nb", "gfp_conc")) .dfgl <- filter(.dfgl, !is.na(gfp_nb))
+          
         .pl <- .dfgl %>% 
           plot_faceted_var_tracks(.var_col=.dff$var, .show_all=TRUE, .show_cellid=TRUE, .log=.dff$log, .facet_labeller=custom_labels, .dt=first(.dfgl$dt)) +
           # mask early frames (requires a dummy df!)

@@ -68,7 +68,7 @@ mycells_btw %>%
      guides(col = guide_legend(override.aes=list(alpha = 1, size=2))) +
      # ylim(0, NA) +
      theme(legend.position='top') +
-     background_grid(major="y", minor = "none")
+     background_grid(major="y", minor = "none") +
      NULL
   )
 

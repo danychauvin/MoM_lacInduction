@@ -197,7 +197,8 @@ NB: since the concentration at which cells start to sense the low glucose / lact
   mutate(lag=lag_200, 
          # lag=ifelse(lag>240*60, Inf, lag),
          # lag=ifelse(!is.infinite(lag), lag, 241*60),
-         lag=ifelse(is.na(lag), -200, lag)) %>% 
+         # lag=ifelse(is.na(lag), -200, lag)
+         ) %>% 
   ggplot(aes(x=lag/60)) +
   geom_freqpoly(aes(y=..density.., col=condition), binwidth=6, position='identity') +
   labs(x=lac_lags_label) +
@@ -399,12 +400,12 @@ First, let's look at the distribution of induction lags at the second switch. Th
       NULL
    ))
 
-mycells_switching %>% ungroup() %>% 
-  filter(!date %in% discarded_dates) %>%
-  filter(discard_arrested) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_late') %>%
-  ggplot(aes()) +
-  geom_freqpoly(
+# mycells_switching %>% ungroup() %>% 
+#   filter(!date %in% discarded_dates) %>%
+#   filter(discard_arrested) %>% 
+#   filter(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_late') %>%
+#   ggplot(aes()) +
+#   geom_freqpoly(
   
   
 ```
@@ -499,6 +500,7 @@ Importantly, as long as a cell inherits more than a few molecules from the first
    mycells_switching_memory %>% ungroup() %>% 
    mutate(gfp_inherit=parent_gfp/2^divs_since_par,
           gfp_inherit_bin=as.numeric(as.character(Hmisc::cut2(gfp_inherit, cuts=c(-Inf, 10^seq(-1.1, 3.8, .3)), levels.mean=TRUE))) ) %>% 
+   filter(!is.na(lag_200)) %>% 
    (function(.df) 
      ggplot() + 
       geom_hline(aes(yintercept=prop), lty='dashed',
@@ -507,6 +509,7 @@ Importantly, as long as a cell inherits more than a few molecules from the first
                    filter(!discard_arrested) %>% 
                    filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
                    filter(switch_idx==1) %>%
+                   filter(!is.na(lag_200)) %>% 
                    summarise(n=n(), prop=sum(lag_200/60<50)/n)
       ) +
       geom_rect(aes(xmin=0, xmax=Inf, ymin=prop-sqrt(prop*(1-prop)/n), ymax=prop+sqrt(prop*(1-prop)/n)),
@@ -516,6 +519,7 @@ Importantly, as long as a cell inherits more than a few molecules from the first
                   filter(logl_time_slope_pre > min_growth_rate) %>% 
                   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
                   filter(switch_idx==1) %>% 
+                  filter(!is.na(lag_200)) %>% 
                   group_by(date) %>% 
                   summarise(n=n(), prop=sum(lag_200/60<50)/n)
       ) +

@@ -76,19 +76,7 @@ myconditions <- list(
   #      medium=c('glucose', 'lactose', 'glucose'),
   #      paths=c("./data_thomas/20170926/20170926_glu_lac_30h_hiExpr_curated/")),
   
-  # WITH/WITHOUT GROWTH ARREST
-  list(condition='switch_lactulose_TMG20', duration=c(480, 720), dt=360, 
-       medium=c('glycerol', 'lactulose+TMG'),
-       paths=c(#"./data_thomas/20180704/20180704_glyc_lactulose_TMG20uM_curated/", # with dt=180 slow growth and limited induction
-         "data_thomas/20180709/20180709_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20180711/20180711_glyc_lactuloseTMG20uM_curated/")),
-  list(condition='switch_lactulose', duration=c(480, 720), dt=360, 
-       medium=c('glycerol', 'lactulose'),
-       paths=c("./data_thomas/20180710/20180710_glyc_lactulose_curated/")),
-  list(condition='switch_glycerol_TMG20', duration=c(480, 720), dt=360, 
-       medium=c('glycerol', 'glycerol+TMG'),
-       paths=c("./data_thomas/20180712/20180712_glyc_glycTMG20uM_curated/")),
-  
-  # CATABOLITE REPRESSION
+   # CATABOLITE REPRESSION
   list(condition='switch_gly_lac', duration=c(480, 360), dt=180, 
        medium=c('glycerol', 'lactose'),
        paths=c("./data_thomas/20170919/20170919_glyc_lac_curated/", "./data_thomas/20170920/20170920_glyc_lac_curated/")),
@@ -137,50 +125,28 @@ myconditions <- list(
        medium=c('glucose', 'lactose'),
        paths=c("./data_thomas/20171121/20171121_glu_lac_ramp40min_curated/", "./data_thomas/20180319/20180319_glu_lac_ramp40min_curated/")),
   
-  # list(condition='switch_∆lacA',
-  #      duration=c(360, 360, 360), dt=180,
-  #      medium=c('glucose', 'lactose', 'glucose'),
-  #      paths=c("./data_thomas/20171122/20171122_glu_lac_lacA_curated/", "./data_thomas/20180110/20180110_glu_lac_lacA-_curated/")),
-  # # list(condition='switch_glu_lacCM',
-  # list(condition='switch_glu_lacCM_0.05',
-  #      duration=c(360, 360), dt=180,
-  #      medium=c('glucose', 'lacCM'),
-  #      paths=c("./data_thomas/20180205/20180205_glu_lacCM_curated/", "./data_thomas/20180213/20180213_glu_lacCM_curated/")),
-  # list(condition='switch_glu_lacCM_0.27',
-  #      duration=c(360, 240), dt=180,
-  #      medium=c('glucose', 'lacCM'),
-  #      paths=c("./data_thomas/20180320/20180320_glu_lacCM_curated/")),
-  # list(condition='switch_glu_lacCM_0.45',
-  #      duration=c(360, 360), dt=180,
-  #      medium=c('glucose', 'lacCM'),
-  #      paths=c("./data_thomas/20180315/20180315_glu_lacCM_curated/")),
-  # list(condition='switch_glu_lacCM_ara0.27',
-  #      duration=c(360, 360), dt=180,
-  #      medium=c('glucose', 'lacCM'),
-  #      paths=c("./data_thomas/20180521/20180521_glu_lac_araCM_curated/")),
-  # list(condition='switch_glu_lacCM_ara0.83',
-  #      duration=c(360, 360), dt=180,
-  #      medium=c('glucose', 'lacCM'),
-  #      paths=c("./data_thomas/20180404/20180404_glu_lacCM-ara_curated/")),
-  # list(condition='switch_glu_lacCM-∆lacA',
-  #      duration=c(360, 240), dt=180,
-  #      medium=c('glucose', 'lacCM'),
-  #      paths=c("./data_thomas/20180321/20180321_glu_lacCM-lacA_curated/")),
-  list(condition='switch_lac_IPTG500uM', duration=c(360, 240, 240, 240, 240, 240), dt=180,
-       medium=c('glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG', 'glucose', 'lactose+IPTG'),
-       paths=c("./data_thomas/20151207/20151207_switch_iptg_curated"))
+  # WITH/WITHOUT GROWTH ARREST
+  list(condition='switch_lactulose_TMG20', duration=c(480, 720), dt=360, 
+       medium=c('glycerol', 'lactulose+TMG'),
+       paths=c(#"./data_thomas/20180704/20180704_glyc_lactulose_TMG20uM_curated/", # with dt=180 slow growth and limited induction
+         "data_thomas/20180709/20180709_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20180711/20180711_glyc_lactuloseTMG20uM_curated/")),
+  list(condition='switch_lactulose_TMG20_lowIllum', duration=c(480, 720, 480), dt=360, 
+       medium=c('glycerol', 'glycerol+TMG', 'glycerol'),
+       paths=c("./data_thomas/20181008/20181008_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20181009/20181009_glyc_lactuloseTMG20uM_curated/")),
+  list(condition='switch_lactulose', duration=c(480, 720), dt=360, 
+       medium=c('glycerol', 'lactulose'),
+       paths=c("./data_thomas/20180710/20180710_glyc_lactulose_curated/")),
+  list(condition='switch_glycerol_TMG20', duration=c(480, 720), dt=360, 
+       medium=c('glycerol', 'glycerol+TMG'),
+       paths=c("./data_thomas/20180712/20180712_glyc_glycTMG20uM_curated/"))
   
-  # list(condition='switch_m9',
-  #      duration=c(360, 120, 360, 720, 360, 240), 
-  #      medium=c('glucose', 'M9', 'glucose', 'M9', 'glucose', 'M9'),
-  #      paths=c("./data_thomas/20151221")) 
-)
+  )
 
 # SET ENVIRONMENT
 # install.packages(c('tools', 'devtools', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
 # devtools::install_github(c('julou/ggCustomTJ', 'hadley/multidplyr'))
 # devtools::install_github('vanNimwegenLab/vngMoM', auth_token='xxx')
-mylibs <- c('here', 'tidyverse', 'tools', 'RcppArmadillo', 'vngMoM', 'ggCustomTJ')
+mylibs <- c('here', 'tidyverse', 'cowplot', 'tools', 'RcppArmadillo', 'vngMoM', 'ggCustomTJ')
 invisible( suppressPackageStartupMessages( # don't use %>% before loading dplyr
   lapply(mylibs, library, character.only=TRUE) ))
 library(svglite)
@@ -229,6 +195,8 @@ myframes <- myfiles %>%
   filter(!is.na(ppath)) %>% 
   # propagate dt info
   left_join(condition_ts %>% group_by(condition) %>% slice(1) %>% select(condition, dt), by="condition") %>% 
+  # filter(condition=='switch_lactulose_TMG20_lowIllum',
+         # ppath != './preproc/20181008/20181008_glyc_lactuloseTMG20uM_1_MMStack_Pos5_preproc_GL02_frames.txt') %>% 
   # load perl scripts output to dataframes (in parallel, using multidplyr)
   partition(condition, path, cluster=mycluster[1:nc] %>%
               # cluster_assign_func(parse_frames_stats, compute_genealogy, compute_daughters_numbers, which_touch_exit, which_to_progeny) %>%
@@ -290,9 +258,16 @@ myframes <- myfiles %>%
 # CONVERT FLUO UNITS ####
 if (use_eriks_params)
   autofluo_predict <- function(.h) .h * 422.8
-myframes <- myframes %>%
-  mutate(fluo_amplitude=ifelse(date==20180712, fluo_amplitude*4, fluo_amplitude)) %>% 
-  mutate(fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um))
+myframes <- myframes %>% ungroup() %>% mutate(
+  fluo_amplitude=fluo_amplitude * ifelse(date==20180712, 4, 1),
+  fluo_amplitude=ifelse(date %in% c(20181008, 20181009) & fluo_amplitude==-1, NA, fluo_amplitude),
+  fluo_amplitude=fluo_amplitude * ifelse(date==20181008 & pos %in% 0:4 & between(time_sec/3600, 8, 20-6/60), 5, 1),
+  fluo_amplitude=fluo_amplitude * ifelse(date==20181009 & pos %in% c(0,2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
+  fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um)
+)
+
+# date=='20181008' & pos %in% 0:4
+# date=='20181009' & pos %in% c(0, 2, 4, 6, 8)
 
 fp_per_oligomers <- 4 # lacZ is tetrameric
 if (use_eriks_params)
@@ -300,7 +275,8 @@ if (use_eriks_params)
 myframes <- myframes %>%
   # convert to gfp units (after subtracting autofluorescence)
   mutate(gfp_nb = fluogfp_amplitude * fp_per_dn,
-         gfp_nb=ifelse(strain=='AB460', 1800/140*gfp_nb, gfp_nb))
+         gfp_nb=ifelse(strain=='AB460', 1800/140*gfp_nb, gfp_nb)) %>% 
+  group_by(date, pos, gl, id)
 
 # experiments to be discarded as identified by controls
 discarded_dates <- c(
@@ -348,6 +324,7 @@ rename_conds <- function (.str) {
 lac_lags_label <- expression(paste(italic('lac'), ' induction lag (min)'))
 
 
+theme_set(theme_cowplot())
 knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE,
   dev="svglite"
@@ -357,7 +334,6 @@ knitr::opts_chunk$set(
 # render control plots of each GC
 # source('./src/MoM_lacDilution_GCplots.R')
 
-rmarkdown::render_site('./src/index.Rmd')
 # rmarkdown::render_site('./src/MoM_lacDilution_GFP_Estimation.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_Constant_Envts.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_Lags_Estimation.Rmd')
@@ -366,6 +342,7 @@ rmarkdown::render_site('./src/MoM_lacDilution_Lags_Estimation.Rmd')
 # DISCARD SOME DATASETS
 rmarkdown::render_site('./src/MoM_lacDilution_Controls.Rmd')
 
+rmarkdown::render_site('./src/index.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_PerturbRepressed.Rmd')
 rmarkdown::render_site('./src/MoM_lacDilution_Sensitivity.Rmd')
@@ -377,6 +354,7 @@ knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE
   )
 
+myfigs <- list()
 source('./src/MoM_lacDilution_Figs.R')
 
 rmarkdown::render("MoM_lacDilution_ms.Rmd", 
