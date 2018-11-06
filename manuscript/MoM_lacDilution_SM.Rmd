@@ -2,12 +2,14 @@
 title: Supplementary Materials \newline
   Growth-mediated dilution controls the response of gene regulatory networks
 author:
+    #   - BZ
+    #   - SIB
+    #   - BZ
+    #   - SIB
   - name: Thomas Julou
     # email: thomas.julou@normalesup.org
     # corresponding: TRUE
     # affiliation: 
-    #   - BZ
-    #   - SIB
   - name: Athos Fiori
     # affiliation: BZ
   - name: Diana Blank
@@ -16,24 +18,18 @@ author:
     # email: erik.vannimwegen@unibas.ch
     # corresponding: TRUE
     # affiliation: 
-    #   - BZ
-    #   - SIB
 address:
   - code: BZ
     address: Biozentrum, University of Basel, Klingelbergstrasse 50/70, 4056 Basel, Switzerland.
   - code: SIB
     address: Swiss Institute of Bioinformatics.
-
 # author_summary: |
-#   *to be written*
-
 # output: rticles::plos_article
 output:
   bookdown::pdf_book:
     base_format: rticles::plos_article
 csl: plos.csl
 bibliography: MoM_lacDilution_SM.bib
-
 header-includes:
   \usepackage{float} \floatplacement{figure}{p}
   \setcounter{table}{0}  \renewcommand{\thetable}{S\arabic{table}}
@@ -43,6 +39,8 @@ header-includes:
   # \usepackage{tabu}
   # \usepackage{varwidth}
   # \usepackage{longtable} 
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -54,7 +52,7 @@ knitr::opts_chunk$set(echo = FALSE, out.width='4.75in')
 # Bacterial strains and media
 The main strain used in this study is ASC662 (MG1655 lacZ-GFPmut2) [@kiviet2014stochasticity]. 
 We confirmed by sequencing that this strain has no mutation in the *lac* operon apart from the lacZ-GFP translational fusion, and identified the GFP sequence as a GFPmut2 lacking the monomeric substitution A206K; fortunately this doesn’t affect its spectrum nor its maturation time [@balleza2018systematic].
-In order to increase LacI activity in the repressed state, plasmid p_lacI_SC101 was transformed into ASC662. It was obtained by restriction-ligation cloning of MG1655's native lacI promoter and gene (amplified by PCR between positions 366,428 and 367,600) into a pSC101 vector (pUA66; using XhoI and XbaI, hence removing the plasmid's promoter and GFP loci). In order to make cloning easier, we used a high copy number derivative of pUA66 where the GFP locus is replaced with pUC19 origin (produced by restriction-ligation cloning with BamHI and XbaI).
+In order to increase LacI activity in the repressed state, plasmid p_lacI_SC101 was transformed into ASC662. It was obtained by restriction-ligation cloning of MG1655's native lacI promoter and gene (amplified by PCR between positions 366,428 and 367,601) into a pSC101 vector (pUA66; using XbaI and XhoI, hence removing the plasmid's promoter and GFP loci). In order to make cloning easier, we used a high copy number derivative of pUA66 where the GFP locus is replaced with pUC19 origin (produced by restriction-ligation cloning with BamHI and XbaI).
 
 All experiments were done using M9 minimal media supplemented with 2 mM MgSO4, 0.1 mM CaCl2, and sugars as indicated (typically 0.2% for glucose or lactose and 0.4% for glycerol). TMG and IPTG were diluted from frozen stocks in water (at 0.1 M and 1 M respectively).
 
@@ -76,6 +74,8 @@ The experimental apparatus was initialized, pre- warmed and equilibrated. Flow c
 The primed microfluidic chip was mounted, connected to media supply and flushed with running media for 30 min or more to rinse passivation buffer. The grown cell culture was centrifuged at 4000×g for 5 min, and the pellet resuspended in a few μl supernatant and injected into the device using a syringe. Since flow was running, the pressure had to be continuously adjusted to make sure the cells stopped flowing in the main channel and could enter the growth channels (typically 10 to 40 min).
 
 After loading, bacteria were incubated during 2 h before starting image acquisition. Every 3 min (6 min for experiments in glycerol), phase contrast and fluorescence images were acquired for several positions in parallel (typically 6), including the dial-a-wave junction with short phase contrast exposure (10 ms) so as to control the flow ratio between the two inputs. 
+
+xxx discard first 2 hours
 
 <!-- # Supplementary tables -->
 
@@ -106,11 +106,13 @@ An inverted Nikon Ti-E microscope, equipped with a motorized xy-stage and enclos
 Image analysis was performed using MoMA [@kaiser2018monitoring] as described in its documentation [@moma]. Raw image datasets were transfered to a centralised storage and preprocessed in batch. For each experiments, 30 growth channels were picked randomly (after discarding channels with structural defects or no cells growing at the first switch of condition) and curated manually in MoMA. MoMA's default post-processing was used in order to refine the measurements of cell length and total fluorescence. Fluorescence arbitrary units were converted to number of GFP molecules using the procedure and conversion factors described previously [@kaiser2018monitoring].
 
 # Estimation of *lac* induction lags
-The time until the *lac* operon is induced in a given cell after a switch to lactose is estimated from the time series of LacZ-GFP level as follows: we compute the pre-induction level computed as the mean value in the 9 min following the switch (for which we checked visually that no cell had induced yet) and measure the delay after the switch until the cell has increased its level by 200 molecules (which is a conservative threshold since the fluctuations of background level have a standard deviation of ≈30); hence we need to observe a cell for at least 4 time points after the switch to be able to successfully detect an induction. In order to successfully estimate a lag for as many cells as possible, if a cell divided before inducing, the total GFP of its two daughters was summed and their cell traces considered until the induction threshold was passed, or one of the two daughters was lost (because it left the channel). We note that this *lac* induction lag will include the maturation time of the LacZ-GFP fusion proteins (half time = 5.6 ± 0.4 min @balleza2018systematic).
+The time until the *lac* operon is induced in a given cell after a switch to lactose is estimated from the time series of LacZ-GFP level as follows: we compute the pre-induction level computed as the mean value in the 9 min following the switch (for which we checked visually that no induction occured) and measure the delay after the switch until the cell has increased its level by 200 molecules (which is a conservative threshold since the fluctuations of background level have a standard deviation of ≈30); hence we need to observe a cell for at least 4 time points after the switch to be able to successfully detect an induction. In order to successfully estimate a lag for as many cells as possible, if a cell divided before inducing, the total GFP of its two daughters was summed and their cell traces considered until the induction threshold was passed, or one of the two daughters was lost (because it left the channel). We note that this *lac* induction lag will include the maturation time of the LacZ-GFP fusion proteins (half time = 5.6 ± 0.4 min @balleza2018systematic).
 
 xxx proba not accouting for exiting cells
 
-In order to analyse transcriptional memory, we would like to know the number of LacZ-GFP molecules in each bacteria at the onset of the switch to lactose. However, the combination of limited sensitivity (on the order of dozens of GFP molecules per cell) and spontaneous autofluorescence (of similar magnitude), prevents us from accurately measuring levels lower than 100 molecules; in addition, repeated illumination induces bleaching so that not all GFP molecules are fluorescent (which has been quantified to ≈20% per cell cycle; [@kaiser2018monitoring]). However, at the second switch, the number of LacZ-GFP inherited from the ancestors' induction during the first exposure can be computed as follows: the lineage is traced backed is time and both $L_m$, the maximum LacZ-GFP level during the first exposure, as well as $n_d$, the number of divisions since this time, are recorded; the number of inherited molecules follows as $L_m / 2^{n_d}$. Note that this formula assumes no degradation (which is reasonable since the longest delay is 24 h) and even partitioning at every division, and that this constitutes a lower bound for the number of LacZ-GFP molecules in the cell since stochastic expression may have happened during the delay period.
+To compare the initial LacZ-GFP level between cells with short and long lags, we used the same average over the 3 time points after the switch. As a control, we measured the autofluorescence of wild-type cells (grey line in the lower panel) and noticed that the variability of the fluorescence is the same in uninduced cells, which indicates that it is dominated by autofluorescence. Hence we corrected day-to-day variations in the background fluorescence by substracting the average fluorescence in each experiment. 
+
+In order to analyse transcriptional memory, we would like to know the number of LacZ-GFP molecules in each bacteria at the onset of the switch to lactose. However, the combination of limited sensitivity (on the order of dozens of GFP molecules per cell) and spontaneous autofluorescence (of similar magnitude), prevents us from accurately measuring levels lower than xxx 100 molecules; in addition, repeated illumination induces bleaching so that not all GFP molecules are fluorescent (which has been quantified to ≈20% per cell cycle; [@kaiser2018monitoring]). However, at the second switch, the number of LacZ-GFP inherited from the ancestors' induction during the first exposure can be computed as follows: the lineage is traced backed is time and both $L_m$, the maximum LacZ-GFP level during the first exposure, as well as $n_d$, the number of divisions since this time, are recorded; the number of inherited molecules follows as $L_m / 2^{n_d}$. Note that this formula assumes no degradation (which is reasonable since the longest delay is 24 h) and even partitioning at every division, and that this constitutes a lower bound for the number of LacZ-GFP molecules in the cell since stochastic expression may have happened during the delay period.
 
 # Estimation of growth lags
 
@@ -126,10 +128,13 @@ Further analysis was run using these two filtering criteria.
 
 # Direct measurement of LacZ-GFP xxx
 
+<!-- I should keep only one of the 2 -->
 use 50x stronger illumination for GFP.
 compare intensity histo 
 
 Fig \@ref(fig:high-illum-sensitivity)
+
+comparison nb of GFP in cells with short vs long lags (center per expt, explain confounding effect: autofluo => size, day variation of bg). more sensitive than direct comparison comes from accounting for size differences?? and for local bg??
 
 
 # Decreasing LacI activity with IPTG
@@ -183,6 +188,48 @@ myplots[['lags_hist_ramp']]
 ```
 
 
+(ref:lag-gfp-ini-caption) Effect of initial LacZ-GFP level on the *lac* induction lag. 
+Upper panel: *lac* induction lag at the first exposure to lactose as a function of initial fluorescence. 
+Lower panel: distributions of initial fluorescence in cells with short and long *lac* induction lags; the control shows the distribution of autofluorescence in a wild-type strain (fluorescence is centered per experiment, see supplementary methods xxx). We attribute the difference of fluorescence between cells with short and long lags to the LacZ-GFP molecules produced by stochastc expression before the switch.
+
+```{r lag-gfp-ini, fig.height=4*14/9, fig.cap="(ref:lag-gfp-ini-caption)"}
+plot_grid(
+  plot_grid(
+    myplots[['lags_gfp_scatter']] +
+      theme(legend.position = 'none',
+            axis.title.x = element_blank()),
+    myplots[['lags_gfp_diff_cdf']] +
+      scale_y_continuous(breaks=c(0, 0.5, 1)) +
+      theme(legend.position = 'none'),
+    ncol=1, rel_heights = c(1.2, 0.8), align='v'),
+  get_legend(myplots[['lags_gfp_diff_cdf']]) ,
+  nrow=1, rel_widths = c(0.85, 0.15)
+)
+  
+```
+
+
+<!-- (ref:basal-perturb-with-caption) Distribution of *lac* induction lags with increased (green) or reduced (blue) LacI activity corresponding to lower or higher expression respectively in the repressed state. Each contour corresponds to an independant replicate (with ≈150 cells). These experiments are similar to Fig. 2A but with LacI titrating before and during the exposure to lactose (instead of only during the exposure). -->
+
+<!-- ```{r basal-perturb-with, fig.cap="(ref:basal-perturb-with-caption)"} -->
+<!-- myplots[['basal_perturb_with']] -->
+<!-- ``` -->
+
+
+(ref:basal-perturb-gfp-caption) LacZ-GFP expression level before exposure to lactose when LacI activity is reduced by IPTG titration. Although this treatment increases the fraction of fast-switching cells, no measureable change of LacZ-GFP levels can be detected which supports that the increase of basal expression is less than 100 molecules. In comparison, bacteria carry 3000-6000 LacZ-GFP molecules at full induction (Fig. 1A).
+
+```{r basal-perturb-gfp, fig.cap="(ref:basal-perturb-gfp-caption)"}
+myplots[['basal_perturb_gfp']]
+```
+
+
+<!-- (ref:lags-hist-glyc-glcLac-caption) Histograms of *lac* induction lags for initial conditions where the basal expression is expected to be higher: 0.4% glycerol and 0.2% glucose + 0.2% lactose (2 independant replicates per condition). The corresponding fractions of short lags are shown in Fig. 2B. -->
+
+<!-- ```{r lags-hist-glyc-glcLac, fig.cap="(ref:lags-hist-glyc-glcLac-caption)"} -->
+<!-- myplots[['lags_hist_glyc_glcLac']] -->
+<!-- ``` -->
+
+
 (ref:lag-memory-caption) *lac* induction lag at the second exposure to lactose as a function of the ancestor's lag at the first exposure. Dotted lines show $y=x$ as an eyeguide.
 
 ```{r lag-memory, fig.height=4*14/9, fig.cap="(ref:lag-memory-caption)"}
@@ -211,51 +258,47 @@ myplots[['lags_inherited_gfp']]
 ```
 
 
-(ref:high-illum-sensitivity-caption) xxx.
+<!-- (ref:high-illum-sensitivity-caption) xxx. -->
 
-```{r high-illum-sensitivity, fig.cap="(ref:high-illum-sensitivity-caption)"}
-(myplots[['high-illum-sensitivity']] <-
-bind_rows(
-  read.csv("../data/20180403_glu_lac_hiIllum_1_pos2_t215_MG1655_hist.csv") %>% 
-    with(rep.int(value, count)) %>% tibble(strain='MG1655', int=.),
-  read.csv("../data/20180403_glu_lac_hiIllum_1_pos2_t215_ASC662_hist.csv") %>% 
-    with(rep.int(value, count)) %>% tibble(strain='ASC662', int=.) 
-  ) %>% 
-  ggplot(aes(int, ..density.., col=strain)) +
-  geom_freqpoly(binwidth=50) +
-  scale_colour_discrete(breaks=c('MG1655', 'ASC662'), labels=c('MG1655 (70 cells)', 'ASC662 (93 cells)')) +
-  labs(x='pixel intensity (AU)') +
-  NULL)
-
-```
-
-
-
-<!-- (ref:basal-perturb-with-caption) Distribution of *lac* induction lags with increased (green) or reduced (blue) LacI activity corresponding to lower or higher expression respectively in the repressed state. Each contour corresponds to an independant replicate (with ≈150 cells). These experiments are similar to Fig. 2A but with LacI titrating before and during the exposure to lactose (instead of only during the exposure). -->
-
-<!-- ```{r basal-perturb-with, fig.cap="(ref:basal-perturb-with-caption)"} -->
-<!-- myplots[['basal_perturb_with']] -->
+<!-- ```{r high-illum-sensitivity, fig.cap="(ref:high-illum-sensitivity-caption)"} -->
+<!-- (myplots[['high-illum-sensitivity']] <- -->
+<!-- bind_rows( -->
+<!--   read.csv("../data/20180403_glu_lac_hiIllum_1_pos2_t215_MG1655_hist.csv") %>%  -->
+<!--     with(rep.int(value, count)) %>% tibble(strain='MG1655', int=.), -->
+<!--   read.csv("../data/20180403_glu_lac_hiIllum_1_pos2_t215_ASC662_hist.csv") %>%  -->
+<!--     with(rep.int(value, count)) %>% tibble(strain='ASC662', int=.)  -->
+<!--   ) %>%  -->
+<!--   ggplot(aes(int, ..density.., col=strain)) + -->
+<!--   geom_freqpoly(binwidth=50) + -->
+<!--   scale_colour_discrete(breaks=c('MG1655', 'ASC662'), labels=c('MG1655 (70 cells)', 'ASC662 (93 cells)')) + -->
+<!--   labs(x='pixel intensity (AU)') + -->
+<!--   NULL) -->
 <!-- ``` -->
 
 
-(ref:basal-perturb-gfp-caption) LacZ-GFP expression level before exposure to lactose when LacI activity is reduced by IPTG titration. Although this treatment increases the fraction of fast-switching cells, no measureable change of LacZ-GFP levels can be detected which supports that the increase of basal expression is less than 100 molecules. In comparison, bacteria carry 3000-6000 LacZ-GFP molecules at full induction (Fig. 1A).
+(ref:growth-arrest-tmg-caption) xxx.
 
-```{r basal-perturb-gfp, fig.cap="(ref:basal-perturb-gfp-caption)"}
-myplots[['basal_perturb_gfp']]
+```{r growth-arrest-tmg, fig.cap="(ref:growth-arrest-tmg-caption)"}
+myplots[['TMG_switch_gr_hist']]
 ```
 
 
-<!-- (ref:lags-hist-glyc-glcLac-caption) Histograms of *lac* induction lags for initial conditions where the basal expression is expected to be higher: 0.4% glycerol and 0.2% glucose + 0.2% lactose (2 independant replicates per condition). The corresponding fractions of short lags are shown in Fig. 2B. -->
+(ref:lacl-gfp-gr-hists-caption) xxx.
 
-<!-- ```{r lags-hist-glyc-glcLac, fig.cap="(ref:lags-hist-glyc-glcLac-caption)"} -->
-<!-- myplots[['lags_hist_glyc_glcLac']] -->
-<!-- ``` -->
+```{r lacl-gfp-gr-hists, fig.height=5*14/9, fig.cap="(ref:lacl-gfp-gr-hists-caption)"}
+plot_grid(
+  myplots[['lacl_gfp_facets']] + theme(legend.position = 'right'),
+  myplots[['lacl_gr_facets']] + theme(legend.position = 'right'),
+  ncol=1, rel_heights = c(5, 4), align='v')
+  
+```
 
 
+(ref:lacl-gr-lacz-caption) xxx.
 
-
-
-
+```{r lacl-gr-lacz-tmg, fig.cap="(ref:lacl-gr-lacz-caption)"}
+myplots[['lacl_gr_lacz']]
+```
 
 
 # References
