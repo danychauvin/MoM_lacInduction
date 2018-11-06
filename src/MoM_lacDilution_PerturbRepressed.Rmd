@@ -37,6 +37,7 @@ mycells_switching %>% ungroup() %>%
                             'glucose\n> lactose+IPTG', 'glucose+IPTG\n> lactose') )+ 
   expand_limits(y=0) +
   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+  theme_cowplot_legend_inset() +
   theme(#axis.text.x=element_text(angle=45, hjust=1.25, vjust=1.1), 
         axis.text.x=element_text(size=rel(1), colour='black'),
         axis.title.x=element_blank(),
@@ -110,21 +111,27 @@ According to our prediction, no short lags are observed with reduced basal expre
    mutate(lag=lag_200,
           lag=ifelse(lag>240*60, Inf, lag)
    ) %>% 
-   ggplot(aes(x=condition, y=lag/60)) +
-   geom_hline(yintercept=50, lty='dashed') +
-   geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
-   expand_limits(y=0) +
-   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-   guides(fill=guide_legend(override.aes=list(alpha=1))) +
-   theme(axis.title.x=element_blank(),
-         axis.text.x=element_text(size=rel(1), colour='black',
-                                  angle=45, hjust=0.8, vjust=0.9),
-         legend.margin=margin(),
-         legend.title=element_text(size=rel(0.7), face='bold'),
-         legend.text=element_text(size=rel(0.7)),
-         legend.position='top') +
-   NULL
-)
+   (function(.df)
+     ggplot(.df, aes(x=condition, y=lag/60)) +
+      geom_hline(yintercept=50, lty='dashed') +
+      geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
+      geom_text(aes(y=-10, label=annot), vjust=0.5, size=3, lineheight=1,
+                data=.df %>% group_by(condition, laci) %>% 
+                  summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
+                            annot=sprintf("p=%.02f\nn=%d", prop, n)) ) +
+      coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
+      labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+      guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      theme_cowplot_legend_inset(0.8) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour='black',
+                                     angle=45, hjust=0.8, vjust=0.9),
+            legend.margin=margin(),
+            # legend.title=element_text(size=rel(0.7), face='bold'),
+            # legend.text=element_text(size=rel(0.7)),
+            legend.position='top') +
+      NULL
+   ) ) 
 
 (myplots[['basal_perturb_pre_frac_short']] <- 
    mycells_switching %>% ungroup() %>% 
@@ -158,12 +165,11 @@ According to our prediction, no short lags are observed with reduced basal expre
     geom_text(aes(y=1, label=sprintf('n=%d', n)), vjust=1.3) +
     labs(y='prop. of short lags') +
     # expression(paste("type of ", italic("lac"), " induction lag"))
+    theme_cowplot_legend_inset(0.8) +
     theme(axis.title.x=element_blank(),
           axis.text.x=element_text(size=rel(1), colour='black',
                                    angle=45, hjust=0.8, vjust=0.9),
           legend.margin=margin(),
-          legend.title=element_text(size=rel(0.7), face='bold'),
-          legend.text=element_text(size=rel(0.7)),
           legend.position='top') +
     NULL
 )
@@ -228,22 +234,26 @@ A similar picture is obtained when IPTG is added before and after the switch:
           #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
           #        lag=ifelse(is.na(lag), -200, lag)
    ) %>% 
-   ggplot(aes(x=condition, y=lag/60)) +
-   geom_hline(yintercept=50, lty='dashed') +
-   geom_violin(aes(group=date, fill=laci, col=laci), adjust=0.7, width=1.45, alpha=.4, position='identity') +
-   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-   expand_limits(y=0) +
-   guides(fill=guide_legend(override.aes=list(alpha=1))) +
-   theme(axis.title.x=element_blank(),
-         axis.text.x=element_text(size=rel(1), colour='black',
-                                  angle=45, hjust=0.8, vjust=0.9),
-         legend.margin=margin(),
-         legend.title=element_text(size=rel(0.7), face='bold'),
-         legend.text=element_text(size=rel(0.7)),
-         legend.position='top') +
-   NULL
-)
-
+   (function(.df) 
+     ggplot(.df, aes(x=condition, y=lag/60)) +
+      geom_hline(yintercept=50, lty='dashed') +
+      geom_violin(aes(group=date, fill=laci, col=laci), adjust=0.7, width=1.45, alpha=.4, position='identity') +
+      geom_text(aes(y=0, label=annot), vjust=0.5,
+                data=.df %>% group_by(condition, laci) %>% 
+                  summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
+                            annot=sprintf("p=%.02f\nn=%d", prop, n)) ) +
+      expand_limits(y=-10) +
+      labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+      guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      theme_cowplot_legend_inset(0.8) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour='black',
+                                     angle=45, hjust=0.8, vjust=0.9),
+            legend.margin=margin(),
+            legend.position='top') +
+      NULL
+   ))
+ 
 ```
 
 
@@ -396,23 +406,27 @@ Another prediction of our interpretation is that the proportion of short lag sho
    mutate(lag=lag_200,
           lag=ifelse(lag>240*60, Inf, lag)
    ) %>% 
-   ggplot(aes(x=condition, y=lag/60)) +
-   geom_hline(yintercept=50, lty='dashed') +
-   geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
-   expand_limits(y=0) +
-   labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-   scale_colour_discrete(limits=c('lower', 'control', 'higher')) +
-   scale_fill_discrete(limits=c('lower', 'control', 'higher')) +
-   guides(fill=guide_legend(override.aes=list(alpha=1))) +
-   theme(axis.title.x=element_blank(),
-         axis.text.x=element_text(size=rel(1), colour='black',
-                                  angle=45, hjust=0.8, vjust=0.9),
-         legend.margin=margin(),
-         legend.title=element_text(size=rel(0.7), face='bold'),
-         legend.text=element_text(size=rel(0.7)),
-         legend.position='top') +
-   NULL
-)
+   (function(.df)
+     ggplot(.df, aes(x=condition, y=lag/60)) +
+      geom_hline(yintercept=50, lty='dashed') +
+      geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
+      geom_text(aes(y=-10, label=annot), vjust=0.5, size=3, lineheight=1,
+                data=.df %>% group_by(condition, laci) %>% 
+                  summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
+                            annot=sprintf("p=%.02f\nn=%d", prop, n)) ) +
+      coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
+      labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
+      scale_colour_discrete(limits=c('lower', 'control', 'higher')) +
+      scale_fill_discrete(limits=c('lower', 'control', 'higher')) +
+      guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      theme_cowplot_legend_inset(0.8) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour='black',
+                                     angle=45, hjust=0.8, vjust=0.9),
+            legend.margin=margin(),
+            legend.position='top') +
+      NULL
+   ))
 
 
 (myplots[['glyc_mix_frac_short']] <- 
@@ -443,14 +457,13 @@ Another prediction of our interpretation is that the proportion of short lag sho
    labs(y='prop. of short lags') +
    # expression(paste("type of ", italic("lac"), " induction lag"))
     scale_fill_discrete(limits=c('lower', 'control', 'higher')) +
-   theme(axis.title.x=element_blank(),
-         axis.text.x=element_text(size=rel(1), colour='black',
-                                  angle=45, hjust=0.8, vjust=0.9),
-         legend.margin=margin(),
-         legend.title=element_text(size=rel(0.7), face='bold'),
-         legend.text=element_text(size=rel(0.7)),
-         legend.position='top') +
-   NULL
+    theme_cowplot_legend_inset(0.8) +
+    theme(axis.title.x=element_blank(),
+          axis.text.x=element_text(size=rel(1), colour='black',
+                                   angle=45, hjust=0.8, vjust=0.9),
+          legend.margin=margin(),
+          legend.position='top') +
+    NULL
 )
 
 

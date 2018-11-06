@@ -126,16 +126,19 @@ myconditions <- list(
        paths=c("./data_thomas/20171121/20171121_glu_lac_ramp40min_curated/", "./data_thomas/20180319/20180319_glu_lac_ramp40min_curated/")),
   
   # WITH/WITHOUT GROWTH ARREST
-  list(condition='switch_lactulose_TMG20', duration=c(480, 720), dt=360, 
+  list(condition='switch_lactulose_TMG20_stdIllum', duration=c(480, 720), dt=360, 
        medium=c('glycerol', 'lactulose+TMG'),
        paths=c(#"./data_thomas/20180704/20180704_glyc_lactulose_TMG20uM_curated/", # with dt=180 slow growth and limited induction
          "data_thomas/20180709/20180709_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20180711/20180711_glyc_lactuloseTMG20uM_curated/")),
-  list(condition='switch_lactulose_TMG20_lowIllum', duration=c(480, 720, 480), dt=360, 
-       medium=c('glycerol', 'glycerol+TMG', 'glycerol'),
-       paths=c("./data_thomas/20181008/20181008_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20181009/20181009_glyc_lactuloseTMG20uM_curated/")),
-  list(condition='switch_lactulose', duration=c(480, 720), dt=360, 
+  list(condition='switch_lactulose_stdIllum', duration=c(480, 720), dt=360, 
        medium=c('glycerol', 'lactulose'),
        paths=c("./data_thomas/20180710/20180710_glyc_lactulose_curated/")),
+  list(condition='switch_lactulose_TMG20', duration=c(480, 720, 480), dt=360, 
+       medium=c('glycerol', 'lactulose+TMG', 'glycerol'),
+       paths=c("./data_thomas/20181008/20181008_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20181009/20181009_glyc_lactuloseTMG20uM_curated/")),
+  list(condition='switch_lactulose', duration=c(480, 720, 480), dt=360, 
+       medium=c('glycerol', 'lactulose', 'glycerol'),
+       paths=c("./data_thomas/20181024/20181024_glyc_lactulose_curated/")),
   list(condition='switch_glycerol_TMG20', duration=c(480, 720), dt=360, 
        medium=c('glycerol', 'glycerol+TMG'),
        paths=c("./data_thomas/20180712/20180712_glyc_glycTMG20uM_curated/"))
@@ -263,6 +266,7 @@ myframes <- myframes %>% ungroup() %>% mutate(
   fluo_amplitude=ifelse(date %in% c(20181008, 20181009) & fluo_amplitude==-1, NA, fluo_amplitude),
   fluo_amplitude=fluo_amplitude * ifelse(date==20181008 & pos %in% 0:4 & between(time_sec/3600, 8, 20-6/60), 5, 1),
   fluo_amplitude=fluo_amplitude * ifelse(date==20181009 & pos %in% c(0,2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
+  fluo_amplitude=fluo_amplitude * ifelse(date==20181024 & pos %in% c(0:2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
   fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um)
 )
 
@@ -304,8 +308,6 @@ discarded_datesss <- c(discarded_dates
 # calling `render()` or `render_site()` from the command line allows to execute the function 
 # in the global envt (hence inheriting existing variables and keeping the newly created ones)...
 
-myplots <- list()
-mytables <- list()
 rename_conds <- function (.str) {
 # TODO: check NAs for all conditions
   .labels <- .str
@@ -324,7 +326,13 @@ rename_conds <- function (.str) {
 lac_lags_label <- expression(paste(italic('lac'), ' induction lag (min)'))
 
 
-theme_set(theme_cowplot())
+myscales <- list()
+myplots <- list()
+mytables <- list()
+theme_set(theme_cowplot() + theme(strip.text.x=element_text(margin=margin(t=1, b=2)),
+                                  strip.text.y=element_text(margin=margin(l=2, r=1))) )
+theme_cowplot_legend_inset <- function(.rel=0.7) theme(legend.title=element_text(size=rel(.rel), face='bold'),
+                                                       legend.text=element_text(size=rel(.rel)))
 knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE,
   dev="svglite"

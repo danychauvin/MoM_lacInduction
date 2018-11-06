@@ -63,7 +63,7 @@ We are interested in the time taken by cells to induce the *lac* operon when exp
   # mutate(lag=ifelse(lag<240*60, lag, 245*60),
          # lag=ifelse(is.na(lag), -10, lag)) %>% 
   ggplot(aes(x=lag_200/60)) +
-  geom_freqpoly(aes(col=switch_idx), binwidth=3, show.legend=FALSE) +
+  geom_freqpoly(col=qual_cols[2], binwidth=3, show.legend=FALSE) +
   labs(x=lac_lags_label) +
   coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
   NULL
@@ -213,6 +213,234 @@ NB: since the concentration at which cells start to sense the low glucose / lact
 ```
 
 
+### Effect of LacZ-GFP fluorescence at the switch
+
+```{r}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  ggplot(aes(gfp_ini, ..density..)) + 
+  facet_grid(date~.) +
+  geom_freqpoly(aes(col=type), binwidth=10) +
+  NULL
+  
+```
+
+```{r eval=FALSE}
+myframes %>% ungroup %>% 
+  filter(condition=='mg1655', length_um) %>% 
+  ggplot(aes(length_um, gfp_nb)) + 
+  geom_density2d() +
+  geom_point(size=0.2, alpha=.1, stroke=0) +
+  coord_cartesian(xlim=c(1, 4), ylim=c(-100, 150)) +
+  NULL
+
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  ggplot(aes(length_ini, gfp_ini)) + 
+  facet_grid(date~.) +
+  # geom_density2d() +
+  geom_point(size=1, alpha=.4, stroke=0) +
+  NULL
+```
+
+
+```{r}
+(myplots[['lags_gfp_scatter']] <- mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  group_by(date) %>%
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  ggplot(aes(gfp_ini, lag_200/60)) + 
+  geom_hline(yintercept = 50, lty='dashed') +
+  geom_point(aes(col=type), size=1, alpha=.2, stroke=0) +
+  stat_smooth(method=MASS::rlm, col='black', fullrange = TRUE) +
+  labs(x='fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)', y=lac_lags_label) +
+  guides(col=guide_legend(override.aes = list(size=2, alpha=1))) +
+  coord_cartesian(xlim=c(-60, 120)) +
+  NULL)
+
+```
+
+
+```{r}
+(myplots[['lags_gfp_diff_cdf']] <- mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  select(date, type, gfp_ini) %>% 
+  bind_rows(myframes %>% ungroup %>% 
+              filter(condition=='mg1655') %>%
+              filter(!discard_start, !discard_top) %>% 
+              filter(between(length_um, 2, 3.5)) %>% 
+              select(date, gfp_ini=gfp_nb) %>% mutate(type='control'), .) %>% 
+  group_by(date) %>% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  ggplot(aes(gfp_ini, col=type)) + 
+  # facet_grid(date~.) +
+  stat_ecdf() +
+  # geom_freqpoly(aes(y=..density..), binwidth=10) +
+  scale_color_manual(name='type of lac\ninduction lag', breaks=c('control', 'long', 'short'), values=c('gray50', qual_cols[1], qual_cols[2])) +
+  labs(x='fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)', y='cumulative probability') +
+  coord_cartesian(xlim=c(-60, 120)) +
+  NULL)
+  
+```
+
+```{r eval=FALSE}
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  group_by(date) %>% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  ungroup %>% 
+  summarise(n=n(), mean=mean(gfp_ini), sd=sd(gfp_ini))
+
+myframes %>% ungroup %>% 
+  filter(condition=='mg1655') %>%
+  filter(!discard_start, !discard_top) %>% 
+  filter(between(length_um, 2, 3.5)) %>% 
+  summarise(n=n(), mean=mean(gfp_nb), sd=sd(gfp_nb))
+
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  group_by(date) %>% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  # with(t.test(gfp_ini[type=='short'], gfp_ini[type=='long'], var.equal=TRUE))
+  group_by(date, type) %>% summarise(n=n()) %>%
+  spread(type, n)
+
+```
+
+
+```{r eval=FALSE}
+# compare distributions for several traits
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>%
+  left_join(myframes_switching %>% ungroup %>%  #filter(ugen %in% unique(ugen)[1:5]) %>% 
+              filter(time_sec<t_lac_switch) %>% 
+              # ggplot() + geom_line(aes(time_sec-t_lac_switch, length_um, lty=type, col=ugen)) +
+              # scale_colour_periodic_brewer(guide='none')
+              group_by(ugen) %>% 
+              filter(time_sec==min(time_sec), time_sec>0) %>% 
+              select(ugen, length_um_birth=length_um) ) %>% 
+  mutate(cc=(t_lac_switch-time_birth) / 
+           # average growth rate in glucose
+           mycells_constant %>% filter(condition=='glucose') %>% 
+           mutate(dt=time_div-time_birth) %>% pull(dt) %>% mean,
+         dl=length_ini - length_um_birth) %>% 
+  select(date, type, gfp_ini, growth_rate=logl_time_slope_before, cc, dl) %>% 
+  bind_rows(myframes %>% ungroup %>%
+              filter(condition=='mg1655') %>%
+              filter(!discard_start, !discard_top) %>%
+              filter(between(length_um, 2, 3.5)) %>%
+              select(date, gfp_ini=gfp_nb) %>% mutate(type='control'), .) %>%
+  bind_rows(mycells_constant %>% ungroup %>%
+              filter(condition=='glucose') %>%
+              select(date, growth_rate=logl_time_slope) %>% mutate(type='control'), .) %>%
+  group_by(date) %>% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  gather(variable, value, -date, -type) %>% 
+  group_by(date, variable) %>% 
+  filter(between(value, quantile(value, 0.01, na.rm=TRUE), quantile(value, 0.99, na.rm=TRUE))) %>% 
+  ggplot(aes(value, col=type)) + 
+  facet_wrap(~variable, ncol = 1, scales='free_x') +
+  # facet_grid(date~variable, scales='free_x') +
+  stat_ecdf() +
+  # geom_freqpoly(aes(y=..density..), binwidth=10) +
+  scale_color_manual(name='type of lac\ninduction lag', breaks=c('control', 'long', 'short'), values=c('gray50', qual_cols[1], qual_cols[2])) +
+  labs(y='cumulative probability') +
+  # coord_cartesian(xlim=c(-60, 120)) +
+  NULL
+
+```
+
+
+
+### Heritability of induction lag in naive cells
+
+Heritability of the lag at the first switch:
+
+```{r compute cells pairs}
+mypairs_switching <- mycells_switching %>%
+  group_by(condition, date, pos, gl, switch_idx) %>%
+  filter(n() > 1) %>%
+  do((function(.df) {
+    # browser()
+    return( combn(.df$genealogy, 2, simplify=FALSE) %>%
+      lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>%
+      do.call(rbind, .) )
+  })(.)) %>%
+  # rbind one df per variable type
+  mutate(foo=1) %>% left_join(data.frame(foo=1, variable=c('growth_lag', 'gfp_lag', 'lag_200'))) %>% select(-foo) %>%
+  # join variables of interest
+  mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>%
+  left_join(mycells_switching %>% ungroup %>%
+              gather(variable, value, growth_lag, gfp_lag, lag_200) %>%
+              setNames(., paste(names(.), "1", sep="_")) %>%
+              rename(date=date_1, pos=pos_1, gl=gl_1, switch_idx=switch_idx_1, variable=variable_1) ) %>%
+  left_join(mycells_switching %>% ungroup %>%
+              gather(variable, value, growth_lag, gfp_lag, lag_200) %>%
+              setNames(., paste(names(.), "2", sep="_")) %>%
+              rename(date=date_2, pos=pos_2, gl=gl_2, switch_idx=switch_idx_2, variable=variable_2) )
+
+```
+
+```{r}
+mypairs_switching %>%
+  # group_by(rel, div_1, div_2) %>% summarise(n())
+  ungroup() %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$') ) %>%
+  filter(switch_idx==1) %>%
+  filter(rel!='niece') %>%
+  filter(variable=='lag_200') %>%
+  filter(!is.na(value_1), !is.na(value_2)) %>%
+  select(rel, value_1, value_2) %>% 
+  # append pairs of independent lags
+  bind_rows(
+    # extract lag values
+    mycells_switching %>% ungroup %>% 
+      filter(!date %in% discarded_dates) %>%
+      filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+      filter(switch_idx==1, !is.na(lag_200)) %>% 
+      pull(lag_200) %>% 
+      # draw random pairs
+      (function(.l)
+        tibble(rel='indep', #variable='lag_200', 
+               value_1=quantile(.l, runif(length(.l))), 
+               value_2=quantile(.l, runif(length(.l))) )
+      ) ) %>% 
+  mutate(type_1=ifelse(value_1 < 50*60, 's', 'l'),
+         type_2=ifelse(value_2 < 50*60, 's', 'l'),
+         type=paste0(type_1, type_2), type=ifelse(type=='ls', 'sl', type) ) %>%
+  mutate(rel=fct_relevel(rel, 'indep', 'sisters')) %>% 
+  group_by(rel, type) %>% summarise(n=n()) %>%
+  group_by(rel) %>% mutate(p=n/sum(n)) %>%
+  ggplot(aes(rel, type)) +
+  geom_point(aes(size=p)) +
+    # geom_tile(aes(fill=p)) +
+    # scale_fill_viridis_c() +
+    # scale_fill_viridis_c(limits=c(0, 1)) +
+    NULL
+
+```
+
 
 ## Memory of lag between switches
 
@@ -291,7 +519,7 @@ This is also true when looking only at bottom cells (which are present at both s
    ggplot() +
    facet_wrap(~condition+date, labeller=as_labeller(rename_conds), strip.position='right') +
    geom_abline(lty='dotted', alpha=.5) +
-   geom_point(aes(lag_1/60, lag_2/60), alpha=.5) +
+   geom_point(aes(lag_1/60, lag_2/60), alpha=.5, stroke=0) +
    scale_x_continuous(breaks=seq(0, 1000, by=100)) +
    scale_y_continuous(breaks=seq(0, 1000, by=100)) +
    expand_limits(x=0, y=0) +
@@ -319,7 +547,7 @@ This is also true when looking only at bottom cells (which are present at both s
    ggplot(aes(mean_lag_1/60, mean_lag_2/60)) +
    facet_wrap(~condition+date, labeller=as_labeller(rename_conds), strip.position='right') +
    # facet_grid(condition~variable, labeller=as_labeller(rename_conds)) +
-   geom_abline(lty='dotted', alpha=.5) +
+   geom_abline(lty='dotted', alpha=.5, stroke=0) +
    geom_point(alpha=.4) +
    scale_x_continuous(breaks=seq(0, 1000, by=100)) +
    labs(x='average lag at first switch (min)', y='average lag at second switch (min)') +
@@ -387,13 +615,12 @@ First, let's look at the distribution of induction lags at the second switch. Th
                          labels=c(sprintf('%dh', seq(4, 24, 4)), 'control', 'control (late)'),
                          values=c(scales::viridis_pal()(6), 'gray40', 'gray70') ) +
       coord_cartesian(xlim=c(-10, 240), ylim=c(-.01, 1.01), expand=FALSE) +
-      labs(x=lac_lags_label,  y='reverse cumul.\nprobability') +
+      labs(x=lac_lags_label,  y='reverse cumulative\nprobability') +
       guides(col=guide_legend(ncol=2)) +
+      theme_cowplot_legend_inset() +  
       theme(axis.line.x=element_line(), axis.line.y=element_line(),
             strip.background=element_rect(fill='gray95', colour='transparent'), 
             legend.position = c(1, 1), legend.justification = c(1,1),
-            legend.title=element_text(size=rel(0.7), face='bold'),
-            legend.text=element_text(size=rel(0.7)),
             legend.margin=margin()
             # legend.key.height=unit(0.7, "lines")
       ) +
@@ -487,7 +714,7 @@ mycells_switching_memory %>%
       scale_size_continuous(range=c(0.02, 0.2)) +
       scale_x_log10() +
       coord_cartesian(xlim=c(0.1, 1.8e3), ylim=c(0, 110)) +
-      labs(x='inherited GFP (molecules)', y=lac_lags_label) +
+      labs(x='inherited LacZ-GFP (molecules)', y=lac_lags_label) +
       NULL
    ))
 
@@ -535,10 +762,9 @@ Importantly, as long as a cell inherits more than a few molecules from the first
       expand_limits(y=0) +
       labs(x='inherited LacZ-GFP (molecules)', y='fraction of short lags', size='sample size') +
       guides(size=guide_legend(direction='horizontal')) +
+      theme_cowplot_legend_inset() +
       theme(legend.position=c(0, 0), legend.justification=c(-0.1, -0.5), #'top', 
       legend.margin=margin(),
-      legend.title=element_text(size=rel(0.7), face='bold'),
-      legend.text=element_text(size=rel(0.7)),
       ) +
       # theme(legend.position=c(0.99, 0.99), legend.justification=c(1, 1)) +
       NULL
