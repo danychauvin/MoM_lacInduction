@@ -61,9 +61,9 @@ All experiments were carried out at 37ºC. xxx melibiose transporter.
 # Microfluidic device fabrication
 The Dual Input Mother Machine (DIMM) microfluidic design used in this study has been described elsewhere [@kaiser2018monitoring] and is freely available online [@dimm]: in brief it combines comb-like structures enabling to grow bacteria in steady state conditions over long times with a special type of junction allowing fast and accurate mixing of two input media. Several microfluidics masters were produced using soft lithography technics by micro-resist Gmbh; one master with regular growth channels of suitable size (0.7 µm width × 0.9 µm height) was used for all experiments.
 
-For each experiment, a new chip was produced by pouring PDMS (Sylgard 184 with 1:9w/w ratio of curing agent) on the master and baking it for 4 h or more at 80ºC. After cutting the chip and punching inlets, the chip was bonded to a #1.5 glass coverslip as follows: the coverlsip was sonicated 3 to 5 min in acetone, rinsed in water then isopropanol; the chip cleaned from dust using MagicTape, rinsed in isopropanol then water; surfaces were activated with air plasma (40 sec at 1500 µm of Hg) before being put in contact; the assembled chip was cooked 1 h or more at 80ºC.
+For each experiment, a new chip was produced by pouring PDMS (Sylgard 184 with 1:9w/w ratio of curing agent) on the master and baking it for 4 h or more at 80ºC. After cutting the chip and punching inlets, the chip was bonded to a #1.5 glass coverslip as follows: the coverlsip was sonicated 3 to 5 min in acetone, rinsed in isopropanol then water; the chip cleaned from dust using MagicTape, rinsed in isopropanol then water; surfaces were activated with air plasma (40 sec at 1500 µm of Hg) before being put in contact; the assembled chip was cooked 1 h or more at 80ºC.
 
-Before running the experiment, the chip was primed with passivation buffer (2.5 mg/mL salmon sperm DNA, 7.5 mg/mL bovine serum albumin) for the mother machine part and with water for the part with overflow channels, and incubated 1 h at 37ºC.
+Before running the experiment, the chip was primed and incubated 1 h at 37ºC using passivation buffer (2.5 mg/mL salmon sperm DNA, 7.5 mg/mL bovine serum albumin) for the mother machine part and water for the overflow channels.
 
 # Experiment setup and conditions
 Bacteria were streaked onto LB agar plates from frozen glycerol stocks thawed from −80ºC. Overnight precultures were grown from single colonies in M9 minimal medium supplemented with the same sugar that the cells were to experience in the initial condition of the experiment. The next day, cells were diluted 100-fold into fresh medium with the same sugar and harvested after 4–6 h. 
@@ -112,7 +112,7 @@ xxx proba not accouting for exiting cells
 
 To compare the initial LacZ-GFP level between cells with short and long lags, we used the same average over the 3 time points after the switch. As a control, we measured the autofluorescence of wild-type cells (grey line in the lower panel) and noticed that the variability of the fluorescence is the same in uninduced cells, which indicates that it is dominated by autofluorescence. Hence we corrected day-to-day variations in the background fluorescence by substracting the average fluorescence in each experiment. 
 
-In order to analyse transcriptional memory, we would like to know the number of LacZ-GFP molecules in each bacteria at the onset of the switch to lactose. However, the combination of limited sensitivity (on the order of dozens of GFP molecules per cell) and spontaneous autofluorescence (of similar magnitude), prevents us from accurately measuring levels lower than xxx 100 molecules; in addition, repeated illumination induces bleaching so that not all GFP molecules are fluorescent (which has been quantified to ≈20% per cell cycle; [@kaiser2018monitoring]). However, at the second switch, the number of LacZ-GFP inherited from the ancestors' induction during the first exposure can be computed as follows: the lineage is traced backed is time and both $L_m$, the maximum LacZ-GFP level during the first exposure, as well as $n_d$, the number of divisions since this time, are recorded; the number of inherited molecules follows as $L_m / 2^{n_d}$. Note that this formula assumes no degradation (which is reasonable since the longest delay is 24 h) and even partitioning at every division, and that this constitutes a lower bound for the number of LacZ-GFP molecules in the cell since stochastic expression may have happened during the delay period.
+In order to analyse transcriptional memory, we would like to know the number of LacZ-GFP molecules in each bacteria at the onset of the switch to lactose. However, the combination of limited sensitivity (on the order of dozens of GFP molecules per cell) and spontaneous autofluorescence (of similar magnitude), prevents us from accurately measuring levels lower than xxx 100 molecules; in addition, repeated illumination induces bleaching so that not all GFP molecules are fluorescent (which has been quantified to ≈20% per cell cycle; [@kaiser2018monitoring]). However, at the second switch, the number of LacZ-GFP inherited from the ancestors' induction during the first exposure can be computed as follows: the lineage is traced backed is time and both $L_m$, the maximum LacZ-GFP level during the first exposure, as well as $n_d$, the number of divisions since this time, are recorded; the number of inherited molecules follows as $L_m / 2^{n_d}$. Note that this formula assumes no degradation (which is reasonable since the longest delay is 24 h) and even partitioning at every division, and that this constitutes a lower bound for the number of LacZ-GFP molecules in the cell since neither bleaching nor stochastic expression happening during the delay period are accounted for.
 
 # Estimation of growth lags
 
@@ -174,12 +174,14 @@ myplots[['gr_length_medians']]
 <!-- ``` -->
 
 
-(ref:naive-lags-per-expt-caption) Distribution of induction lags for the *lac* operon in naive cells, stratified per day. The first panel shows all days overlaid which highlights that despite the varibility between replicates, the bimodality of *lac* induction lags distributions is a robust feature.
+(ref:naive-lags-per-expt-caption) Distribution of induction lags for the *lac* operon in naive cells, stratified per day. The first panel shows all days overlaid which highlights that despite the variability between replicates, the bimodality of *lac* induction lags distributions is a robust feature.
 
 ```{r naive-lags-per-expt, fig.height=6*14/9, fig.cap="(ref:naive-lags-per-expt-caption)"}
 myplots[['naive_lags_per_expt']]
 ```
 
+
+xxx fig vs position in GL
 
 (ref:lags-hist-ramp-caption) Distribution of induction lags for the *lac* operon in naive cells exposed to a gradual transition from 0.2% glucose to 0.2% lactose over 40 min (2 independent replicates). It is remarkable that this distribution is still bimodal since it indicates that all cells detect a very similar (although unknown) critical concentration of glucose and/or lactose. For each replicate the distribution of lags is offset by the delay that best overlays it to the control one (since the critical concentration at which the switch is detected is unknown). xxx explain more + xxx try to detect growth arrest
 
@@ -230,17 +232,17 @@ myplots[['basal_perturb_gfp']]
 <!-- ``` -->
 
 
-(ref:lag-memory-caption) *lac* induction lag at the second exposure to lactose as a function of the ancestor's lag at the first exposure. Dotted lines show $y=x$ as an eyeguide.
-
-```{r lag-memory, fig.height=4*14/9, fig.cap="(ref:lag-memory-caption)"}
-myplots[['lag_memory']]
-```
-
-
 (ref:memory-cdfs-facets-caption) Reverse cumulative distributions of *lac* induction lags at the first and second exposure to lactose. Each line correspond to an independent experiment; colours indicate the delay between the two lactose exposures. At the first switch, all experiments correspond to the same condition (the variability corresponds to measurement noise and biological variability between experiments; data shown as histograms on Fig \@ref(fig:naive-lags-per-expt)) and a negative control where cells are first exposed to lactose after 26 h in the microfluidics chip is shown in light gray.
 
 ```{r memory-cdfs-facets, fig.height=4*14/9, fig.cap="(ref:memory-cdfs-facets-caption)"}
 myplots[['memory_cdfs_facets']]
+```
+
+
+(ref:lag-memory-caption) *lac* induction lag at the second exposure to lactose as a function of the ancestor's lag at the first exposure. Dotted lines show $y=x$ as an eyeguide.
+
+```{r lag-memory, fig.height=4*14/9, fig.cap="(ref:lag-memory-caption)"}
+myplots[['lag_memory']]
 ```
 
 
@@ -296,7 +298,7 @@ plot_grid(
 
 (ref:lacl-gr-lacz-caption) xxx.
 
-```{r lacl-gr-lacz-tmg, fig.cap="(ref:lacl-gr-lacz-caption)"}
+```{r lacl-gr-lacz, fig.cap="(ref:lacl-gr-lacz-caption)"}
 myplots[['lacl_gr_lacz']]
 ```
 

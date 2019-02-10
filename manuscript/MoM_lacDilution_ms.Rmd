@@ -48,14 +48,18 @@ punchline: coupling of growth rate and sensitivity gives very nice properties fo
 
 # Intro 
 
-- We are interested in understanding how seemingly coordinated population responses in gene regulation can emerge from individual regulatory responses of single cells, given the small number of molecules involved and the inherent stochasticity at the single-cell level. 
-In addition, there is considerable work addressing how fluctuations of the physiological state affects gene expression at steady state. We also want to understand how these fluctuations affect gene regulation when the environment is changing.
+<!-- - We are interested in understanding how seemingly coordinated population responses in gene regulation can emerge from individual regulatory responses of single cells, given the small number of molecules involved and the inherent stochasticity at the single-cell level.  -->
+<!-- In addition, there is considerable work addressing how fluctuations of the physiological state affects gene expression at steady state. We also want to understand how these fluctuations affect gene regulation when the environment is changing. -->
+
+<!--
+- cells adapt to envtal conditions by sensing cues and adapting their gene expression. gene regulation responses can be tuned by natural selection (basal expression, critical conc, fold change, cooperativity). pb: the optimal response to a given cue might depend on the conditions. This can be implemented by cross-regulation (i.e. combinatorial regul) but xxx (accumulate layers / not evolvable / ???). We wonder whether global effects could be also involved.
+
+- Examine this question using a well characterised regulatory system: lac operon.
 
 - description lac operon (gene circuit with positive feedback)
-puzzle: how to trigger the positive feedback? comes from leaky expression. [@novick1957enzyme] proposed that one transporter is enough but this has been proven wrong by single molecule studies: 300 LacY molecules are required to induce cells growing on succinate with xxµM TMG. 
+puzzle: how to trigger the positive feedback? comes from leaky expression. [@novick1957enzyme] proposed that one transporter is enough but this has been proven wrong by single molecule studies: 300 LacY molecules are required to induce cells growing on succinate with xxµM TMG. We study induction for a metabolic substrate, lactose, and recently obtained results that seem incompatible with this weak sensitivity.
 
 - Noticeably in all experiments done with artificial inducers, growth and induction are decoupled. 
-We want to study induction for a metabolic substrate: lactose
 
 - punchline: sensitivity to inducer has a strong positive dependence on growth rate (coupling between sensitivity and growth rate which naturally stems from dilution). 
 dependence of sensitivity on growth rate gives very nice properties for free: at fast growth, high conc of new nutrients required to turn on and vice versa (max sensitivity at growth arrest).
@@ -96,14 +100,18 @@ fraction short = f(inherited GFP): indicate that all cells inheriting 10 Lac pro
 We propose that dilution of inducer molecules inherent to cell growth modulates the threshold above which the positive feedback "switches on".
 
 3.a. all cells stop growing during the glc=>lac switch.
-3.b. effect of 20µM TMG with or without growth (e.g. prop induced vs prop growing)
-3.c. some modeling results (to come) supporting that dilution is critical in a large part of parameters space…
+3.b. some modeling results (to come) supporting that dilution is critical in a large part of parameters space…
+3.c. use lactulose to test this prediction
+lactulose alone is supporting growth: confounding effect => criteria for TMG specific induction.
 
-xxx missing: experiment to demonstrate that non-inducing cells aren't restarting in glycerol
+3.d 3.e. effect of 20µM TMG with or without growth (e.g. prop induced vs prop growing)
+
+cells grow slowly, some not at all, since we change not only the induction kinetics but also the induction steady state. induction in all cells at the cost of some inducing in lactulose.
 
 growth arrest allows highest "sensitivity"
 
 S3. induction without inducer exclusion (in particular expression in glc + lac) => it can't be dilution only
+
 
 # Discussion
 
@@ -150,19 +158,19 @@ knitr::opts_chunk$set(echo = FALSE)
 
 # Introduction
 
-Unicellulars organisms as well as cells in tissues adapt their growth and gene expression to the current conditions based on environmental cues. Given that gene expression and gene regulation involve small numbers of molecules and are hence inherently stochastic at the single-cell level [@xxx], it is not understood how seemingly coordinated population responses in gene regulation can emerge from individual regulatory responses of single cells. Moreover, while numerous studies addressed how fluctuations of the physiological state affects gene expression at steady state [@kiviet2014stochasticity;@weisse2015mechanistic], how these fluctuations affect gene regulation when the environment is changing remains to be clarified.
+Unicellulars organisms as well as cells in tissues respond to environmental cues by adapting their growth and gene expression. Given that gene expression and gene regulation involve small numbers of molecules and are hence inherently stochastic at the single-cell level [@xxx], it is not understood how seemingly coordinated population responses in gene regulation can emerge from individual regulatory responses of single cells. Moreover, while numerous studies addressed how fluctuations of the physiological state affects gene expression at steady state [@kiviet2014stochasticity;@weisse2015mechanistic], how these fluctuations affect gene regulation when the environment is changing remains to be clarified.
 
-In order to study regulatory responses and growth in single cells, we focus on a simple, well characterised genetic circuit, the *lac* operon of *Escherichia coli*. It consists in three genes <!-- under the control of a promoter  --> regulated by a dedicated transcription factor, LacI, and by a central transcription factor of metabolism, CRP. LacI binds to the promoter and represses its expression hence controlling the frequency of transcriptionnal bursts [@xxx], while CRP acts as an activator which increases the size of the bursts [@xxx]. When lactose is present, LacI is inhibited by intracellular allolactose, which is produced by the joint activity of two *lac* operon proteins: the permease LacY imports lactose inside the cells where the galactosidase LacZ hydrolyses it to glucose and galactose and catalyses the synthesis of allolactose, a lactose isomer. Alltogether, the action of LacY, LacZ and LacI features a positive feedback architecture, so that cells tend to be in one of two expression states: repressed or fully induced [@ozbudak2004multistability].
+In order to study regulatory responses in single cells, we focus on the induction of a simple, well characterised genetic circuit, the *lac* operon of *Escherichia coli*. It consists in three genes <!-- under the control of a promoter  --> regulated by a dedicated transcription factor, LacI, and by a central transcription factor of metabolism, CRP. LacI binds to the promoter and represses its expression by reducing the frequency of transcriptionnal bursts [@xxx], while CRP acts as an activator which increases the size of the bursts [@xxx]. When lactose is present, LacI is inhibited by intracellular allolactose, which is produced by the joint activity of two *lac* operon proteins: the permease LacY imports lactose inside the cells where the galactosidase LacZ hydrolyses it to glucose and galactose and also isomerizes lactose into allolactose. Alltogether, the action of LacY, LacZ and LacI features a positive feedback architecture, so that cells tend to be in one of two expression states: repressed or fully induced [@ozbudak2004multistability].
 
-Since lactose cannot enter *E. coli* cells without permease [@xxx] and must be converted to allolactose in order to inhibit LacI repression [@xxx], how repressed cells sense lactose in the first place has been a long-standing puzzle. It has been proposed early on that as few as one permease produced from the stochastic expression of the operon in its repressed state would be enough to trigger the positive feedback [@novick1957enzyme]. However, single molecule studies have recently brought a different picture with a sensitivity threshold as high as 300 molecules [@choi2008stochastic]. <!-- required to induce bacteria growing on succinate with xxµM TMG. -->
+Since lactose cannot enter *E. coli* cells without permease [@xxx] and must be converted to allolactose in order to inhibit LacI repression [@xxx], how repressed cells sense lactose in the first place and induce their *lac* operon has been a long-standing puzzle. It has been proposed early on that as few as one permease produced from the stochastic expression of the operon in its repressed state would be enough to trigger the positive feedback [@novick1957enzyme]. However, single molecule studies have recently brought a different picture with a sensitivity threshold as high as 300 LacY molecules [@choi2008stochastic]. <!-- required to induce bacteria growing on succinate with xxµM TMG. -->
 Noticeably experiments have been done so far using gratuitous inducers, allolactose analogs that inhibit LacI but are not degraded by *lac* operon proteins nor being used for growth; as a consequence, the induction dynamics have been characterised in a steady state of growth.
 
-Here we study the *lac* operon induction in single cells, when nutrients are switched from glucose to lactose, so that lactose acts not only as an inducer but also as the main nutrient which is more akin to what happens e.g. in diauxie experiments. From the distribution of *lac* induction lags at the first exposure to lactose, we uncover that naive cells pre-exist in two distinct phenotypic states. Moreover the analysis of transcriptional memory at the second exposure reveals a very low sensitivity threshold for the induction of the *lac* operon, on the order of one Lac protein. A comparison with the case of gratuitous inducers reveals that the sensitivity to inducers has a strong negative dependence on growth rate which naturally stems from dilution by growth. This xxx coupling between growth rate and inducers' sensitivity appear to be a key ingredient of gene regulation dynamics in general that has been overlooked so far. It is remarkable that important properties directly follow from this xxx coupling: when cells arrest growth after exhausting their current resources, they become maximally sensitive to new inducers from their environment; conversely when cells grow fast (which indicates favorable conditions), high concentrations of inducers (e.g. new nutrients) are required to turn on an additional genetic circuit.
-
+Here we study the *lac* operon induction in single cells when nutrients are switched from glucose to lactose, so that lactose acts not only as an inducer but also as the main nutrient which is more akin to what happens e.g. in diauxie experiments. From the distribution of *lac* induction lags at the first exposure to lactose, we uncover that naive cells pre-exist in two distinct phenotypic states characterized by fast- and slow induction respectively. Moreover the analysis of transcriptional memory at the second exposure reveals a very low sensitivity threshold for the induction of the *lac* operon by lactose, on the order of one Lac protein. A comparison with the case of gratuitous inducers reveals that the sensitivity to inducers has a strong negative dependence on growth rate which naturally stems from dilution by growth. This dependence of sensitivity on growth rate  appear to be a key ingredient of gene regulation dynamics in general that has been overlooked so far. 
+<!-- It is remarkable that important properties directly follow from this dependence: when cells arrest growth after exhausting their current resources, they become maximally sensitive to new inducers from their environment; conversely when cells grow fast (which indicates favorable conditions), high concentrations of inducers (e.g. new nutrients) are required to turn on an additional genetic circuit. -->
 
 # Results
 
-We monitor growth and gene expression in single cells exposed to controlled environmental changes using microfluidics and time-lapse microscopy: *E. coli* cells expressing a LacZ-GFPmut2 fusion from their native *lac* operon locus are grown in lines in Dual Input Mother Machine chips [@kaiser2018monitoring]. In order to study the induction of the *lac* operon in naive cells as well as its transcriptional memory, bacteria are first exposed to glucose during 4 h after what they are switched to two consecutive 4 h episodes of lactose separated by a variable duration in glucose (from 4 h to 24 h; Table \@ref(tab:expts-list)). Using high throughput image analysis, cell length and number of LacZ-GFP molecules is measured every 3 minutes in individual cells (Fig. 1A), from which growth lags and *lac* operon induction lags upon exposure to lactose can be inferred in each cell.
+We monitor growth and gene expression in single cells exposed to controlled environmental changes using microfluidics and time-lapse microscopy: *E. coli* cells expressing a LacZ-GFPmut2 fusion from their native *lac* operon locus are grown in lines in Dual Input Mother Machine chips [@kaiser2018monitoring]. In order to study the induction and the memory of the *lac* operon, bacteria are first exposed to glucose during 4 h after what they are switched to two consecutive 4 h episodes of lactose separated by a variable duration in glucose (from 4 h to 24 h; Table \@ref(tab:expts-list)). Using high throughput image analysis, cell length and number of LacZ-GFP molecules is measured every 3 minutes in individual cells (Fig. 1A), from which growth lags and *lac* operon induction lags upon exposure to lactose can be inferred in each cell.
 
 
 (ref:fig1-caption) The induction dynamics of the native *lac* operon are driven by the level of preexisting Lac proteins.
@@ -176,16 +184,19 @@ knitr::include_graphics(here('plots', 'MoM_lacDilution_fig1.pdf'))
 ```
 
 When naive bacteria are exposed to lactose for the first time, they all transiently stop growing and the distribution of *lac* induction lags displays two clear modes (Fig. 1B; Fig \@ref(fig:naive-lags-per-expt)): 30% induce their *lac* operon in less than 50 min (34 ± 7 min) while the other 70% take between 50 min and 3 h (89 ± 33 min xxx not so great for an asymetric distrib). Importantly, the occurence of these two subpopulations is not limited to abrupt environmental changes since it is also observed upon gradual switch from glucose to lactose over 40 min (Fig. \@ref(fig:lags-hist-ramp)). 
-This observation consolidates our previous report that two different phenotypic states preexist the exposure to lactose [@kaiser2018monitoring] and constrain what molecular mechanisms underlies the induction. In particular, given that lactose can only be sensed as an inducer by cells featuring Lac proteins, it is appealing to hypothesize that the cells with short induction lags have more pre-existing Lac proteins than cells with long lags. It is difficult to test this hypothesis directly since we cannot measure small numbers of LacZ-GFP proteins in a given cell: the level and variability of fluorescence between cells at the first switch to lactose (less than 100 equivalent GFP, S.D. = 26 equivalent GFP) are similar to those of autofluorescence (S.D. = 30 equivalent GFP) and no clear dependency of the induction lag to fluorescence is observed (Fig. \@ref(fig:xxx)). Nonetheless, comparing the distribution of fluorescence in the two types of cells revealed that cells with short lags have on average ≈5 LacZ-GFP molecules more than cells with long lags (p-value = 1e-5; Fig. \@ref(fig:xxx)).
+This observation consolidates our previous report that two different phenotypic states preexist the exposure to lactose [@kaiser2018monitoring]<!-- and constrain what molecular mechanisms underlies the induction-->. In particular, given that lactose can only be sensed as an inducer by cells featuring Lac proteins, it is appealing to hypothesize that fast-inducing cells have more pre-existing Lac proteins than slow-inducing cells; following this interpretation, observing two distinct modes rather than a broad unimodal distribution indicates the existence of a threshold of Lac proteins level above which cells become readily sensitive to lactose. 
 
-In order to challenge this molecular interpretation of the two pre-existing phenotypic states, we tested whether we could manipulate the proportion of fast-inducing cells by perturbing the spontaneous expression in the repressed state. A first way to achieve this perturbation is to modulate the activity of the main transcription factor of the *lac* operon, LacI (Fig. 1C): when LacI is overexpressed (approx. 5×) from a low copy number plasmid (which is expected to reduce the frequency of transcription bursts), virtually all naive cells have long lags; conversely, LacI activity can be reduced by supplementing minute amounts of inhibitor <!-- inverse agonist --> (5µM IPTG, less than required to switch the *lac* operon on; Fig \@ref(fig:basal-perturb-gfp)) which increases 2.4-fold <!-- 0.652/0.273 --> the fraction of short lags. Moreover, LacI overexpression can be compensated by IPTG supplementation, indicating that these perturbations are indeed counteracting each other.
+A direct test of this molecular interpretation of the two pre-existing phenotypic states would require precise measurement of LacZ-GFP proteins numbers in individual cells, which is not feasible in our system where fluorescence levels at first switch to lactose are similar to autofluorescence levels (less than 100 equivalent GFP, S.D. = 26 and 30 equivalent GFP molecules respectively). Accordingly, no clear dependency of the induction lag to fluorescence is observed (Fig. \@ref(fig:xxx)).
+Nonetheless, comparing the distributions of fluorescence in the two types of cells revealed that cells with short lags have on average ≈5 LacZ-GFP molecules more than cells with long lags (p-value = 1e-5; Fig. \@ref(fig:xxx)).
+
+In order to challenge this molecular interpretation of the two pre-existing phenotypic states, we tested whether we could manipulate the proportion of fast- and slow-inducing cells by perturbing the spontaneous expression in the repressed state and hence the pre-existing levels of Lac proteins. We first modulated the activity of the main transcription factor of the *lac* operon, LacI (Fig. 1C): when LacI is overexpressed (approx. 5×) from a low copy number plasmid (which is expected to reduce the frequency of transcription bursts), virtually all naive cells have long lags; conversely, LacI activity can be reduced by supplementing minute amounts of inhibitor <!-- inverse agonist --> (5µM IPTG, less than required to switch the *lac* operon on; Fig \@ref(fig:basal-perturb-gfp)) which increases 2.4-fold <!-- 0.652/0.273 --> the fraction of short lags. Moreover, LacI overexpression can be compensated by IPTG supplementation, indicating that these perturbations are indeed counteracting each other.
 
 <!-- Sx. IPTG pre vs pre&post -->
 <!-- NB: why do cell have short lags with IPTG after only?!?? -->
 
-Another way to perturb the spontaneous expression in the repressed state is to use different nutrients (Fig. 1D; Fig \@ref(fig:lags-hist-glyc-glcLac)). When glucose is replaced with glycerol, CRP becomes active [@bren2016glucose] which results in larger bursts of *lac* operon transcription [@xxx]; consistent with this, the fraction of naive cells inducing fast increases 2.1-fold <!-- 0.576/0.271 --> to 58%. Similarly, growing bacteria on a mixture of glucose and lactose increases this fraction 1.8-fold <!-- 0.482/0.271 --> to 48%. In this latter case, we hypothesize that stochastic bursts happening in the repressed state can be amplified by the presence of lactose (due to the positive feedback architecture of the *lac* operon) although the *lac* operon can't switch on because of the reduced import activity of LacY in presence of glucose [@gorke2008carbon].
+Another way to perturb the spontaneous expression in the repressed state is to use different nutrients (Fig. 1D; Fig \@ref(fig:lags-hist-glyc-glcLac)). When glucose is replaced with glycerol, CRP becomes active [@bren2016glucose] which results in larger bursts of *lac* operon transcription [@xxx]; consistent with this, the fraction of naive cells inducing fast increases 2.1-fold <!-- 0.576/0.271 --> to 58%. Similarly, growing bacteria on a mixture of glucose and lactose increases this fraction 1.8-fold <!-- 0.482/0.271 --> to 48%. In this latter case, we hypothesize that stochastic bursts happening in the repressed state can be amplified by the presence of lactose (due to the positive feedback architecture of the *lac* operon), effectively resulting in larger bursts; nonetheless the *lac* operon doesn't switch on as long as cells import glucose from the mixture because this reduces the import activity of LacY <!--in presence of glucose-->[@gorke2008carbon].
 
-All in all, these experiments where the repressed expression of the *lac* operon is modulated support our molecular interpretation of the two phenotypic states. 
+All in all, these experiments where the repressed expression of the *lac* operon is modulated support our molecular interpretation of the two phenotypic states and in particular the existence of a threshold of Lac proteins level below which cells are not readily sensitive to lactose as an inducer. 
 
 <!-- ??? add heritability of short / long phenotype (can be used / discussed without discussing communication) -->
 
@@ -199,16 +210,15 @@ B. Fraction of cells with lags shorter than 50 min (first mode) at the second e
 knitr::include_graphics(here('plots', 'MoM_lacDilution_fig2.pdf'))
 ```
 
-In order to understand the determinants of the *lac* operon induction, we also probed cells exposed to repeated lactose episodes.
-In contrast to the first exposure, the induction at the second exposure takes place much faster than in naive cells, even for suprinsingly long delays between the two lactose episodes: with 12 h delay, all bacteria still induce fast at the second switch while it takes ca. 20 h (corresponding to ca. 16 divisions) to relax to the distribution of induction lags observed in naive cells (Fig. 2A, Fig \@ref(fig:memory-cdfs-facets)). This constitutes a clear indication of transcriptionnal memory; as expected in this case, lags at the second switch are not correlated with the ancestors' lags at the first switch (Fig \@ref(fig:lag-memory)) but rather explained by the number of Lac proteins. transition xxx
-Since we cannot measure directly small numbers of LacZ-GFP proteins in a given cell (below 100), <!-- due to limited sensitivity, spontaneous autofluo and continuous GFP bleaching --> we estimate how many are inherited by each cell at the onset of the second lactose episode from the highest LacZ-GFP level measured in its ancestor divided by the dilution given the number of elapsed divisions (assuming no degradation and even partitioning; Fig. \@ref(fig:memory-elapsed-divs)). While the the relationship between the induction lag at the second switch and the inherited LacZ-GFP is rather noisy in single cells, the average lag increases monotonically with inherited LacZ-GFP (Fig. \@ref(fig:lags-inherited-gfp)). More strinkingly, the fraction of fast-inducing cells stratified by number of inherited Lac proteins reveals that virtually all cells inheriting at least 10 LacZ-GFP have short lags; at lower inheritance levels, the fraction of short lags decreases abruptly and relaxes to the fraction measured in naive cells for 1 LacZ-GFP or less (Fig. 2B). 
+In order to further characterize this sensitivity threshold, we also probed cells exposed to repeated lactose episodes.
+In contrast to the first exposure, the induction at the second exposure takes place much faster than in naive cells, even for suprinsingly long delays between the two lactose episodes: up to 12 h delay, all bacteria induce fast at the second switch while it takes ca. 20 h (corresponding to ca. 16 divisions) to relax to the distribution of induction lags observed in naive cells (Fig. 2A, Fig \@ref(fig:memory-cdfs-facets)). This constitutes a clear indication of transcriptionnal memory; as expected from our interpretation where the induction lag is set <!--explained--> by the number of Lac proteins present at the switch, lags at the second switch are not correlated with the ancestors' lags at the first switch (Fig \@ref(fig:lag-memory)) but rather explained by the number of Lac proteins inherited since the first lactose episode. Noticeably, this property of transcription memory allowed us to indirectly measure the number of Lac proteins and hence to circumvent the sensitivity issue of fluorescence measurements explained earlier. 
 
-While this analysis is expected to be noisy since it assumes even partitioning over several divisions and doesn't account for leaky expression between consecutive lactose episodes, it clearly indicates that the sensitivity threshold to switch on the positive feedback of the *lac* operon using lactose as an inducer is on the order of 1 protein. The fact that LacY and LacZ are active as dimers and tetramers respectively, or the 2-fold uncertainty on the conversion factor between fluorescence units and number of GFP molecules, highlights further that orders of magnitude are more relevant than precise numbers in this analysis.
+We estimate how many LacZ-GFP are inherited by each cell at the onset of the second lactose episode from the highest LacZ-GFP level measured in its ancestor divided by the dilution given the number of elapsed divisions (assuming no degradation and even partitioning; Fig. \@ref(fig:memory-elapsed-divs)). <!--While the the relationship between the induction lag at the second switch and the inherited LacZ-GFP is rather noisy in single cells, the average lag increases monotonically with inherited LacZ-GFP (Fig. \@ref(fig:lags-inherited-gfp)). --> Due to the limited accuracy of this prediction in individual cells (xxx SM; Fig. \@ref(fig:lags-inherited-gfp)), we focus on the fraction of fast-inducing cells stratified by number of inherited Lac proteins which strikingly reveals that virtually all cells inheriting at least 10 LacZ-GFP have short lags; at lower inheritance levels, the fraction of short lags decreases abruptly and relaxes to the fraction measured in naive cells for 1 LacZ-GFP or less (Fig. 2B). From this, we conclude that the threshold of sensitivity to lactose as an inducer is on the order of one protein.
 
 <!-- From these observations, we conclude that the two phenotypic states observed in naive cells are driven by the level of pre-existing Lac proteins produced by spontaneous expression of the *lac* operon in its repressed state, and that  -->
 
 <!-- support our molecular interpretation where bacteria's ability to respond fast when seeing lactose for the first time depends on the pre-existing number of Lac proteins -->
-Taking all results together, the following picture emerges: bacteria exposed to lactose for the first time are able to respond fast if they already have at least one of each Lac protein multimers, while they wait for the next stochastic burst of expression otherwise. A straightforward and testable prediction follows: the fraction of cells with long induction lags should match the fraction of cells with zero Lac protein in absence of inducer. Single-molecule experiments fully confirms this prediction with ≈65% of cells featuring no LacZ [@cai2006stochastic], and ≈50% no LacY [@choi2008stochastic]. However, we report a strinkingly lower sensitivity threshold than these single-molecule studies where only bacteria with 300 pre-existing LacY molecules or more induce their *lac* operon. Given the sensivity of our fluorescence assay (better than 100 molecules), we could rule out that this difference stemed from measurement errors and we had to scrutinize differences between experiments.
+Taking all results together, the following picture emerges: bacteria exposed to lactose for the first time are able to respond fast if they already have at least one of each Lac protein multimers, while they wait for the next stochastic burst of expression otherwise. A straightforward and testable prediction follows: the fraction of cells with long induction lags (≈70%) should match the fraction of cells with zero Lac protein in absence of inducer. Single-molecule experiments fully confirms this prediction with ≈65% of cells featuring no LacZ [@cai2006stochastic], and ≈50% no LacY [@choi2008stochastic]. However, we report a strinkingly lower sensitivity threshold than these single-molecule studies where only bacteria with 300 pre-existing LacY molecules or more induce their *lac* operon. Given the sensivity of our fluorescence assay (better than 100 molecules), we could rule out that this difference stemed from measurement errors and we had to scrutinize differences between experiments.
 
 
 <!-- ----- -->
@@ -216,29 +226,30 @@ Taking all results together, the following picture emerges: bacteria exposed to 
 (ref:fig3-caption) The sensitivity to inducer is inversily related to growth rate.
 A. Reverse cumulative distributions of growth lags in naive cells (computed on xxx cells from xx independent replicates); the plateau to the left indicates that 99% of the cells arrest 15 min or more when exposed to lactose for the first time. 
 B. Predictions of Lac proteins level as a function of inducer concentration at three different growth rates, from a simple model the *lac* operon expression; the sensitivity to the inducer decreases at higher growth rates.
-C. We compare the induction at a given concentration of TMG when cells grow on nutrients catabolised independently of *lac* expression or by the *lac* operon proteins. Note that lactulose requires Lac proteins to be catabolised but, contrary to lactose, it doesn't induce the *lac* operon.
-D. Representative growth channel after 7 h in 20 µM TMG for cells fed with glycerol (top) or lactulose (bottom).<!-- ; no LacZ-GFP expression is visible for cells fed with glycerol, while cells fed with lactulose have  -->
-E. Histograms of instantaneous growth rates (left) and LacZ-GFP concentration (right) at the switch to TMG (dotted line), and after 7 h exposure (solid line) for cells fed with glycerol (top) or lactulose (bottom); the combination of lactulose and TMG recapitulates the phenomenology of the switch to lactose where cells transiently arrest growth which triggers the *lac* operon positive feedback.
+C. We compare the induction at a given extracellular concentration of TMG when cells grow on nutrients catabolised independently of *lac* expression (glycerol) or by the *lac* operon proteins (lactulose). Note that lactulose requires Lac proteins to be catabolised but, contrary to lactose, it doesn't induce the *lac* operon.
+D. Representative growth channel after 7 h with 20 µM TMG for cells fed with glycerol (top) or lactulose (bottom).<!-- ; no LacZ-GFP expression is visible for cells fed with glycerol, while cells fed with lactulose have  -->
+E. Histograms of instantaneous growth rates (left) and LacZ-GFP concentration (right) at the switch to 20 µM TMG (dotted line), and after 7 h exposure (solid line) for cells fed with glycerol (top) or lactulose (bottom). While sustained growth prevents induction in glycerol, the combination of lactulose and TMG recapitulates the phenomenology of the switch to lactose where cells transiently arrest growth which triggers the *lac* operon positive feedback.
 
 
 ```{r fig3, out.width="100%", fig.cap='(ref:fig3-caption)'}
 knitr::include_graphics(here('plots', 'MoM_lacDilution_fig3.pdf'))
 ```
 
-In fact, since most previous studies of *lac* operon induction in single cells were based on artificial inducers [@choi2008stochastic;@robert2010pre-dispositions;@bhogale2014what], bacteria were growing continuously on a given nutrient (e.g. glycerol or succinate); in contrast we observe that when bacteria switch from glucose to lactose, they virtually all stop growing for at least 9 min (and 99% for more than 15 min; Fig. 3A). We hypothesized that dilution of inducer molecules inherent to cell growth modulates the sensitivity threshold above which the positive feedback switches on.
+In fact, since most previous studies of *lac* operon induction in single cells were based on artificial inducers [@choi2008stochastic;@robert2010pre-dispositions;@bhogale2014what], bacteria were growing continuously on a given nutrient (e.g. glycerol or succinate); in contrast we observe that when bacteria switch from glucose to lactose, they virtually all stop growing for at least 9 min (and 99% for more than 15 min; Fig. 3A). We hypothesized that dilution of intracellular inducer molecules inherent to cell growth modulates the sensitivity threshold above which the positive feedback switches on.
+
+To explore the dependence between growth rate and sensitivity to inducer, we modified a simple model of *lac* operon regulation [@ozbudak2004multistability] to take growth into account explicitely. At low inducer concentration, the steady state Lac proteins level is bistable and the critical concentration where the transition between low and high expression occurs increases with growth rate (Fig. 3B). In other words, the sensitivity to inducer is inversely related to growth rate, and is hence expected to increase when cells transiently arrest growth as observed at the switch to lactose.
+
+In order to demonstrate this dependence experimentally<!-- and to explain the difference betwen induction by lactose and by TMG-->, we compared the induction by a given concentration of artificial inducer TMG between cells growing steadily and cells stoping growth until they produce Lac proteins. This required to decouple induction from growth by using lactulose: contrary to lactose, lactulose requires Lac proteins to be catabolised but doesn’t induce the *lac* operon [@kiviet2014stochasticity]. We predicted that steady growth on glycerol and the corresponding dilution of intracellular TMG will keep the *lac* operon off; in contrast, cells are expected to arrest growth on lactulose which in turn should allow the *lac* operon induction thanks to the accumulation of intracellular TMG (Fig. 3C).
+
+We used TMG as artificial inducer since it enters the cells via the LacY permease and the sensitivity is hence set by the Lac proteins level, and identified 20µM as a relevant concentration, slightly below the lower threshold of *lac* operon bistability for bacteria growing on glycerol (Fig. \@ref(fig:xxx)). Since lactulose was found to be sufficient to support growth in a substantial fraction of cells and to sometimes also weakly induce the *lac* operon (Fig. \@ref(fig:lacl-gfp-gr-hists)), we modified the induction criteria to focus on cells whose induction could be unambiguously attributed to TMG. According to our predictions, upon exposure to 20 µM TMG, no induction is observed for cells growing on glycerol, while cells growing on lactulose first all stop growing ((Fig. \@ref(fig:growth-arrest-tmg))) and later express LacZ-GFP and resume growth in most cases (xx%; Fig. 3D; Fig. 3E), hence recapitulating the phenomenology of the induction by lactose. Noticeably the low concentration of extracellular TMG hindered the steady state of *lac* operon expression which is two to four folds lower than on 0.2% lactose (Fig. \@ref(fig:lacl-gfp-gr-hists)), and made Lac proteins limiting for growth <!--. Since Lac proteins are required for lactulose catabolism, and since the concentration of inducer was relatively low compared to nutrients, growth was limited by the availability of Lac proteins (-->as indicated by the strong correlation between instantaneous growth rate and LacZ-GFP level (Fig. \@ref(fig:lacl-gr-lacz)). 
 
 *to be continued...*
 
-<!-- if 300 we could measure it -->
+xxx explain why not all cells induce.
+<!-- cells grow slowly, some not at all, since we change not only the induction kinetics but also the induction steady state. induction in all cells at the cost of some inducing in lactulose. -->
 
-[@kiviet2014stochasticity]
+<!-- S3. induction without inducer exclusion (in particular expression in glc + lac) => it can't be dilution only -->
 
-3.b. effect of 20µM TMG with or without growth (e.g. prop induced vs prop growing)
-3.c. some modeling results (to come) supporting that dilution is critical in a large part of parameters space…
-
-xxx missing: experiment to demonstrate that non-inducing cells aren't restarting in glycerol
-
-growth arrest allows highest "sensitivity"
 
 
 # Discussion
@@ -269,13 +280,39 @@ growth arrest allows highest "sensitivity"
     + also check https://onlinelibrary.wiley.com/doi/abs/10.1002/jcp.1111
     http://clincancerres.aacrjournals.org/content/early/2016/08/19/1078-0432.CCR-15-2888
     
-    
     + in bacteria: positive feedback to start virulence in salmonella 
     http://science.sciencemag.org/content/314/5805/1607
+
+## Architecture of other positive feedback loops
+- lambda phage: cI cro
+
+- algU (antisigma)
+
+- comK (B. subtilis' competence)
+
+- spoA0 (B. subtilis' sporulation)
+
+- PhoP/PhoQ and other 2-components systems
+
+- yeast GAL ?
+
+- E. coli ara operon (cf Gerland)
+
+- cdc2 in Xenopus oocyte maturation
+irreversible induction by extracellular progesterone. 2 sub populations (uninduced / induced) observed at intermediate [progesterone]
+
+- cdc2-cyclin B
+
+- fibroblast proliferation
+a 3 components cycle forming PFL: they hypothesise a synthesis and degradation term for each + a conversion term form one to another. There is an input term which impacts one of the 3 compounds but they don't assume that it depends on any of the 3 species (cf SI).
+They seem to be mostly interested in the unltrasensitivity to the inducer doxycicline.
+
+
+## Misc
   
 - differences with @boulineau2013single-cell
 
-- bimodalitry of lag times in @choi2008stochastic
+- bimodality of lag times in @choi2008stochastic
 
 - why Novick and Wiener were wrong (indeed why??)
 
