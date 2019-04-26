@@ -20,7 +20,7 @@ mycells_switching %>% ungroup %>%
   mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
          lag=ifelse(is.na(lag), -1, lag)) %>% 
 ggplot(aes(x=cell_num, y=lag/60, col=factor(switch_idx))) +
-  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels), scales='free_y') +
+  facet_grid(condition~variable, scales='free_y') + #, labeller=as_labeller(switch_facets_labels)
   geom_point(alpha=.33, size=.5) +
   stat_smooth(method='lm', se=FALSE, show.legend=FALSE) +
   scale_x_reverse() + 
@@ -47,7 +47,7 @@ mycells_switching %>% ungroup %>%
   # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
   #        lag=ifelse(is.na(lag), -1, lag)) %>% 
   ggplot(aes(gl_exit_cdist, gl_exit_lag, col=factor(switch_idx))) +
-  facet_grid(condition~variable, labeller=as_labeller(switch_facets_labels), scales='free_y') +
+  facet_grid(condition~variable, scales='free_y') + #, labeller=as_labeller(switch_facets_labels)
   geom_point(alpha=0.25, size=.5, position='jitter') +
   stat_smooth(method='lm', se=FALSE, show.legend=FALSE, size=0.5) +
   scale_x_reverse() + scale_y_continuous(trans='log2', breaks=c(0.25, 0.5, 1, 2, 4)) +

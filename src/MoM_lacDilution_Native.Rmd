@@ -63,10 +63,11 @@ We are interested in the time taken by cells to induce the *lac* operon when exp
   # mutate(lag=ifelse(lag<240*60, lag, 245*60),
          # lag=ifelse(is.na(lag), -10, lag)) %>% 
   ggplot(aes(x=lag_200/60)) +
-  geom_freqpoly(col=qual_cols[2], binwidth=3, show.legend=FALSE) +
-  labs(x=lac_lags_label) +
-  coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
-  NULL
+   geom_density(stat='bin', fill=qual_cols[2], col='transparent', alpha=.2, binwidth=3) +
+   geom_freqpoly(col=qual_cols[2], binwidth=3, show.legend=FALSE) +
+   labs(x=lac_lags_label) +
+   coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+   NULL
 ) +
   labs(subtitle='naive cells (9 independent experiments)')
 
@@ -125,7 +126,7 @@ mycells_switching %>% ungroup() %>%
 Although the distributions vary from day to day, the bimodality is obserevd in all replicates (particularly visible in the panel with overlayed distributions).
 
 ```{r fig.height=10}
-(myplots[['naive_lags_per_expt']] <- 
+(myplots[['naive_lags_per_expt']] <- function(na.rm=TRUE)
   mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -134,22 +135,22 @@ Although the distributions vary from day to day, the bimodality is obserevd in a
   mutate(lag=lag_200,
          lag=ifelse(is.finite(lag) & lag>240*60, 240*60, lag), 
          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-         lag=ifelse(is.na(lag), -1, lag)) %>% 
+         lag=ifelse(!na.rm & is.na(lag), -1, lag)) %>% 
   # (function(.df) bind_rows(.df, .df %>% mutate(date=NA, condition='all')) ) %>% 
   (function(.df)
     ggplot(.df, aes(x=lag/60)) +
      facet_wrap(~condition+date, ncol=2, dir='v',
                 strip.position='right', labeller=as_labeller(rename_conds)) +
      # geom_freqpoly(aes(col=lag/60 > 236), binwidth=6, show.legend=FALSE) +
-     geom_freqpoly(binwidth=6, show.legend=FALSE) + 
-     geom_freqpoly(aes(col=factor(date_col)), binwidth=6, show.legend=FALSE,
+     geom_freqpoly(breaks=seq(0, 240, 6)-3, pad=TRUE, show.legend=FALSE) + 
+     geom_freqpoly(aes(col=factor(date_col)), breaks=seq(0, 240, 6)-3, pad=TRUE, show.legend=FALSE,
                    data=.df %>% mutate(date_col=date, date=NA, condition='all')) +
      labs(x=lac_lags_label) +
      coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
      scale_colour_periodic() +
      NULL
   )
- ) +
+ )(FALSE) +
   labs(subtitle='naive cells')
 
 ```
@@ -251,7 +252,8 @@ mycells_switching %>% ungroup %>%
 
 
 ```{r}
-(myplots[['lags_gfp_scatter']] <- mycells_switching %>% ungroup %>% 
+(myplots[['lags_gfp_scatter']] <- function(.fit=FALSE)
+  mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
   filter(switch_idx==1, !is.na(lag_200)) %>% 
@@ -261,11 +263,12 @@ mycells_switching %>% ungroup %>%
   ggplot(aes(gfp_ini, lag_200/60)) + 
   geom_hline(yintercept = 50, lty='dashed') +
   geom_point(aes(col=type), size=1, alpha=.2, stroke=0) +
-  stat_smooth(method=MASS::rlm, col='black', fullrange = TRUE) +
+  (if (.fit) stat_smooth(method=MASS::rlm, col='black', fullrange = TRUE)) +
   labs(x='fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)', y=lac_lags_label) +
   guides(col=guide_legend(override.aes = list(size=2, alpha=1))) +
   coord_cartesian(xlim=c(-60, 120)) +
-  NULL)
+  NULL
+ )()
 
 ```
 
@@ -371,6 +374,58 @@ mycells_switching %>% ungroup %>%
 
 ```
 
+```{r}
+(myplots[['naive_lags_correl']] <- mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>%
+  left_join(myframes_switching %>% ungroup %>%  #filter(ugen %in% unique(ugen)[1:5]) %>% 
+              filter(time_sec<t_lac_switch) %>% 
+              # ggplot() + geom_line(aes(time_sec-t_lac_switch, length_um, lty=type, col=ugen)) +
+              # scale_colour_periodic_brewer(guide='none')
+              group_by(ugen) %>% 
+              filter(time_sec==min(time_sec), time_sec>0) %>% 
+              select(ugen, length_um_birth=length_um) ) %>% 
+  mutate(cc=(t_lac_switch-time_birth) / 
+           # average growth rate in glucose
+           ( mycells_constant %>% filter(condition=='glucose') %>% 
+           mutate(dt=time_div-time_birth) %>% pull(dt) %>% mean ),
+         dl=length_ini - length_um_birth,
+         growth_rate=logl_time_slope_before/log(2)*3600) %>% 
+  select(date, lag_200, type, gfp_ini, growth_rate, cc, dl) %>% 
+  # group_by(date) %>% 
+  # mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  filter(cc < 1.5) %>% 
+  gather(variable, value, -date, -lag_200, -type) %>%
+  group_by(variable) %>% 
+  filter(between(value, quantile(value, 0.01, na.rm=TRUE), quantile(value, 0.99, na.rm=TRUE))) %>% 
+  (function(.df)
+    ggplot(.df, aes(value, lag_200/60)) + 
+     facet_wrap(~variable, nrow=1, scales='free_x', strip.position='bottom',
+                labeller=as_labeller(function(.str) {
+                  .str <- str_replace(.str, "cc", "cell cycle")
+                  .str <- str_replace(.str, "dl", "added length\n(µm)")
+                  .str <- str_replace(.str, "gfp_ini", "LacZ-GFP")
+                  .str <- str_replace(.str, "growth_rate", "growth rate\n(dbl/h)")
+                  return(.str)
+                })) +
+     geom_hline(yintercept = 50, lty='dashed') +
+     geom_point(aes(col=type), size=1, alpha=.2, stroke=0) +
+     # stat_smooth(method=MASS::rlm, col='black', fullrange = TRUE) + 
+     geom_text(aes(-Inf, 0, label=r2str), size=5, hjust=-0.1, vjust=0, parse=TRUE,
+               data=.df %>% filter(is.finite(lag_200)) %>% group_by(variable) %>% summarise(r2=cor(value, lag_200)^2) %>% mutate(r2str=sprintf("r^2 == '%.4f'", round(r2, digits=4)))) +
+     scale_x_continuous(breaks = scales::pretty_breaks(n = 3)) +
+     expand_limits(y=0) +
+     guides(col=guide_legend(override.aes = list(size=2, alpha=1))) +
+     labs(x='fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)', y=expression(paste(italic("lac"), " induction lag (min)")), col=expression(paste("type of ", italic("lac"), " induction lag (min)"))) +
+     theme(legend.position = 'top',
+           strip.placement='outside', strip.background.x=element_blank(), 
+           axis.title.x=element_blank(), strip.text.x=element_text(size=rel(1.2), vjust = 1)) +
+     NULL )
+)
+
+```
 
 
 ### Heritability of induction lag in naive cells
@@ -473,7 +528,8 @@ mypairs_memory <- mycells_switching %>%
     # filter(logl_time_slope_pre_1 > min_growth_rate, logl_time_slope_pre_2 > min_growth_rate) %>% 
     ggplot() +
     facet_wrap(~condition, strip.position='right', labeller=as_labeller(rename_conds)) +
-    geom_abline(lty='dotted', alpha=.5) +
+    # geom_abline(lty='dotted', alpha=.5) +
+    geom_hline(yintercept = 50, lty='dotted', alpha=.5) +
     geom_point(aes(lag_1/60, lag_2/60), alpha=.2, stroke=0) +
     expand_limits(x=0, y=0) +
     labs(x="ancestor's lag at first switch (min)", y="lag at second switch (min)") +
@@ -490,7 +546,8 @@ mypairs_memory <- mycells_switching %>%
     (function(.df)
       ggplot(.df) +
        facet_wrap(~condition, strip.position='right', labeller=as_labeller(rename_conds)) +
-       geom_abline(lty='dotted', alpha=.5) +
+       # geom_abline(lty='dotted', alpha=.5) +
+       geom_hline(yintercept = 50, lty='dotted', alpha=.5) +
        geom_point(aes(lag_1/60, lag_2/60, size=n)) +
        scale_size_continuous(range=c(1.2/max(.df$n), 1.2), breaks=c(2, 5, 8)) +
        expand_limits(x=0, y=0) +
@@ -518,7 +575,8 @@ This is also true when looking only at bottom cells (which are present at both s
    filter(variable=='lag_200') %>% 
    ggplot() +
    facet_wrap(~condition+date, labeller=as_labeller(rename_conds), strip.position='right') +
-   geom_abline(lty='dotted', alpha=.5) +
+   # geom_abline(lty='dotted', alpha=.5) +
+   geom_hline(yintercept = 50, lty='dotted', alpha=.5) +
    geom_point(aes(lag_1/60, lag_2/60), alpha=.5, stroke=0) +
    scale_x_continuous(breaks=seq(0, 1000, by=100)) +
    scale_y_continuous(breaks=seq(0, 1000, by=100)) +
@@ -547,7 +605,8 @@ This is also true when looking only at bottom cells (which are present at both s
    ggplot(aes(mean_lag_1/60, mean_lag_2/60)) +
    facet_wrap(~condition+date, labeller=as_labeller(rename_conds), strip.position='right') +
    # facet_grid(condition~variable, labeller=as_labeller(rename_conds)) +
-   geom_abline(lty='dotted', alpha=.5, stroke=0) +
+   # geom_abline(lty='dotted', alpha=.5, stroke=0) +
+   geom_hline(yintercept = 50, lty='dotted', alpha=.5) +
    geom_point(alpha=.4) +
    scale_x_continuous(breaks=seq(0, 1000, by=100)) +
    labs(x='average lag at first switch (min)', y='average lag at second switch (min)') +

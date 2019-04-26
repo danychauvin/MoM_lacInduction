@@ -275,7 +275,8 @@ mycells_switching <-
          logl_time_slope_before=ifelse(n_preswitch<5, 
                                        logl_time_slope_parent, logl_time_slope_pre),
          discard_arrested=ifelse(condition=='switch_gly_lac', NA, logl_time_slope_before <= min_growth_rate),
-         # discard_arrested=FALSE, 
+         discard_arrested_=discard_arrested,
+         discard_arrested=FALSE, # disable this filtering to keep analysis description simple
          )
   
 

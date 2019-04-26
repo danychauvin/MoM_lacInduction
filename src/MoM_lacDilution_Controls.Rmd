@@ -186,8 +186,11 @@ mycells_btw %>%
   labs(subtitle='initial growth rates (between t=2h and t=6h)')
 
 
-(myplots[['gr_length_medians']] <- mycells_btw %>% 
+(myplots[['gr_length_medians']] <- function(.article_ds=FALSE)
+  mycells_btw %>% ungroup() %>% 
     filter(!is.na(medium)) %>% 
+    filter(!.article_ds | ( !str_detect(condition, "_stdIllum") &
+      !condition %in% c("switch_ramp15min", "switch_lactose_priming") ) ) %>%
     group_by(condition) %>% 
     mutate(m_col=as.numeric(fct_inorder(factor(medium))) %>% interaction(m_cycle)) %>% 
     filter(m_col=='1.1') %>% 
@@ -221,7 +224,7 @@ mycells_btw %>%
         labs(x='birth length (µm)', y='growth rate (doublings/h)') +
         NULL
     })
-)+
+)() +
   labs(subtitle='initial condition (between t=2h and t=6h)')
 
 
@@ -508,6 +511,49 @@ mycells_switching %>%
   theme(legend.position='top') +
   NULL
 
+
+```
+
+
+```{r}
+(myplots[['naive_lags_per_pos']] <- plot_grid(
+  mycells_switching %>% 
+    ungroup %>% 
+    filter(! date %in% discarded_dates) %>% 
+    filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+    filter(switch_idx==1) %>% 
+    gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+    # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+    #        lag=ifelse(is.na(lag), -1, lag)) %>% 
+    filter(variable=='lag_200') %>% 
+    group_by(cell_num_from_top) %>% filter(n()>20) %>% 
+    ggplot() +
+    stat_ecdf(aes(lag/60, 1-..y.., col=as.factor(cell_num_from_top))) +
+    scale_color_viridis_d(direction=-1) +
+    expand_limits(x=0) +
+    labs(x=lac_lags_label, y='reverse cumul. proba.', col='cell rank\n(from open end)') +
+    theme(axis.title.x = element_blank()) +
+  NULL,
+  
+  mycells_switching %>% 
+    ungroup %>% 
+    filter(! date %in% discarded_dates) %>% 
+    filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+    filter(switch_idx==1) %>% 
+    gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
+    # mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+    #        lag=ifelse(is.na(lag), -1, lag)) %>% 
+    filter(variable=='lag_200') %>% 
+    group_by(cell_num_from_bottom) %>% filter(n()>20) %>% 
+    ggplot() +
+    # facet_grid(switch_idx~.) +
+    stat_ecdf(aes(lag/60, 1-..y.., col=as.factor(cell_num_from_bottom))) +
+    scale_color_viridis_d() +
+    expand_limits(x=0) +
+    labs(x=lac_lags_label, y='reverse cumul. proba.', col='cell rank\n(from closed end)') +
+  NULL,
+  ncol=1, rel_heights = c(0.9, 1.1), align='v'
+  ) )
 
 ```
 

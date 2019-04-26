@@ -202,7 +202,6 @@ myframes <- myfiles %>%
          # ppath != './preproc/20181008/20181008_glyc_lactuloseTMG20uM_1_MMStack_Pos5_preproc_GL02_frames.txt') %>% 
   # load perl scripts output to dataframes (in parallel, using multidplyr)
   partition(condition, path, cluster=mycluster[1:nc] %>%
-              # cluster_assign_func(parse_frames_stats, compute_genealogy, compute_daughters_numbers, which_touch_exit, which_to_progeny) %>%
               cluster_assign_obj(dl, vertical_cutoff)) %>%
   # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
@@ -364,22 +363,26 @@ knitr::opts_chunk$set(
 
 myfigs <- list()
 source('./src/MoM_lacDilution_Figs.R')
+source('./src/MoM_lacDilution_FigsSI.R')
 
-rmarkdown::render("MoM_lacDilution_ms.Rmd", 
-                  bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
-                  clean=FALSE)
 
-rmarkdown::render("MoM_lacDilution_SM.Rmd", 
-                  bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
-                  clean=FALSE)
+# rmarkdown::render("./manuscript/MoM_lacDilution_ms.Rmd", 
+#                   bookdown::pdf_book(base_format=bookdown::pdf_book, fig_width=4.75, fig_height=2.25*14/9), 
+#                   # bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
+#                   clean=FALSE)
+# 
+# rmarkdown::render("./manuscript/MoM_lacDilution_SM.Rmd", 
+#                   bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
+#                   clean=FALSE)
+# 
+# # resolve references
+# (function(.dir, .files) {
+#   setwd("manuscript")
+#   tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=FALSE)
+#   tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=FALSE)
+#   
+#   tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=TRUE)
+#   tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=TRUE)
+#   setwd('..')
+# })()
 
-# resolve references
-(function(.dir, .files) {
-  setwd("manuscript")
-  tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=FALSE)
-  tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=FALSE)
-  
-  tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=TRUE)
-  tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=TRUE)
-  setwd('..')
-})()
