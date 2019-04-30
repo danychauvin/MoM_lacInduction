@@ -8,7 +8,7 @@ From mother machine experiments, we obtain time series of cell length (used as a
 
 ```{r}
 # gfp_nb offset ≈ 100 to avoid stripping values and to keep background fluctuations visually small xxx
-myplots[['raw_traces']] <- function(.ylabel=1.2)
+(myplots[['raw_traces']] <- function(.ylabel=1.2)
   myframes %>% ungroup() %>% 
   filter(date==20180206) %>% 
   group_by(date, pos, gl) %>% 
@@ -24,7 +24,7 @@ myplots[['raw_traces']] <- function(.ylabel=1.2)
   # facet_grid(pos+gl~.) +
   facet_wrap(~variable, scales='free_y', ncol=1, strip.position='left',
              labeller=as_labeller(function(.str) {
-               .str <- str_replace(.str, "gfp_nb", "LacZ-GFP\n(molecules)")
+               .str <- str_replace(.str, "gfp_nb", "LacZ-GFP\nmolecules")
                .str <- str_replace(.str, "length_um", "cell length (µm)")
                return(.str)
              }) ) +
@@ -32,20 +32,20 @@ myplots[['raw_traces']] <- function(.ylabel=1.2)
   scale_colour_periodic(.n=3, guide='none') +
   # show medium bar
   geom_vline(aes(xintercept=t_start - 2*3600, group=1), alpha=.2, size=.5, 
-            data=filter(condition_ts, condition=='switch_08h')) +
+            data=filter(condition_ts, condition=='switch_08h', m_cycle<=2)) +
   geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=.ylabel, ymax=1.5, fill=medium, group=1), show.legend=FALSE, #size=0.2,
-            data=filter(condition_ts, condition=='switch_08h') %>% mutate(variable='length_um')) +
+            data=filter(condition_ts, condition=='switch_08h', m_cycle<=2) %>% mutate(variable='length_um')) +
   geom_text(aes(x=t_start+(t_end-t_start)/2 - 2*3600, y=.ylabel, label=medium, group=1), size=4, col='white', hjust=0.5, vjust=-0.5, 
             data=filter(condition_ts, condition=='switch_08h') %>% mutate(variable='length_um', t_start=ifelse(t_start<2*3600, 2*3600, t_start))) +
   # scale_fill_manual(values=c('glucose'=.fill[1], 'lactose'=.fill[2]), guide='none') +
-  coord_cartesian(xlim=c(-3600/2, 19.9*3600), expand=FALSE) +
+  coord_cartesian(xlim=c(-3600*.4, 20.2*3600), expand=FALSE) +
   scale_x_hours(4) +
   scale_y_continuous(trans='log10', breaks=c(2, 3, 4, 100, 500, 2500)) +
   theme(strip.placement='outside', strip.background.y=element_blank(),
         axis.title.y=element_blank(), strip.text.y=element_text(size=rel(1.2))) +
   NULL
+ )(1.3)
 
-myplots[['raw_traces']](1.3)
 
 ```
 
@@ -661,20 +661,21 @@ First, let's look at the distribution of induction lags at the second switch. Th
    # group_by(condition, switch_idx) %>% summarise(n())
    (function(.df)
      ggplot(data=NULL, aes(x=lag/60, y=1-..y.., col=condition)) +
-      stat_ecdf(aes(col='control'), geom='line', size=rel(0.75),
+      stat_ecdf(aes(col='control', lty='dotted'), geom='line', size=rel(0.75),
                 data=filter(.df, switch_idx==1, condition != 'switch_late')) +
-      stat_ecdf(geom='line', size=rel(0.75),
+      stat_ecdf(aes(lty='dotted'), geom='line', size=rel(0.75),
                 data=filter(.df, switch_idx==1, condition == 'switch_late')) +
-      stat_ecdf(geom='line', #size=.3,
+      stat_ecdf(aes(lty='solid'), geom='line', #size=.3,
                 data=.df %>% filter(switch_idx==2)) +
       geom_rect(aes(x=NULL), xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, fill='white', col='transparent',
                 data=data.frame()) +
-      scale_color_manual(name='delay between\nlactose exposure',
+      scale_color_manual(name='delay between\nlactose exposures',
                          limits=c(sprintf('switch_%02dh', seq(4, 24, 4)), 'control', 'switch_late'),
                          labels=c(sprintf('%dh', seq(4, 24, 4)), 'control', 'control (late)'),
                          values=c(scales::viridis_pal()(6), 'gray40', 'gray70') ) +
       coord_cartesian(xlim=c(-10, 240), ylim=c(-.01, 1.01), expand=FALSE) +
       labs(x=lac_lags_label,  y='reverse cumulative\nprobability') +
+      scale_linetype_manual(values=c('dotted'='dotted', 'solid'='solid'), guide=FALSE) +
       guides(col=guide_legend(ncol=2)) +
       theme_cowplot_legend_inset() +  
       theme(axis.line.x=element_line(), axis.line.y=element_line(),
@@ -819,7 +820,7 @@ Importantly, as long as a cell inherits more than a few molecules from the first
       ) +
       coord_cartesian(xlim=c(0.1, 3e3)) +
       expand_limits(y=0) +
-      labs(x='inherited LacZ-GFP (molecules)', y='fraction of short lags', size='sample size') +
+      labs(x='inherited LacZ-GFP molecules', y='fraction of short lags', size='sample size') +
       guides(size=guide_legend(direction='horizontal')) +
       theme_cowplot_legend_inset() +
       theme(legend.position=c(0, 0), legend.justification=c(-0.1, -0.5), #'top', 

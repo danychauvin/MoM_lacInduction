@@ -632,11 +632,11 @@ myframes_switching %>%
 
 
 ```{r}
-(myplots[['lacl_gr_hist']] <-
+(myplots[['lacl_gr_hist']] <- function(.conds=c('switch_glycerol_TMG20', 'switch_lactulose_TMG20'))
    myframes_switching %>% 
   ungroup() %>% 
   # filter(between(time_sec/3600, 6, 15.99), !discard_top) %>% 
-  filter(condition %in% c('switch_glycerol_TMG20', 'switch_lactulose_TMG20')) %>%
+  filter(condition %in% .conds) %>%
   filter(switch_idx==1) %>% 
   filter(time_sec>=t_lac_switch, time_sec<=t_lac_switch+3*360+10) %>% 
   group_by(condition, date, pos, gl, id) %>%
@@ -654,7 +654,7 @@ myframes_switching %>%
    facet_grid(condition~., scales='free_y') +
    geom_freqpoly(aes(lty='7 h'), binwidth=.08,
                  data= myrates_lactulose %>% ungroup() %>% 
-                   filter(between(time_sec/3600, 14, 15.99)) %>%
+                   filter(condition %in% .conds, between(time_sec/3600, 14, 15.99)) %>%
                    # filter(time_sec/3600==8+7) %>%
                    # filter(irate_npoints>3, ir2_ll_time>0.8) %>% 
                    left_join(myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb)) %>% 
@@ -664,31 +664,34 @@ myframes_switching %>%
    geom_freqpoly(aes(lty='0 h'), binwidth=.08) +
    coord_cartesian(xlim=c(-0.2, 1.1)) +
    # scale_colour_discrete(labels=rename_conds, guide='none') +
+   scale_y_continuous(breaks=scales::pretty_breaks(3)) +
    scale_linetype_manual(breaks=c('0 h', '7 h'), values=c('dotted', 'solid')) +
    labs(x='inst. growth rate (dbl/h)', lty='time after the switch') +
    guides(col='none') +
    theme(legend.position='top') +
    NULL
-)
+)()
 
-(myplots[['lacl_lacGFP_hist']] <- myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb) %>% 
+(myplots[['lacl_lacGFP_hist']] <- function(.conds=c('switch_glycerol_TMG20', 'switch_lactulose_TMG20'))
+  myframes %>% select(condition, date, pos, gl, id, time_sec, length_um, gfp_nb) %>% 
     ungroup() %>% 
-    filter(condition %in% c('switch_glycerol_TMG20', 'switch_lactulose_TMG20')) %>%
+    filter(condition %in% .conds) %>%
     filter(between(time_sec/3600, 8+7, 8+8)) %>%
     mutate(condition=fct_relevel(condition, 'switch_glycerol_TMG20')) %>% 
     ggplot(aes(gfp_nb/length_um, ..density..)) +
     facet_grid(condition~., scales='free_y') +
     geom_freqpoly(aes(col=condition), binwidth=50) +
-    geom_vline(aes(xintercept=250), data.frame(condition='switch_lactulose_TMG20'), lty='dashed') +
-    scale_y_continuous(breaks=function(.l){ if (.l[2] > 0.01) {c(0, 5, 10, 15)*1e-3} else {c(0, 5, 10)*1e-4} },
-                       # labels=scales::number_format(NULL),
-                       ) +
+    (if (!'switch_lactulose_TMG20' %in% .conds) NULL else 
+      geom_vline(aes(xintercept=250), data.frame(condition='switch_lactulose_TMG20'), lty='dashed') ) +
+    xlim(-50, 2000) +
+    # scale_y_continuous(breaks=function(.l){ if (.l[2] > 0.01) {c(0, 5, 10, 15)*1e-3} else {c(0, 5, 10)*1e-4} } ) +
+    scale_y_continuous(breaks=scales::pretty_breaks(3), labels=scales::number_format(accuracy = 1e-4) +
     # coord_cartesian(xlim=c(-0.2, 1)) +
     labs(x='[LacZ-GFP] (molecules/µm)') +
     guides(col='none') +
     theme(legend.position='top') +
     NULL
-)
+)()
 
 ```
 

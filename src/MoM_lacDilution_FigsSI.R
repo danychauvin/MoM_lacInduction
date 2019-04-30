@@ -58,6 +58,17 @@ myplots[['lags_hist_ramp']] %>%
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2)
 
+(myplots[['glyc_mix_violin']] +
+  theme(legend.position = 'none')) %>% 
+  save_plot(here("plots", "SI_figs", "glyc-mix-violin.pdf"), .,
+          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_aspect_ratio = 2)
+
+myplots[['basal_perturb_gfp']] %>% 
+  save_plot(here("plots", "SI_figs", "basal-perturb-gfp.pdf"), .,
+            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_aspect_ratio = 2)
+
 myplots[['naive_lags_correl']] %>% 
 save_plot(here("plots", "SI_figs", "naive-lags-correl.pdf"), .,
           base_height=NULL, base_width=4.75 * 14/8, # 2 cols
@@ -93,18 +104,6 @@ plot_grid(
             base_aspect_ratio = 1.35)
 
 
-# myplots[['basal_perturb_with']]
-# # basal-perturb-with
-
-
-myplots[['basal_perturb_gfp']] %>% 
-  save_plot(here("plots", "SI_figs", "basal-perturb-gfp.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 2)
-
-# myplots[['lags_hist_glyc_glcLac']]
-# # lags-hist-glyc-glcLac
-
 
 # myplots[['memory_cdfs_facets']] %>% 
 #   save_plot(here("plots", "SI_figs", "memory-cdfs-facets.pdf"), .,
@@ -129,6 +128,15 @@ myplots[['lags_inherited_gfp']] %>%
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2.3)
 
+(myplots[['naive_arrest_cdf']] +
+  annotate('segment', x=15, xend=15, y=0.99, yend=0.01,
+           arrow=arrow(length=unit(0.1, "inches")), lineend='butt', linejoin='mitre') +
+  annotate('text', x=15, y=-.035, label="15", size=4.5) +
+  coord_cartesian(ylim=c(0, 1.02), clip='off') +
+  NULL ) %>% 
+save_plot(here("plots", "SI_figs", "growth-lags-cdf.pdf"), .,
+          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_aspect_ratio = 2)
 
 (myplots[['TMG_induction_gly04']] <- (function() {
   load('data/20180703_ASC662_M9gly04pc_TMG.RData')
@@ -170,4 +178,57 @@ myplots[['lacl_gr_lacz']] %>%
             base_aspect_ratio = 2)
 
 
+(myplots[['signal_dep_decay']] <-
+    tibble(path=list.files(here("material"), "signal_coupled_decay_pd_.*", full.names = TRUE)) %>% 
+    mutate(data=map(path, ~read_delim(., delim='\t', col_names = FALSE))) %>% 
+    unnest() %>% 
+    extract(path, c('curve'), ".*/signal_coupled_decay_pd_(.+)\\.txt") %>% 
+    # with(range(X1))
+    (function(.df)
+      ggplot(.df) +
+       geom_polygon(aes(exp(X1), exp(X2), fill=curve), 
+                    data=bind_rows(.df, tibble(X1=Inf, X2=Inf, curve=c('lower', 'upper')),
+                                   tibble(X1=-Inf, X2=Inf, curve=c('lower', 'upper')) ))) +
+    geom_line(aes(exp(X1), exp(X2), col=curve)) +
+    # geom_hline(yintercept = 0.014269, lty='dashed') +
+    # annotate("text", x=0, y=0, label='uninduced', hjust=-0.1, vjust=-1.1) +
+    annotate("text", x=Inf, y=0, label='uninduced', hjust=1.1, vjust=-1.1) +
+    annotate("text", x=Inf, y=Inf, label='induced', hjust=1.1, vjust=1.5) +
+    scale_x_log10(limits=c(.3, 1e3), breaks=c(1, 24, 500), expand=c(0, 0)) +
+    scale_y_log10(limits=c(1, 1e5), breaks=c(1e2, 1e4), expand=c(0, 0),
+                  # breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+    expand_limits(x=.15, y=c(2e-6, 7)) +
+    # labs(x='doubling time (h)', y=expression(paste('signal strength ', italic('s'), '/', italic('s[0]')))) +
+    labs(x='doubling time (h)', y=expression(paste('signal strength ', s / s[0] ))) +
+    scale_fill_manual(values=qual_cols %>% hex_lighten(1.2) %>% hex_desaturate(.3)) +
+    theme(legend.position = 'none') +
+    NULL
+)
+
+# (function() {
+#   pdftools_installed <- require(pdftools)
+#   myplots[['signal_dep_decay']] +
+#     # theme(axis.title.y = element_text(margin=margin(l=-2, r=4))) +
+#     ( if (!pdftools_installed) NULL else draw_image(magick::image_read_pdf(here("material", "autoactivation.ai.pdf"), pages=2),
+#                                                     x=-.1, y=.8, scale=2.5) ) +
+#     NULL
+#   
+# })() %>%
+#   save_plot(here("plots", "SI_figs", "signal-dep-decay.pdf"), .,
+#             base_height=NULL, base_width=2.25 * 14/8, # 1 col
+#             base_aspect_ratio = 1/0.75
+#   )
+
+(function() {
+  pdftools_installed <- require(pdftools)
+  plot_grid(
+    if (!pdftools_installed) NULL else ggdraw() + draw_image(magick::image_read_pdf(here("material", "autoactivation.ai.pdf"), pages=2) ),
+    myplots[['signal_dep_decay']],
+    nrow=1)  
+})() %>% 
+  save_plot(here("plots", "signal-dep-decay.pdf"), .,
+            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_aspect_ratio = 2.5
+  )
 

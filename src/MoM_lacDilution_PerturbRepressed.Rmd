@@ -91,7 +91,7 @@ mycells_switching %>% ungroup() %>%
 According to our prediction, no short lags are observed with reduced basal expression and the fraction of long lags increases dramatically when basal expression is increased with 5µM IPTG. Supplementing IPTG can also compensate the effect of LacI overexpression.
 
 ```{r}
-(myplots[['basal_perturb_pre_violin']] <- 
+(myplots[['basal_perturb_pre_violin']] <- function(.yannot=-10)
    mycells_switching %>% ungroup() %>% 
    filter(!date %in% discarded_dates) %>%
    filter(!discard_arrested) %>% 
@@ -105,9 +105,9 @@ According to our prediction, no short lags are observed with reduced basal expre
             fct_relevel('lower', 'control'),
           condition=fct_relevel(condition, 'switch_lacIoe', "control",
                                 'switch_lacIoe_preIPTG10uM', 'switch_preIPTG5uM') %>% 
-            fct_recode('with 5µM IPTG'='switch_preIPTG5uM',
-                       'with LacI plasmid'='switch_lacIoe', 
-                       'with LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
+            fct_recode('+ 5µM IPTG'='switch_preIPTG5uM',
+                       '+ LacI plasmid'='switch_lacIoe', 
+                       '+ LacI plasmid\n+ 10µM IPTG'='switch_lacIoe_preIPTG10uM') ) %>% 
    mutate(lag=lag_200,
           lag=ifelse(lag>240*60, Inf, lag)
    ) %>% 
@@ -115,13 +115,13 @@ According to our prediction, no short lags are observed with reduced basal expre
      ggplot(.df, aes(x=condition, y=lag/60)) +
       geom_hline(yintercept=50, lty='dashed') +
       geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
-      geom_text(aes(y=-10, label=annot), vjust=0.5, size=3, lineheight=1,
+      geom_text(aes(y=.yannot, label=annot), vjust=0.5, size=3, lineheight=1,
                 data=.df %>% group_by(condition, laci) %>% 
                   summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
-                            annot=sprintf("p=%.02f\nn=%d", prop, n)) ) +
+                            annot=sprintf("%.0f%%\nn=%d", prop*100, n)) ) +
       coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
       labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-      guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      guides(fill=guide_legend(override.aes=list(alpha=1), reverse=TRUE), col=guide_legend(reverse=TRUE)) +
       theme_cowplot_legend_inset(0.8) +
       theme(axis.title.x=element_blank(),
             axis.text.x=element_text(size=rel(1), colour='black',
@@ -131,7 +131,7 @@ According to our prediction, no short lags are observed with reduced basal expre
             # legend.text=element_text(size=rel(0.7)),
             legend.position='top') +
       NULL
-   ) ) 
+   ) )()
 
 (myplots[['basal_perturb_pre_frac_short']] <- 
    mycells_switching %>% ungroup() %>% 
@@ -413,7 +413,7 @@ Another prediction of our interpretation is that the proportion of short lag sho
       geom_text(aes(y=-10, label=annot), vjust=0.5, size=3, lineheight=1,
                 data=.df %>% group_by(condition, laci) %>% 
                   summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
-                            annot=sprintf("p=%.02f\nn=%d", prop, n)) ) +
+                            annot=sprintf("%.0f%%\nn=%d", prop*100, n)) ) +
       coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
       labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
       scale_colour_discrete(limits=c('lower', 'control', 'higher')) +

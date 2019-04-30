@@ -1,43 +1,38 @@
 
 #####
-(myfigs[[1]] <- 
-   plot_grid(
-     myplots[['raw_traces']](1.3),
-     # second row (caption)
-     plot_grid(
-       # caption row
-       NULL,
-       get_legend(myplots[['basal_perturb_pre_violin']] +
-                    theme(legend.title = element_text(size=rel(0.6)),
-                          legend.text =  element_text(size=rel(0.6)),
-                          legend.key.size = unit(0.6, "lines"),
-                          legend.justification = c(0.9, 0),
-                          legend.margin = margin(t=20))),
-       nrow=1, rel_widths=c(2, 2)
-     ),
-     # plots row
-     plot_grid(
-       myplots[['naive_lags_hist']] +
-         theme(axis.title.x = element_text(margin=margin(t=-110))),
-       myplots[['glyc_mix_violin']] +
-         theme(legend.position = 'none',
-               plot.margin = margin(t=24),
-               axis.title.x = element_blank(),),
-       myplots[['basal_perturb_pre_violin']] +
-         labs(y=expression(paste(italic("lac"), " induction lag (min)"))) +
-         theme(legend.position = 'none',
-               plot.margin = margin(t=24),
-               # axis.title.y = element_text(margin=margin(b=-100)),
-               axis.title.x = element_blank(),
-               axis.title.y = element_blank()),
-       nrow=1, labels=c("B", "C", "D"), rel_widths=c(1.5, 1.2, 1.3), align='h'
-     ),
-     labels=c('A', ''), ncol=1, rel_heights=c(1, 0, 0.8)
-   ))
+(myfigs[[1]] <- function() {
+  pdftools_installed <- require(pdftools)
+  plot_grid(
+    # plots row
+    plot_grid(
+      if (!pdftools_installed) NULL else ggdraw() + draw_image(magick::image_read_pdf(here("material", "lacOperon_lactose.ai.pdf")), 
+                                                               x=.0, y=.07, scale=.94) + # x=-.15, y=.12, scale=1.4) + 
+        theme(),
+      myplots[['naive_lags_hist']] +
+        theme(plot.margin = margin(28, 7, 26, 7)),
+      myplots[['basal_perturb_pre_violin']](-35) +
+        coord_cartesian(ylim=c(-80, 240)) +
+        # labs(y=expression(paste(italic("lac"), " induction\nlag (min)"))) +
+        labs(y="lac induction\nlag (min)") +
+        theme(legend.position = 'top',
+              # legend.justification = c(-10, 0),
+              legend.box.margin = margin(0, 0, 0, -30),
+              plot.margin = margin(7, 7, -17, 7),
+              legend.title = element_text(size=rel(0.6)),
+              legend.text =  element_text(size=rel(0.6)),
+              legend.key.size = unit(0.6, "lines"),
+              axis.title.x = element_blank(),
+        ),
+      nrow=1, labels=c("A", "C", "D"), rel_widths=c(1, 1, 1), align='h'
+    ),
+    myplots[['raw_traces']](1.25),
+    labels=c('', 'B'), ncol=1, rel_heights=c(0.7, 1)
+  )
+})()
 
-save_plot(here("plots", "MoM_lacDilution_fig1.pdf"), myfigs[[1]],
+save_plot(here("plots", "MoM_lacDilution_fig1.pdf"), myfigs[[1]](),
           base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-          base_aspect_ratio = 1.1
+          base_asp = 1.5
 )
 
 #####
@@ -50,7 +45,7 @@ save_plot(here("plots", "MoM_lacDilution_fig1.pdf"), myfigs[[1]],
 
 save_plot(here("plots", "MoM_lacDilution_fig2.pdf"), myfigs[[2]],
           base_height=NULL, base_width=2.25 * 14/8, # 2 cols
-          base_aspect_ratio = 1/1.5
+          base_aspect_ratio = 1/1.3
 )
 
 #####
@@ -80,8 +75,8 @@ save_plot(here("plots", "MoM_lacDilution_fig2.pdf"), myfigs[[2]],
                  # breaks = trans_breaks("log10", function(x) 10^x),
                  labels = scales::trans_format("log10", scales::math_format(10^.x))) +
    expand_limits(y=c(2.5, 1e5)) +
-   labs(x=expression(paste('inducer level ', italic('b'))), y='LacY expression\n(molecules)') +
-   scale_linetype_manual(values=c('high'='solid', 'low'='solid', 'unstable'='dashed')) +
+   labs(x=expression(paste('inducer level ', italic('b'))), y='LacY molecules') +
+   scale_linetype_manual(values=c('high'='solid', 'low'='solid', 'unstable'='dotted')) +
    scale_color_manual(values=c('1'='black', '2'='grey60')) +
    theme(legend.position = 'none') +
    NULL
@@ -232,7 +227,7 @@ save_plot(here("plots", "MoM_lacDilution_fig2.pdf"), myfigs[[2]],
     # scale_x_continuous(trans='log10', breaks=c(.4, .7, 1)) +
     scale_x_continuous(trans='log10', breaks=c(1, 2, 3)) +
     scale_y_continuous(trans='log10', breaks=c(10, 50, 100)) +
-    labs(x='doubling time (h)', y='critical TMG \nconcentration (µM)') +
+    labs(x='doubling time (h)', y='critical inducer concentration (µM)') +
     # theme(legend.position = c(1, 0), legend.justification = c(1.05, -0.05)) +
     theme(legend.position = 'none') +
     NULL
@@ -243,55 +238,67 @@ save_plot(here("plots", "MoM_lacDilution_fig2.pdf"), myfigs[[2]],
 (myfigs[[3]] <- function() { # local envt
   pdftools_installed <- require(pdftools)
   plot_grid(
-    plot_grid(myplots[['naive_arrest_cdf']] + 
-                coord_cartesian(xlim=c(0, 210), ylim=c(0, 1.05)) + 
-                labs(x='time after the switch (min)', y='fraction of \narrested cells') +
-                theme(axis.title.x = element_text(hjust=0.9)), 
-              myplots[['lac_model_induction']] ,
-              myplots[['lac_model_phase']] + theme(axis.title.y = element_text(hjust=15)),
-              nrow=1, labels=c('A', 'B', 'C'), rel_widths=c(0.85, 1, 1), align='h' ),
-    plot_grid(myplots[['TMG-Miller-induction']] +
-                theme_cowplot_legend_inset() +
-                theme(plot.margin = margin(t=10, b=10, l=6, r=10),
-                      axis.title.y = element_text(hjust=0))+
-                NULL,
-              myplots[['TMG-Miller-conc-dt']] +
-                theme(plot.margin = margin(t=10, b=10, l=6, r=10)) +
-                NULL,
-              nrow=1, labels=c('D', 'E'), rel_widths=c(2, 1), align='h'),
-    plot_grid(NULL, get_legend(myplots[['lacl_gr_hist']] + guides(col='legend') +
+    plot_grid(
+      plot_grid(
+        plot_grid(
+          myplots[['lac_model_induction']] + theme(axis.title.y = element_text(hjust=0) ),
+          myplots[['lac_model_phase']] + theme(axis.title.y = element_text(hjust=0) ),
+          nrow=1, labels=c('A', 'B'), rel_widths=c(1, 1), align='h'),
+        myplots[['TMG-Miller-induction']] +
+          theme_cowplot_legend_inset() +
+          theme(axis.title.y = element_text(hjust=0),
+                #plot.margin = margin(t=10, b=10, l=6, r=10),
+                legend.title = element_blank(),
+          ) +
+          NULL,
+        ncol=1, labels=c('', 'C'), rel_heights=c(1, 1), align='v' ),
+      myplots[['TMG-Miller-conc-dt']] +
+        theme(#plot.margin = margin(t=10, b=10, l=6, r=10)
+        ) +
+        NULL,
+      nrow=1, labels=c('', 'D'), rel_widths=c(2, 1)),
+    # caption row
+    plot_grid(NULL, get_legend(myplots[['lacl_gr_hist']]() + guides(col='legend') +
                                  scale_colour_discrete(name='nutrient', breaks=c('switch_glycerol_TMG20', 'switch_lactulose_TMG20'),
                                                        labels=c('glycerol', 'lactulose')) +
                                  theme_cowplot_legend_inset() +
                                  theme(legend.position = 'top', legend.justification = c(0, 0), 
                                        legend.box = 'vertical', legend.box.just = 'left', 
                                        legend.spacing = unit(0, 'mm'), legend.box.spacing = unit(0, 'mm'),
-                                       legend.margin=margin(), legend.box.margin = margin(t=30),
+                                       legend.margin=margin(), legend.box.margin = margin(t=50),
                                  )),
-              nrow=1, rel_widths=c(1, 1.8)), 
+              nrow=1, rel_widths=c(1, 1.9)), 
+    # lactulose row
     plot_grid(
-      if (!pdftools_installed) NULL else ggdraw() + draw_image(magick::image_read_pdf(here("material", "MoM_lacDilution_fig3_cartoon.pdf")), scale=1.0) + 
+      if (!pdftools_installed) NULL else ggdraw() + draw_image(magick::image_read_pdf(here("material", "MoM_lacDilution_fig3_cartoon.ai.pdf"), pages=1), scale=1.0) + 
         theme(plot.margin = margin(t=4)),
-      if (!pdftools_installed) NULL else ggdraw() + draw_image(here("material", "montage_TMG_glyc_lacl.jpg"), y=-0.0, scale=0.8),
-      myplots[['lacl_gr_hist']] + 
+      if (!pdftools_installed) NULL else ggdraw() + draw_image(magick::image_read_pdf(here("material", "MoM_lacDilution_fig3_cartoon.ai.pdf"), pages=2), scale=1.0) + 
+        theme(plot.margin = margin(t=4)),
+      # if (!pdftools_installed) NULL else ggdraw() + draw_image(here("material", "montage_TMG_glyc_lacl.jpg"), y=-0.0, scale=0.8),
+      myplots[['lacl_gr_hist']]() +
         theme(plot.margin = margin(t=30),
               legend.position = 'none',
               strip.background = element_blank(),
-              strip.text.y = element_blank()), 
-      myplots[['lacl_lacGFP_hist']] +
+              strip.text.y = element_blank()) +
+        NULL, 
+      myplots[['lacl_lacGFP_hist']]() +
         theme(plot.margin = margin(t=30, l=10, r=10),
               legend.position = 'none',
               axis.title.y = element_blank(),
               strip.background = element_blank(),
-              strip.text.y = element_blank()), 
-      nrow=1, labels=c('F', 'G', "H", ""), rel_widths=c(0.7, 0.2, 0.85, 1.2)),
-    ncol=1, rel_heights=c(0.7, 0.8, 0, 1.0))
+              strip.text.y = element_blank()) + 
+        # draw_image(here("material", "20180712_glyc_glycTMG20uM_Pos0_t151.jpg"), scale=2, x=0.4, y=1) +
+        # draw_image(here("material", "20181008_glyc_lactuloseTMG20uM_Pos6_t151.jpg"), scale=2) +
+        NULL, 
+      nrow=1, labels=c('F', 'G', '', ''), rel_widths=c(0.7, 0.3, 0.85, 1.15)),
+    ncol=1, rel_heights=c(1.3, 0.1, 1.0))
 }) ()
 
 save_plot(here("plots", "MoM_lacDilution_fig3.pdf"), myfigs[[3]](),
           base_height=NULL, base_width=4.75 * 14/8, # 2 cols
           base_aspect_ratio = 1.2
 )
+
 
 ####
 (myplots[['autoactiv_model_phase']] <-
