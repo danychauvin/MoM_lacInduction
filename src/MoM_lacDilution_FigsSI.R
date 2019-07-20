@@ -128,15 +128,18 @@ myplots[['lags_inherited_gfp']] %>%
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2.3)
 
-(myplots[['naive_arrest_cdf']] +
-  annotate('segment', x=15, xend=15, y=0.99, yend=0.01,
-           arrow=arrow(length=unit(0.1, "inches")), lineend='butt', linejoin='mitre') +
-  annotate('text', x=15, y=-.035, label="15", size=4.5) +
-  coord_cartesian(ylim=c(0, 1.02), clip='off') +
-  NULL ) %>% 
-save_plot(here("plots", "SI_figs", "growth-lags-cdf.pdf"), .,
+plot_grid(
+  myplots[['naive_arrest_cdf']] +
+     annotate('segment', x=15, xend=15, y=0.99, yend=0.01,
+              arrow=arrow(length=unit(0.1, "inches")), lineend='butt', linejoin='mitre') +
+     annotate('text', x=15, y=-.05, label="15", size=4) +
+     coord_cartesian(ylim=c(0, 1.02), clip='off') +
+     NULL,
+   myplots[['lags_types_correl']],
+   nrow=1) %>% 
+save_plot(here("plots", "SI_figs", "growth-lags.pdf"), .,
           base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-          base_aspect_ratio = 2)
+          base_aspect_ratio = 2.5)
 
 (myplots[['TMG_induction_gly04']] <- (function() {
   load('data/20180703_ASC662_M9gly04pc_TMG.RData')
@@ -177,7 +180,6 @@ myplots[['lacl_gr_lacz']] %>%
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2)
 
-
 (myplots[['signal_dep_decay']] <-
     tibble(path=list.files(here("material"), "signal_coupled_decay_pd_.*", full.names = TRUE)) %>% 
     mutate(data=map(path, ~read_delim(., delim='\t', col_names = FALSE))) %>% 
@@ -194,11 +196,11 @@ myplots[['lacl_gr_lacz']] %>%
     # annotate("text", x=0, y=0, label='uninduced', hjust=-0.1, vjust=-1.1) +
     annotate("text", x=Inf, y=0, label='uninduced', hjust=1.1, vjust=-1.1) +
     annotate("text", x=Inf, y=Inf, label='induced', hjust=1.1, vjust=1.5) +
-    scale_x_log10(limits=c(.3, 1e3), breaks=c(1, 24, 500), expand=c(0, 0)) +
-    scale_y_log10(limits=c(1, 1e5), breaks=c(1e2, 1e4), expand=c(0, 0),
+    scale_x_log10(limits=c(.5, 1e3), breaks=c(1, 24, 500), expand=c(0, 0)) +
+    scale_y_log10(limits=c(8, 1e5), breaks=c(1e2, 1e4), expand=c(0, 0),
                   # breaks = trans_breaks("log10", function(x) 10^x),
                   labels = scales::trans_format("log10", scales::math_format(10^.x))) +
-    expand_limits(x=.15, y=c(2e-6, 7)) +
+    expand_limits(x=.35) +
     # labs(x='doubling time (h)', y=expression(paste('signal strength ', italic('s'), '/', italic('s[0]')))) +
     labs(x='doubling time (h)', y=expression(paste('signal strength ', s / s[0] ))) +
     scale_fill_manual(values=qual_cols %>% hex_lighten(1.2) %>% hex_desaturate(.3)) +
@@ -231,4 +233,5 @@ myplots[['lacl_gr_lacz']] %>%
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2.5
   )
+
 

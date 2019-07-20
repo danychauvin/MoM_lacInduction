@@ -3,6 +3,116 @@ title: "Untitled"
 output: html_document
 ---
 
+# Population lags from distribution of single-cell lags
+
+```{r}
+gc_sim_params = list(lbd_1 = 1/(49*60), # in sec (coarse estimation from pop growth curves)
+                     lbd_2 = 1/(58*60),
+                     N_max = 1e9,
+                     dilution = 1600,
+                     F_sw = 1/4, # fraction of final OD at which the switch occurs
+                     gr_lags = 0 # no lag (replace with a vector of lags to specify a distribution)
+                     )
+
+simul_gc <- function(.pars, .n_quantiles=101, .t_step=60) {
+  # browser()
+  t_sw <- log(.pars$dilution  * .pars$F_sw) / log(2) / .pars$lbd_1
+  t_max <- t_sw + log(.pars$dilution  * (1-.pars$F_sw)) / log(2) / .pars$lbd_2 + 
+    max(.pars$gr_lags[is.finite(.pars$gr_lags)])
+  .gcs <- tibble(k=seq(0, 1, length.out=.n_quantiles)) %>% mutate(lag=quantile(.pars$gr_lags, k, na.rm=TRUE)) %>% 
+    rowwise() %>% mutate(data=map(lag, function(.l) tibble(t=seq(t_sw, t_max, .t_step)) %>% 
+                                    mutate(n_k=ifelse(t-t_sw>.l, 2^(.pars$lbd_2*(t-t_sw-.l)), 1))
+      ))
+  .gc <- tibble(t=seq(0, t_sw, .t_step)) %>% 
+    mutate(n=.pars$N_max/.pars$dilution * 2^(.pars$lbd_1*t)) %>% 
+    bind_rows(.gcs %>% unnest() %>% group_by(t) %>% 
+                summarise(n=sum(n_k)/length(n_k) * .pars$N_max*.pars$F_sw)) %>% 
+    mutate(t=t-t_sw)
+}
+
+# gc_sim_params %>%
+#   modify_at("gr_lags", ~
+#             mycells_switching %>% ungroup() %>%
+#               filter(!date %in% discarded_dates) %>%
+#               filter(!discard_arrested) %>%
+#               filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+#               filter(switch_idx==1) %>%
+#               mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>%
+#               pull(growth_lag)
+#             # ggplot(aes(growth_lag/60, y=..density..)) +
+#             # stat_density(adjust = 1/1.2) +
+#             # geom_freqpoly(binwidth=3, col='red') +
+#             # NULL) %>%
+#   ) %>%
+#   simul_gc() %>%
+#   filter(n<2e9) %>%
+#   ggplot(aes(t, n)) +
+#   geom_line() +
+#   scale_x_hours(4) +
+#   scale_y_log10() +
+#   NULL
+
+```
+
+```{r}
+bind_rows(  
+  gc_sim_params %>% 
+    modify_at("gr_lags", ~0) %>% 
+    simul_gc() %>% 
+    mutate(type='no lag'),
+  gc_sim_params %>% 
+    modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(!discard_arrested) %>% 
+                filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+                filter(switch_idx==1) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) 
+    ) %>% 
+    simul_gc() %>% 
+    mutate(type='glu > lac'),
+  gc_sim_params %>% 
+    modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(!discard_arrested) %>% 
+                filter(str_detect(condition, 'switch_glcLac_lac')) %>%
+                filter(switch_idx==1) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) 
+    ) %>% 
+    simul_gc() %>% 
+    mutate(type='glu+lac > lac'),
+  gc_sim_params %>% 
+    modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(!discard_arrested) %>% 
+                filter(str_detect(condition, 'switch_glcLac_lac')) %>%
+                filter(switch_idx==1, growth_lag<50*60) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) 
+    ) %>% 
+    simul_gc() %>% 
+    mutate(type='all short'),
+) %>% 
+  mutate(type=fct_relevel(type, 'no lag')) %>% 
+  filter(between(n, 8e7, 1.2e9)) %>%
+  ggplot(aes(t, n, col=type)) +
+  geom_line() +
+  # scale_x_continuous(breaks=scales::pretty_breaks(), trans=scales::hms_trans()) +
+  scale_x_hours(2) +
+  scale_y_log10() +
+  coord_cartesian(ylim=c(1e8, 1e9)) +
+  # theme_cowplot() +
+  NULL
+
+```
+
+
+# LacI expression & single-cell lags for cells growing in the mother machine
+
 Cai, *et al.* 2006 reports for the number of LacZ molecules per cells (inferred from change in hydrolysis rate of FDG)
 in microfluidic chambers with M9 + 0.5% glucose + a.a. + vitamins (doubling time ≈ 145 ± 10 min)
 NB: does the slow growth come from phototoxicity? from surface activation without passivation?
@@ -23,13 +133,18 @@ microfluidics with M9 + 0.4% glucose + a.a., doubling time is 25 – 32 min
 
 
 ```{r}
+library(future)
+library(furrr)
+plan(multiprocess,
+     workers=min(30, availableCores()-1))
+
 
 mysim_params <- list(dt = 3, # in mins
                      random_seed = 1,
                      top_max=30, 
-                     grs = mycells_constant$alpha*60,
-                     dls = mycells_constant$l_div-mycells_constant$l_birth,
-                     l_births = mycells_constant$l_birth,
+                     grs = mycells_constant %>% filter(condition=='glucose') %>% pull(alpha) %>% `*`(60),
+                     dls = mycells_constant %>% filter(condition=='glucose') %>% with(l_div-l_birth),
+                     l_births = mycells_constant %>% filter(condition=='glucose') %>% pull(l_birth),
                      burst_rate = 1 / (100/.7), # per min
                      burst_mean = 1.5) # geom distrib
 # burst_sd=4)
@@ -42,7 +157,7 @@ sim_make_cells <- function(id=NA, l_birth=NA, gr=NA, dl=NA, t_birth=NULL,
   # l <- l_birth * (1 + exp(gr * (t-t_birth)) )
   if (is.null(t_birth)) t_birth <- t - log(l)-log(l_birth) / gr
   t_div <- t + log((l_birth+dl)/l) / gr
-  data_frame(id=id, t_birth=t_birth, l_birth=l_birth, gr=gr, dl=dl, t_div=t_div,
+  data_frame(id=as.character(id), t_birth=t_birth, l_birth=l_birth, gr=gr, dl=dl, t_div=t_div,
              pos=pos, l=l, lacz=lacz, t_burst=t_burst, n_bursts=0)
 }
 
@@ -116,23 +231,21 @@ sim_exit <- function(cells, top_max=mysim_params$top_max) {
   cells[tops < top_max, ]
 }
 
-sim_lineage <- function(n_start, t_max=1000, sim_params=mysim_params) {
+sim_lineage <- function(n_inds, t_max=1000, sim_params=mysim_params) {
   # browser()
   # init
   sim_frames <- list()
-  sim_cur <- (function(n_inds)  {
     # in order to guarantee that all are born before t=0 and divide after t=0
     # cells are initialised with a l_birth, dl and gr and a current length (uniform sampling in [0, dl])
     # the corresponding t_birth and t_div are computed assuming exp elongation
     l_births <- quantile(sim_params$l_births, runif(n_inds))
     dls <- quantile(sim_params$dls, runif(n_inds))
-    sim_make_cells(id = seq(n_inds)-1, pos = seq(n_inds)-1, t = 0,
+    sim_cur <- sim_make_cells(id = seq(n_inds)-1, pos = seq(n_inds)-1, t = 0,
                    l_birth = l_births, gr = quantile(sim_params$grs, runif(n_inds)), dl = dls,
                    l = l_births + Vectorize(function(max) runif(1, max=max), 'max')(dls),
                    lacz = 0, 
                    # lacz = round(rexp(n_inds, 1/sim_params$burst_mean)), 
                    t_burst = rexp(n_inds, sim_params$burst_rate) )
-  })(n_start)
   sim_frames[['0']] <- data.frame(t=0, sim_cur)
   
   # iterate
@@ -150,21 +263,23 @@ sim_lineage <- function(n_start, t_max=1000, sim_params=mysim_params) {
 }
 
 set.seed(mysim_params$random_seed)
-mysim_frames <- tibble(gl=1:100) %>% 
+mysim_frames <- tibble(gl=1:1000) %>% 
+  mutate(data=future_map(gl, ~sim_lineage(6, t_max=2000) %>% bind_rows(), .progress=TRUE))
+
   # group_by(gl) %>%
-  partition(gl, cluster=mycluster %>% cluster_assign_obj(mysim_params) %>% 
-              cluster_assign_func(sim_lineage, sim_make_cells, sim_grow, sim_exit,  sim_burst, sim_divide)
-            ) %>%
-  do(sim_lineage(6, t_max=2000) %>% do.call(rbind, .)) %>% 
-  collect()
+  # partition(gl, cluster=mycluster %>% cluster_assign_obj(mysim_params) %>% 
+  #             cluster_assign_func(sim_lineage, sim_make_cells, sim_grow, sim_exit,  sim_burst, sim_divide)
+  #           ) %>%
+  # do(sim_lineage(6, t_max=2000) %>% bind_rows()) %>% 
+  # collect()
   
 
 ```
 
 ```{r}
 mysim_frames %>% 
-  # do.call(rbind, .) %>% 
-  filter(gl %in% sample(1:100, 12, replace=FALSE)) %>% 
+  sample_n(12) %>% 
+  unnest() %>% 
   group_by(gl, t) %>% 
   arrange(gl, t, pos) %>% 
   mutate(bottom=cumsum(lag(l, default=0)) ) %>% 
@@ -174,15 +289,40 @@ mysim_frames %>%
   geom_line() +
   # scale_y_log10() + coord_cartesian(ylim=c(1, 30))
   # scale_fill_periodic_brewer(guide='none')
-  coord_cartesian(xlim=c(0, 1000))
+  coord_cartesian(xlim=c(0, 1000)) +
+  NULL
 
 mysim_frames %>% 
-  # do.call(rbind, .) %>% 
+  unnest() %>% 
   ggplot(aes(n_bursts)) +
   geom_histogram() +
   scale_y_log10()
 
 ```
+
+```{r}
+mysim_frames %>% 
+  sample_n(30) %>%
+  unnest() %>% 
+  group_by(gl, t) %>% 
+  arrange(gl, t, pos) %>% 
+  mutate(bottom=cumsum(lag(l, default=0)) ) %>% 
+  ungroup() %>% 
+  # filter(t>360) %>% 
+  ggplot(aes(t*60, l)) +
+  # facet_wrap(~gl) + 
+  # geom_point(stroke=0, alpha=.2) +
+  # stat_summary_bin(fun.data=mean_se,  binwidth=180*60, col='red') +
+  stat_summary_bin(fun.data=mean_sdl, fun.args = list(mult=1),  binwidth=180*60) +
+  # stat_summary_bin(fun.data=mean_se,  binwidth=180*60, geom='linerange', width=0, col='red') +
+  # coord_cartesian(xlim=c(0, 1000)) +
+  # expand_limits(y=0) +
+  scale_x_hours() +
+  labs(y="length (µm)") +
+  NULL
+
+```
+
 
 ```{r}
 mysim_frames %>% 
@@ -207,7 +347,7 @@ mysim_frames %>%
 
 ```
 
-# Lag distribution
+## Lag distribution
 
 ```{r}
 mysim_cells_switching <- mysim_frames %>% 

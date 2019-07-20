@@ -10,6 +10,10 @@
         theme(),
       myplots[['naive_lags_hist']] +
         theme(plot.margin = margin(28, 7, 26, 7)),
+      # myplots[['glyc_mix_violin']] +
+      #   theme(legend.position = 'none',
+      #         plot.margin = margin(t=24),
+      #         axis.title.x = element_blank(),),
       myplots[['basal_perturb_pre_violin']](-35) +
         coord_cartesian(ylim=c(-80, 240)) +
         # labs(y=expression(paste(italic("lac"), " induction\nlag (min)"))) +
@@ -301,6 +305,23 @@ save_plot(here("plots", "MoM_lacDilution_fig3.pdf"), myfigs[[3]](),
 
 
 ####
+(myplots[['autoactiv_model_induction']] <-
+    tibble(path=list.files(here("material"), "autoactivating_induc_.*", full.names = TRUE)) %>% 
+    mutate(data=map(path, ~read_delim(., delim='\t', col_names = FALSE))) %>% 
+    unnest() %>% 
+    extract(path, c('branch'), ".*/autoactivating_induc_(.+)\\.txt") %>% 
+    ggplot() +
+    geom_line(aes(exp(X1), exp(X2), lty=branch)) +
+    scale_x_log10(breaks=c(1, 10, 100), expand=c(0, 0)) +
+    scale_y_log10(breaks=c(1e-1, 1e1, 1e3),
+                  # breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+    labs(x='doubling time (h)', y=expression(paste('operon expression ', italic('x')))) +
+    scale_linetype_manual(values=c('high'='solid', 'low'='solid', 'unstable'='dotted')) +
+    theme(legend.position = 'none') +
+    NULL
+)
+
 (myplots[['autoactiv_model_phase']] <-
     tibble(path=list.files(here("material"), "autoactivating_phasediagram_.*", full.names = TRUE)) %>% 
     mutate(data=map(path, ~read_delim(., delim='\t', col_names = FALSE))) %>% 
@@ -320,7 +341,7 @@ save_plot(here("plots", "MoM_lacDilution_fig3.pdf"), myfigs[[3]](),
     scale_y_log10(breaks=c(1e-4, 1e-2, 1), expand=c(0, 0),
                   # breaks = trans_breaks("log10", function(x) 10^x),
                   labels = scales::trans_format("log10", scales::math_format(10^.x))) +
-    expand_limits(x=.35, y=c(2e-5, 7)) +
+    expand_limits(x=.35, y=c(7e-5, 7)) +
     labs(x='doubling time (h)', y='promoter activity') +
     # scale_linetype_manual(values=c('high'='solid', 'low'='solid', 'unstable'='dashed')) +
     scale_fill_manual(values=qual_cols %>% hex_lighten(1.2) %>% hex_desaturate(.3)) +
@@ -396,22 +417,28 @@ save_plot(here("plots", "MoM_lacDilution_fig3.pdf"), myfigs[[3]](),
   pdftools_installed <- require(pdftools)
   plot_grid(
     NULL, 
-    myplots[['autoactiv_model_phase']] +
+    myplots[['autoactiv_model_induction']] +
+      scale_y_log10(breaks=c(1e-3, 1e0, 1e3),
+                    labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+      expand_limits(y=1.e-4) +
+      # expand_limits(y=2e-3) +
       # theme(axis.title.y = element_text(margin=margin(l=-2, r=4))) +
       ( if (!pdftools_installed) NULL else draw_image(magick::image_read_pdf(here("material", "autoactivation.ai.pdf"), pages=1),
-                                                      x=-.22, y=-4, scale=2.5) ) +
+                                                      x=1.5, y=-2.8, scale=4.35) ) +
       NULL,
+    myplots[['autoactiv_model_phase']],
     NULL,
     myplots[['twocmps_model_phase']] +
       ( if (!pdftools_installed) NULL else draw_image(magick::image_read_pdf(here("material", "autoactivation.ai.pdf"), pages=3),
                                                       x=-.2, y=-3.7, scale=5) ) +
       NULL,
-    labels=c("A  auto-activating operon", "", "B  two-components system", ""), ncol=1, rel_heights=c(.1, 1.2, .1, 1.2), align='v', hjust=-.05
+    labels=c("A  auto-activating operon", "", "B", "C  two-components system", ""), 
+    ncol=1, rel_heights=c(.1, 1, 1, .1, 1.2), align='v', hjust=-.05
   )}
 )()
 
 save_plot(here("plots", "MoM_lacDilution_fig4.pdf"), myfigs[[4]](),
           base_height=NULL, base_width=2.25 * 14/8, # 2 cols
-          base_aspect_ratio = 1/1.5
+          base_aspect_ratio = 1/2
 )
 

@@ -76,6 +76,14 @@ myconditions <- list(
   #      medium=c('glucose', 'lactose', 'glucose'),
   #      paths=c("./data_thomas/20170926/20170926_glu_lac_30h_hiExpr_curated/")),
   
+  # LAC PROTEINS THRESHOLD
+  list(condition='switch_pre_lac001_6h', duration=c(360, 1080), dt=c(180, 360), 
+       medium=c('glucose', 'lactose'),
+       paths=c("./data_thomas/20190605/20190605_glu_lowLac_curated/")),
+  list(condition='switch_pre_lac001_10h', duration=c(600, 1080), dt=c(180, 360), 
+       medium=c('glucose', 'lactose'),
+       paths=c("./data_thomas/20190614/20190614_glu_lowLac_curated/")),
+  
    # CATABOLITE REPRESSION
   list(condition='switch_gly_lac', duration=c(480, 360), dt=180, 
        medium=c('glycerol', 'lactose'),
@@ -165,7 +173,7 @@ mycluster <- min(30, parallel::detectCores()-1) %>%  # do not use more than 30 c
 # find raw data files from myconditions and store them in a dataframe
 myfiles <- myconditions %>% 
   # convert the relevant list items to a dataframe
-  lapply(function(.l) .l[ - which(names(.l) %in% c("duration", "medium"))] %>% 
+  lapply(function(.l) .l[ which(names(.l) %in% c("condition", "paths"))] %>% 
            as.data.frame(stringsAsFactors=FALSE) ) %>% 
   do.call(rbind, .) %>% 
   rename(data_path=paths) %>%
@@ -183,10 +191,24 @@ condition_ts <- myconditions %>%
   do.call(rbind, .) %>% 
   # add useful variables for each condition step
   group_by(condition) %>% 
+  # select(-dt) %>% # necessary for cases with several dt in one condition
   mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
          t_end=cumsum(duration) * 60 - 1e-5,
          m_cycle=value_occurence_index(medium), 
          m_id=as.numeric(fct_inorder((factor(medium)))) )
+
+# dirty hack from stat phase project code (to do: improve)
+condition_acq_times <- myconditions %>% 
+  # convert the relevant list items to a dataframe
+  lapply(function(.l) .l[ - which(names(.l) == "paths")] %>% as.data.frame ) %>% 
+  do.call(rbind, .) %>% 
+  group_by(condition) %>% 
+  mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
+         t_end=cumsum(duration) * 60 - 1e-5, duration=duration*60) %>% 
+  group_by(condition, t_start) %>% 
+  do((function(.df){
+    data.frame(dt=.df$dt, ts=seq(.df$t_start, .df$t_end, .df$dt))
+  })(.))
 
 # load perl scripts output to dataframes (using parallel dplyr)
 nc <- min(nrow(myfiles), length(mycluster)) # this is a dirty hack because multidplyr crashes with less shards than cores
@@ -194,21 +216,23 @@ myframes <- myfiles %>%
   # process exported files on the cluster if required (otherwise return the list of paths)
   ungroup %>% 
   mutate(ppath=process_moma_data(path, .data2preproc=data2preproc, .frames_pl_script="get_size_and_fluo_multich.pl", #.skip=TRUE,
-                                 .qsub_name="MMex_pl", .force=FALSE) ) %>% 
+                                 .qsub_name="MMex_pl", .force=FALSE, .skip=TRUE) ) %>% 
   filter(!is.na(ppath)) %>% 
   # propagate dt info
-  left_join(condition_ts %>% group_by(condition) %>% slice(1) %>% select(condition, dt), by="condition") %>% 
+  # left_join(condition_ts %>% group_by(condition) %>% slice(1) %>% select(condition, dt), by="condition") %>% 
   # filter(condition=='switch_lactulose_TMG20_lowIllum',
          # ppath != './preproc/20181008/20181008_glyc_lactuloseTMG20uM_1_MMStack_Pos5_preproc_GL02_frames.txt') %>% 
   # load perl scripts output to dataframes (in parallel, using multidplyr)
   partition(condition, path, cluster=mycluster[1:nc] %>%
-              cluster_assign_obj(dl, vertical_cutoff)) %>%
+              cluster_assign_obj(dl, vertical_cutoff, condition_acq_times)) %>%
   # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
     # browser()
     # print(.df$ppath)
+    .dt <- filter(condition_acq_times, condition==.df$condition)$dt
+    .ts <- filter(condition_acq_times, condition==.df$condition)$ts
     parse_frames_stats(.df$ppath) %>% 
-      mutate(dt=.df$dt, time_sec=frame*dt, discard_start=(time_sec < 2*3600),
+      mutate(dt=.dt[frame+1], time_sec=.ts[frame+1], discard_start=(time_sec < 2*3600),
              length_um=length_pixel*dl) %>%
       # fix end_type for pruned cells
       mutate(ndgt=compute_daughters_numbers(cid)) %>%
@@ -266,6 +290,9 @@ myframes <- myframes %>% ungroup() %>% mutate(
   fluo_amplitude=fluo_amplitude * ifelse(date==20181008 & pos %in% 0:4 & between(time_sec/3600, 8, 20-6/60), 5, 1),
   fluo_amplitude=fluo_amplitude * ifelse(date==20181009 & pos %in% c(0,2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
   fluo_amplitude=fluo_amplitude * ifelse(date==20181024 & pos %in% c(0:2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
+  fluo_amplitude=fluo_amplitude * ifelse(date==20190605 & time_sec/3600 >= 6, 5, 1),
+  fluo_amplitude=fluo_amplitude * ifelse(date==20190614 & time_sec/3600 >= 10, 5, 1),
+  
   fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um)
 )
 

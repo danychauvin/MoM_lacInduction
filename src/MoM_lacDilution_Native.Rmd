@@ -248,6 +248,24 @@ mycells_switching %>% ungroup %>%
   # geom_density2d() +
   geom_point(size=1, alpha=.4, stroke=0) +
   NULL
+
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  group_by(date) %>%
+  mutate(gr=logl_time_slope_before-mean(logl_time_slope_before),
+         gfp_ini=gfp_ini-mean(gfp_ini)) %>% 
+  ggplot(aes(gfp_ini)) + 
+  # facet_grid(date~.) +
+  # geom_freqpoly(aes(y= ..density.., col=type), binwidth=.00001) +
+  stat_ecdf(aes(col=factor(date))) +
+  scale_color_hue() +
+  NULL
+  
+
+
 ```
 
 
@@ -358,16 +376,19 @@ mycells_switching %>% ungroup %>%
               filter(condition=='glucose') %>%
               select(date, growth_rate=logl_time_slope) %>% mutate(type='control'), .) %>%
   group_by(date) %>% 
-  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini)),
+         # growth_rate=growth_rate-mean(growth_rate),
+         ) %>%
   gather(variable, value, -date, -type) %>% 
   group_by(date, variable) %>% 
   filter(between(value, quantile(value, 0.01, na.rm=TRUE), quantile(value, 0.99, na.rm=TRUE))) %>% 
+  # ungroup() %>% mutate(type=ifelse(type!='control', 'expt', type)) %>% 
   ggplot(aes(value, col=type)) + 
   facet_wrap(~variable, ncol = 1, scales='free_x') +
   # facet_grid(date~variable, scales='free_x') +
   stat_ecdf() +
   # geom_freqpoly(aes(y=..density..), binwidth=10) +
-  scale_color_manual(name='type of lac\ninduction lag', breaks=c('control', 'long', 'short'), values=c('gray50', qual_cols[1], qual_cols[2])) +
+  scale_color_manual(name='type of lac\ninduction lag', breaks=c('control', 'long', 'short', 'expt'), values=c('gray50', qual_cols[1], qual_cols[2], qual_cols[3])) +
   labs(y='cumulative probability') +
   # coord_cartesian(xlim=c(-60, 120)) +
   NULL
@@ -418,7 +439,7 @@ mycells_switching %>% ungroup %>%
      scale_x_continuous(breaks = scales::pretty_breaks(n = 3)) +
      expand_limits(y=0) +
      guides(col=guide_legend(override.aes = list(size=2, alpha=1))) +
-     labs(x='fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)', y=expression(paste(italic("lac"), " induction lag (min)")), col=expression(paste("type of ", italic("lac"), " induction lag (min)"))) +
+     labs(y=lac_lags_label, col=expression(paste("type of ", italic("lac"), " induction lag (min)"))) +
      theme(legend.position = 'top',
            strip.placement='outside', strip.background.x=element_blank(), 
            axis.title.x=element_blank(), strip.text.x=element_text(size=rel(1.2), vjust = 1)) +
@@ -715,8 +736,7 @@ mycells_switching_memory <- mycells_switching %>% ungroup() %>%
       filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
       filter(medium=='lactose', m_cycle==1) %>%
       filter(abs(time_sec-(m_end-dt))<1) %>%
-      select(date, pos, gl, parent=genealogy, parent_gfp=gfp_nb) %>% 
-      mutate(parent=str_replace(parent, ":", "")),
+ %>% %>% %>% <- %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% <- %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% <- %>% %>% %>%       mutate(parent=str_replace(parent, ":", "")),
     by=c("date", "pos", "gl", "parent") ) %>% 
   mutate(divs_since_par = str_length(genealogy) - str_length(parent)) %>% 
   left_join(

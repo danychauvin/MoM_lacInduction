@@ -31,7 +31,8 @@ abstract: |
 # output: rticles::plos_article
 output:
   bookdown::pdf_book:
-    base_format: rticles::plos_article
+    base_format: pdf_book
+    # base_format: rticles::plos_article
 csl: plos.csl
 bibliography: MoM_lacDilution_ms.bib
 
