@@ -15,7 +15,7 @@ data2preproc_file <- function(.f)
   file_path_sans_ext %>% paste0("_frames.txt")
 data2preproc <- function(.f)
   file.path(data2preproc_dir(.f), data2preproc_file(.f))
-  
+
 # scale_colour_discrete <- scale_colour_viridis_d
 # scale_colour_continuous <- scale_colour_viridis_c
 
@@ -84,7 +84,7 @@ myconditions <- list(
        medium=c('glucose', 'lactose'),
        paths=c("./data_thomas/20190614/20190614_glu_lowLac_curated/")),
   
-   # CATABOLITE REPRESSION
+  # CATABOLITE REPRESSION
   list(condition='switch_gly_lac', duration=c(480, 360), dt=180, 
        medium=c('glycerol', 'lactose'),
        paths=c("./data_thomas/20170919/20170919_glyc_lac_curated/", "./data_thomas/20170920/20170920_glyc_lac_curated/")),
@@ -131,27 +131,9 @@ myconditions <- list(
   list(condition='switch_ramp40min',
        duration=c(414, 246), dt=180,
        medium=c('glucose', 'lactose'),
-       paths=c("./data_thomas/20171121/20171121_glu_lac_ramp40min_curated/", "./data_thomas/20180319/20180319_glu_lac_ramp40min_curated/")),
+       paths=c("./data_thomas/20171121/20171121_glu_lac_ramp40min_curated/", "./data_thomas/20180319/20180319_glu_lac_ramp40min_curated/"))
   
-  # WITH/WITHOUT GROWTH ARREST
-  list(condition='switch_lactulose_TMG20_stdIllum', duration=c(480, 720), dt=360, 
-       medium=c('glycerol', 'lactulose+TMG'),
-       paths=c(#"./data_thomas/20180704/20180704_glyc_lactulose_TMG20uM_curated/", # with dt=180 slow growth and limited induction
-         "data_thomas/20180709/20180709_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20180711/20180711_glyc_lactuloseTMG20uM_curated/")),
-  list(condition='switch_lactulose_stdIllum', duration=c(480, 720), dt=360, 
-       medium=c('glycerol', 'lactulose'),
-       paths=c("./data_thomas/20180710/20180710_glyc_lactulose_curated/")),
-  list(condition='switch_lactulose_TMG20', duration=c(480, 720, 480), dt=360, 
-       medium=c('glycerol', 'lactulose+TMG', 'glycerol'),
-       paths=c("./data_thomas/20181008/20181008_glyc_lactuloseTMG20uM_curated/", "./data_thomas/20181009/20181009_glyc_lactuloseTMG20uM_curated/")),
-  list(condition='switch_lactulose', duration=c(480, 720, 480), dt=360, 
-       medium=c('glycerol', 'lactulose', 'glycerol'),
-       paths=c("./data_thomas/20181024/20181024_glyc_lactulose_curated/")),
-  list(condition='switch_glycerol_TMG20', duration=c(480, 720), dt=360, 
-       medium=c('glycerol', 'glycerol+TMG'),
-       paths=c("./data_thomas/20180712/20180712_glyc_glycTMG20uM_curated/"))
-  
-  )
+)
 
 # SET ENVIRONMENT
 # install.packages(c('tools', 'devtools', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
@@ -184,31 +166,20 @@ myfiles <- myconditions %>%
     find.files(.df$data_path, "ExportedCellStats_*.csv") %>% 
       data.frame(path=., stringsAsFactors=FALSE) )(.))  
 
-# create condition_ts (describing each temporal change of each condition) from myconditions 
-condition_ts <- myconditions %>% 
-  # convert the relevant list items to a dataframe
-  lapply(function(.l) .l[ - which(names(.l) == "paths")] %>% as.tibble ) %>% 
-  do.call(rbind, .) %>% 
-  # add useful variables for each condition step
-  group_by(condition) %>% 
-  # select(-dt) %>% # necessary for cases with several dt in one condition
-  mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
-         t_end=cumsum(duration) * 60 - 1e-5,
-         m_cycle=value_occurence_index(medium), 
-         m_id=as.numeric(fct_inorder((factor(medium)))) )
-
-# dirty hack from stat phase project code (to do: improve)
+#  create condition_acq_times (describing acquisition times and temporal change of each condition) from myconditions
 condition_acq_times <- myconditions %>% 
   # convert the relevant list items to a dataframe
-  lapply(function(.l) .l[ - which(names(.l) == "paths")] %>% as.data.frame ) %>% 
-  do.call(rbind, .) %>% 
+  lapply(function(.l) .l[ - which(names(.l) == "paths")] %>% as_tibble ) %>% 
+  bind_rows() %>% 
   group_by(condition) %>% 
-  mutate(t_start=cumsum(c(0, duration[-(length(duration))])) * 60,
-         t_end=cumsum(duration) * 60 - 1e-5, duration=duration*60) %>% 
-  group_by(condition, t_start) %>% 
-  do((function(.df){
-    data.frame(dt=.df$dt, ts=seq(.df$t_start, .df$t_end, .df$dt))
-  })(.))
+  mutate(m_start=cumsum(c(0, duration[-(length(duration))])) * 60,
+         m_end=cumsum(duration) * 60 - 1e-5, duration=NULL,
+         m_cycle=value_occurence_index(medium), 
+  ) %>% 
+  group_by(condition, m_start) %>% 
+  mutate(data=list(data.frame(time_sec=seq(m_start, m_end, dt)) )) %>% unnest() %>% 
+  group_by(condition) %>% 
+  mutate(frame=as.numeric(order(time_sec)-1))
 
 # load perl scripts output to dataframes (using parallel dplyr)
 nc <- min(nrow(myfiles), length(mycluster)) # this is a dirty hack because multidplyr crashes with less shards than cores
@@ -218,94 +189,70 @@ myframes <- myfiles %>%
   mutate(ppath=process_moma_data(path, .data2preproc=data2preproc, .frames_pl_script="get_size_and_fluo_multich.pl", #.skip=TRUE,
                                  .qsub_name="MMex_pl", .force=FALSE, .skip=TRUE) ) %>% 
   filter(!is.na(ppath)) %>% 
-  # propagate dt info
-  # left_join(condition_ts %>% group_by(condition) %>% slice(1) %>% select(condition, dt), by="condition") %>% 
-  # filter(condition=='switch_lactulose_TMG20_lowIllum',
-         # ppath != './preproc/20181008/20181008_glyc_lactuloseTMG20uM_1_MMStack_Pos5_preproc_GL02_frames.txt') %>% 
   # load perl scripts output to dataframes (in parallel, using multidplyr)
-  partition(condition, path, cluster=mycluster[1:nc] %>%
-              cluster_assign_obj(dl, vertical_cutoff, condition_acq_times)) %>%
+  partition(condition, path, cluster=mycluster[1:nc] ) %>%
   # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
     # browser()
     # print(.df$ppath)
-    .dt <- filter(condition_acq_times, condition==.df$condition)$dt
-    .ts <- filter(condition_acq_times, condition==.df$condition)$ts
-    parse_frames_stats(.df$ppath) %>% 
-      mutate(dt=.dt[frame+1], time_sec=.ts[frame+1], discard_start=(time_sec < 2*3600),
-             length_um=length_pixel*dl) %>%
-      # fix end_type for pruned cells
-      mutate(ndgt=compute_daughters_numbers(cid)) %>%
-      ungroup() %>%
-      mutate(end_type_moma=end_type,
-             end_type=ifelse(ndgt==0, "lost", "weird"),
-             end_type=ifelse(ndgt==2, "div", end_type)) %>% 
-      # remove frames after touching the exit
-      group_by(id) %>%
-      mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
-      mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
-      mutate(end_type=ifelse(any(discard_top), 'touchtop', end_type)) %>% # update end_type to exit for cells which have touched the vertical cutoff
-      # remove daughters of cells that touched the exit
-      ungroup %>%
-      mutate(discard_top=which_to_progeny(discard_top, cid))
+    parse_frames_stats(.df$ppath)
   })(.)) %>%
-  collect() %>% 
-  # append useful variables (per row)
-  ungroup %>% 
+  collect() %>%
+  ungroup %>%
   extract(path, c("date", "pos", "gl"), ".*(\\d{8})_.*[Pp]os(\\d+).*_GL(\\d+).*", remove=FALSE, convert=TRUE) %>%
-  # mutate_at(vars(date, pos, gl), factor) %>% # convert to factors (ad libidum)
-  mutate(#condition=fct_inorder(condition), 
-    condition=factor(condition, levels=unique(condition_ts$condition)),
-         cell=paste(date, pos, gl, id, sep='.'),
-         ugen=paste(date, pos, gl, genealogy, sep='.'),
-         gl_id=paste(date, pos, gl, sep='.'),
-         vertical_center=(vertical_bottom + vertical_top)/2,
-         strain='ASC662', strain=ifelse(condition=='mg1655', 'MG1655', strain),
-         strain=ifelse(condition=='switch_long_lac_hiExpr', 'MG1655_pHi-GFP', strain),
-         strain=ifelse(condition=='switch_∆lacA', 'AB460', strain)) %>% 
-  # propagate medium info
-  group_by(condition, date) %>% 
-  do((function(.df){
-    .ts <- filter(condition_ts, condition==unique(.df$condition))
-    .idx <- find_unique_interval(.df$time_sec, .ts$t_start, .ts$t_end)
-    .tmax <- max(.df$time_sec)
-    mutate(.df, medium=.ts$medium[.idx], m_start=.ts$t_start[.idx], m_end=pmin(.ts$t_end[.idx], .tmax), 
-           m_cycle=.ts$m_cycle[.idx], mstep=paste(medium, m_cycle, sep='.'))
-  })(.)) %>% 
-  # sort and append useful variables (per cell)
-  arrange(date, pos, gl, id, frame) %>%  # sort data after `partition()`
+  # propagate time and medium info
+  left_join(condition_acq_times) %>%
+  group_by(path) %>% 
+  mutate(m_end=ifelse(m_end > max(time_sec), max(time_sec), m_end)) %>% 
+  # fix end_type for pruned cells
+  mutate(discard_start=(time_sec < 2*3600), length_um=length_pixel*dl) %>%
+  group_by(path) %>%
+  mutate(ndgt=compute_daughters_numbers(cid)) %>%
+  mutate(end_type_moma=end_type,
+         end_type=ifelse(ndgt==0, "lost", "weird"),
+         end_type=ifelse(ndgt==2, "div", end_type)) %>%
+  # remove frames after touching the exit
+  group_by(id, add=TRUE) %>%
+  mutate(discard_top=which_touch_exit(vertical_top, vertical_cutoff)) %>%
+  mutate(discard_top=ifelse(discard_start, FALSE, discard_top)) %>% # not in the preexpt step (2h)
+  mutate(end_type=ifelse(any(discard_top), 'touchtop', end_type)) %>% # update end_type to exit for cells which have touched the vertical cutoff
+  # remove daughters of cells that touched the exit
+  group_by(path) %>%
+  mutate(discard_top=which_to_progeny(discard_top, cid)) %>%
+  # append useful variables (per cell)
+  mutate(
+    cell=paste(date, pos, gl, id, sep='.'),
+    ugen=paste(date, pos, gl, genealogy, sep='.'),
+    gl_id=paste(date, pos, gl, sep='.'),
+    vertical_center=(vertical_bottom + vertical_top)/2,
+    mstep=paste(medium, m_cycle, sep='.'),
+    strain='ASC662', strain=ifelse(condition=='mg1655', 'MG1655', strain),
+    strain=ifelse(condition=='switch_long_lac_hiExpr', 'MG1655_pHi-GFP', strain),
+    strain=ifelse(condition=='switch_∆lacA', 'AB460', strain),
+  ) %>%
   group_by(date, pos, gl, id) %>%
   mutate(start_time=first(time_sec), end_time=last(time_sec),
          b_rank=round(mean(total_cell_in_lane - cell_num_in_lane)),
          length_raw=(vertical_bottom-vertical_top)*dl,
          length_erik=length_um, length_um=length_raw)
 
-
 # CONVERT FLUO UNITS ####
 if (use_eriks_params)
   autofluo_predict <- function(.h) .h * 422.8
 myframes <- myframes %>% ungroup() %>% mutate(
-  fluo_amplitude=fluo_amplitude * ifelse(date==20180712, 4, 1),
-  fluo_amplitude=ifelse(date %in% c(20181008, 20181009) & fluo_amplitude==-1, NA, fluo_amplitude),
-  fluo_amplitude=fluo_amplitude * ifelse(date==20181008 & pos %in% 0:4 & between(time_sec/3600, 8, 20-6/60), 5, 1),
-  fluo_amplitude=fluo_amplitude * ifelse(date==20181009 & pos %in% c(0,2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
-  fluo_amplitude=fluo_amplitude * ifelse(date==20181024 & pos %in% c(0:2,4,6,8) & between(time_sec/3600, 8, 20-6/60), 5, 1),
   fluo_amplitude=fluo_amplitude * ifelse(date==20190605 & time_sec/3600 >= 6, 5, 1),
   fluo_amplitude=fluo_amplitude * ifelse(date==20190614 & time_sec/3600 >= 10, 5, 1),
   
   fluogfp_amplitude = fluo_amplitude - autofluo_predict(length_um)
 )
 
-# date=='20181008' & pos %in% 0:4
-# date=='20181009' & pos %in% c(0, 2, 4, 6, 8)
 
 fp_per_oligomers <- 4 # lacZ is tetrameric
 if (use_eriks_params)
   fp_per_dn <- 0.0361 * fp_per_oligomers
-myframes <- myframes %>%
+myframes <- myframes %>% ungroup() %>% 
   # convert to gfp units (after subtracting autofluorescence)
-  mutate(gfp_nb = fluogfp_amplitude * fp_per_dn,
-         gfp_nb=ifelse(strain=='AB460', 1800/140*gfp_nb, gfp_nb)) %>% 
+  mutate(gfp_nb = fluogfp_amplitude * fp_per_dn ) %>% 
   group_by(date, pos, gl, id)
 
 # experiments to be discarded as identified by controls
@@ -323,10 +270,6 @@ discarded_dates <- c(
   20180606  # weird late switch control (all switch fast!)
   
   # TODO: check whether the heritability at first switch can be used as a criteria
-)
-
-discarded_datesss <- c(discarded_dates
-                       # 20180207, # switch_12h 
 )
 
 
@@ -366,20 +309,20 @@ knitr::opts_chunk$set(
 # rmarkdown::clean_site()
 
 # render control plots of each GC
-# source('./src/MoM_lacDilution_GCplots.R')
+# source('./src/MoM_lacInduction_GCplots.R')
 
-# rmarkdown::render_site('./src/MoM_lacDilution_GFP_Estimation.Rmd')
-rmarkdown::render_site('./src/MoM_lacDilution_Constant_Envts.Rmd')
-rmarkdown::render_site('./src/MoM_lacDilution_Lags_Estimation.Rmd')
-# rmarkdown::render_site('./src/MoM_lacDilution_Heritability_Estimation.Rmd')
+# rmarkdown::render_site('./src/MoM_lacInduction_GFP_Estimation.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_Constant_Envts.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_Lags_Estimation.Rmd')
+# rmarkdown::render_site('./src/MoM_lacInduction_Heritability_Estimation.Rmd')
 
 # DISCARD SOME DATASETS
-rmarkdown::render_site('./src/MoM_lacDilution_Controls.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_Controls.Rmd')
 
 rmarkdown::render_site('./src/index.Rmd')
-rmarkdown::render_site('./src/MoM_lacDilution_Native.Rmd')
-rmarkdown::render_site('./src/MoM_lacDilution_PerturbRepressed.Rmd')
-rmarkdown::render_site('./src/MoM_lacDilution_Sensitivity.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_Native.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_PerturbRepressed.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_Sensitivity.Rmd')
 
 
 # RENDER ARTICLE FILES ####
@@ -389,27 +332,27 @@ knitr::opts_chunk$set(
   )
 
 myfigs <- list()
-source('./src/MoM_lacDilution_Figs.R')
-source('./src/MoM_lacDilution_FigsSI.R')
+source('./src/MoM_lacInduction_Figs.R')
+source('./src/MoM_lacInduction_FigsSI.R')
 
 
-# rmarkdown::render("./manuscript/MoM_lacDilution_ms.Rmd", 
+# rmarkdown::render("./manuscript/MoM_lacInduction_ms.Rmd", 
 #                   bookdown::pdf_book(base_format=bookdown::pdf_book, fig_width=4.75, fig_height=2.25*14/9), 
 #                   # bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
 #                   clean=FALSE)
 # 
-# rmarkdown::render("./manuscript/MoM_lacDilution_SM.Rmd", 
+# rmarkdown::render("./manuscript/MoM_lacInduction_SM.Rmd", 
 #                   bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
 #                   clean=FALSE)
 # 
 # # resolve references
 # (function(.dir, .files) {
 #   setwd("manuscript")
-#   tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=FALSE)
-#   tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=FALSE)
+#   tinytex::pdflatex("MoM_lacInduction_ms.tex", clean=FALSE)
+#   tinytex::pdflatex("MoM_lacInduction_SM.tex", clean=FALSE)
 #   
-#   tinytex::pdflatex("MoM_lacDilution_ms.tex", clean=TRUE)
-#   tinytex::pdflatex("MoM_lacDilution_SM.tex", clean=TRUE)
+#   tinytex::pdflatex("MoM_lacInduction_ms.tex", clean=TRUE)
+#   tinytex::pdflatex("MoM_lacInduction_SM.tex", clean=TRUE)
 #   setwd('..')
 # })()
 
