@@ -1,0 +1,192 @@
+---
+title: "Implications of the single-cell lags distributions on the population lag"
+author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+# Computing population lags from distribution of single-cell lags
+
+```{r}
+gc_sim_params = list(lbd_1 = 1/(49*60), # in sec (coarse estimation from pop growth curves)
+                     lbd_2 = 1/(58*60),
+                     N_max = 1e9,
+                     dilution = 1600,
+                     F_sw = 1/4, # fraction of final OD at which the switch occurs
+                     gr_lags = 0 # no lag (replace with a vector of lags to specify a distribution)
+                     )
+
+simul_gc <- function(.pars, .n_quantiles=101, .t_step=60) {
+  # browser()
+  t_sw <- log(.pars$dilution  * .pars$F_sw) / log(2) / .pars$lbd_1
+  t_max <- t_sw + log(.pars$dilution  * (1-.pars$F_sw)) / log(2) / .pars$lbd_2 + 
+    max(.pars$gr_lags[is.finite(.pars$gr_lags)])
+  .gcs <- tibble(k=seq(0, 1, length.out=.n_quantiles)) %>% mutate(lag=quantile(.pars$gr_lags, k, na.rm=TRUE)) %>% 
+    rowwise() %>% mutate(data=map(lag, function(.l) tibble(t=seq(t_sw, t_max, .t_step)) %>% 
+                                    mutate(n_k=ifelse(t-t_sw>.l, 2^(.pars$lbd_2*(t-t_sw-.l)), 1))
+      ))
+  .gc <- tibble(t=seq(0, t_sw, .t_step)) %>% 
+    mutate(n=.pars$N_max/.pars$dilution * 2^(.pars$lbd_1*t)) %>% 
+    bind_rows(.gcs %>% unnest() %>% group_by(t) %>% 
+                summarise(n=sum(n_k)/length(n_k) * .pars$N_max*.pars$F_sw)) %>% 
+    mutate(t=t-t_sw)
+}
+
+# gc_sim_params %>%
+#   modify_at("gr_lags", ~
+#             mycells_switching %>% ungroup() %>%
+#               filter(!date %in% discarded_dates) %>%
+#               filter(!discard_arrested) %>%
+#               filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+#               filter(switch_idx==1) %>%
+#               mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>%
+#               pull(growth_lag)
+#             # ggplot(aes(growth_lag/60, y=..density..)) +
+#             # stat_density(adjust = 1/1.2) +
+#             # geom_freqpoly(binwidth=3, col='red') +
+#             # NULL) %>%
+#   ) %>%
+#   simul_gc() %>%
+#   filter(n<2e9) %>%
+#   ggplot(aes(t, n)) +
+#   geom_line() +
+#   scale_x_hours(4) +
+#   scale_y_log10() +
+#   NULL
+
+```
+
+```{r}
+my_simgcs <- bind_rows(  
+  tibble(type = 'gluc > lac (full memory)',
+         pars = list(gc_sim_params %>% 
+           modify_at("gr_lags", ~0)) ,
+  ),
+  tibble(type = 'gluc > lac (naive)',
+         pars = list(gc_sim_params %>% 
+           modify_at("gr_lags", ~
+                       mycells_switching %>% ungroup() %>% 
+                       filter(!date %in% discarded_dates) %>%
+                       filter(!discard_arrested) %>% 
+                       filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+                       filter(switch_idx==1) %>%
+                       mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                       pull(growth_lag) )),
+  ),
+  tibble(type = 'gluc + lac > lac',
+         pars = list(gc_sim_params %>% 
+               modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(!discard_arrested) %>% 
+                filter(str_detect(condition, 'switch_glcLac_lac')) %>%
+                filter(switch_idx==1) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) )),
+  ),
+  tibble(type = 'glyc > lac',
+         pars = list(gc_sim_params %>% 
+               modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(str_detect(condition, 'switch_gly_lac')) %>%
+                filter(switch_idx==1) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) )),
+  ),
+  tibble(type = 'gluc > lac (short only)',
+         pars = list(gc_sim_params %>% 
+           modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(!discard_arrested) %>% 
+                filter(str_detect(condition, 'switch_glcLac_lac')) %>%
+                filter(switch_idx==1, growth_lag<50*60) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) )),
+  ),
+  tibble(type = 'gluc > lac (long only)',
+         pars = list(gc_sim_params %>% 
+           modify_at("gr_lags", ~
+                mycells_switching %>% ungroup() %>% 
+                filter(!date %in% discarded_dates) %>%
+                filter(!discard_arrested) %>% 
+                filter(str_detect(condition, 'switch_glcLac_lac')) %>%
+                filter(switch_idx==1, growth_lag>=50*60) %>%
+                mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+                pull(growth_lag) )),
+  ),
+) %>% 
+  mutate(simul=map(pars, simul_gc))
+
+```
+
+```{r}
+(myplots[['simul_gcs']] <- 
+   my_simgcs %>% 
+   mutate(type=fct_relevel(type, 'gluc > lac (naive)', 'gluc > lac (full memory)', 
+                           'gluc + lac > lac',  'glyc > lac',  'gluc > lac (short only)'),
+          pars=NULL) %>% 
+   unnest(simul) %>% 
+   filter(between(n, 8e7, 1.2e9)) %>%
+   ggplot(aes(t/60, n, col=type)) +
+   geom_line() +
+   # geom_point() +
+   # geom_hline(yintercept = 7e8) +
+   scale_y_log10() +
+   coord_cartesian(xlim=c(-40, 200), ylim=c(1.5e8, 1e9)) +
+   scale_color_manual(values=c( # match the colour of single-cell lags plot
+     'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
+     'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
+     'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
+   labs(x='time (min)', y='population size') +
+   # theme_cowplot() +
+   NULL)
+
+#  my_simgcs %>% 
+#    mutate(type=fct_relevel(type, 'gluc > lac (naive)', 'gluc > lac (full memory)', 
+#                            'gluc + lac > lac',  'glyc > lac',  'gluc > lac (short only)'),
+#           pars=NULL) %>% 
+#    filter(type %in% c('gluc > lac (naive)', 'gluc > lac (full memory)')) %>% 
+#    unnest(simul) %>% 
+#    filter(between(n, 8e7, 1.2e9)) %>%
+#    ggplot(aes(t/60, n, col=type)) +
+#    geom_line() +
+#    # geom_point() +
+#    # geom_hline(yintercept = 7e8) +
+#    scale_y_log10() +
+#    coord_cartesian(xlim=c(-40, 185), ylim=c(1.5e8, 1e9)) +
+#    scale_color_manual(values=c( # match the colour of single-cell lags plot
+#      'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4] )) +
+#    labs(x='time (min)', y='population size') +
+#    guides(col='none') +
+#    NULL
+# ggsave('inset.pdf', width=3, height=2)
+```
+
+```{r}
+(myplots[['simul_lags']] <- 
+   my_simgcs %>% 
+   mutate(type=fct_relevel(type, 'gluc > lac (naive)', 'gluc > lac (full memory)', 
+                           'gluc + lac > lac',  'glyc > lac',  'gluc > lac (short only)') ) %>% 
+   mutate(
+     mod = map(simul, ~ lm(log(n)~t, filter(.x, between(n, 1e10, 1e11)))),
+     # i = map_dbl(mod, ~ coefficients(.x)[1]),
+     # s = map_dbl(mod, ~ coefficients(.x)[2]),
+     # mod_intercept = -i/mean(s),
+     mod_intercept = map_dbl(mod, ~ -coefficients(.x)[1] / coefficients(.x)[2]),
+     lag = mod_intercept - mod_intercept[type=='gluc > lac (full memory)'],
+     p_short = map_dbl(pars, ~ sum(.x$gr_lags/60 < 50, na.rm=T) / sum(!is.na(.x$gr_lags)) ),
+   ) %>% 
+   # filter(lag > 0) %>% 
+   ggplot(aes(p_short, lag/60 / 58, col=type)) +
+   geom_point(size=3) +
+   expand_limits(x = 0, y = 0) + 
+   scale_color_manual(values=c( # match the colour of single-cell lags plot
+     'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
+     'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
+     'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
+   labs(x = 'fraction of short growth lags', y = 'population growth lag \n(doublings in lactose)') +
+   NULL)
+
+```
+
