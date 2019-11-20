@@ -16,9 +16,6 @@ data2preproc_file <- function(.f)
 data2preproc <- function(.f)
   file.path(data2preproc_dir(.f), data2preproc_file(.f))
 
-# scale_colour_discrete <- scale_colour_viridis_d
-# scale_colour_continuous <- scale_colour_viridis_c
-
 # EXPERIMENTAL CONDITIONS AND DATA PATHS
 myconditions <- list(
   # CONSTANT CONDITIONS
@@ -276,6 +273,17 @@ discarded_dates <- c(
 # RENDER ANALYSIS FILES ####
 # calling `render()` or `render_site()` from the command line allows to execute the function 
 # in the global envt (hence inheriting existing variables and keeping the newly created ones)...
+filter_article_ds <- function(.df, .filter=TRUE) {
+  if (!.filter) return(.df)
+  filter(.df,
+         condition %in% c("mg1655", "glucose", "lactose", "switch_glcLac_lac", "switch_gly_lac", 
+                          "switch_late", "switch_ramp40min", "switch_lacIoe") |
+           # "switch_glycerol_",
+           # "glycerol"
+           str_detect(condition, "switch_0?(\\d+)h") | 
+           str_detect(condition, "preIPTG")
+  ) }
+
 
 rename_conds <- function (.str) {
 # TODO: check NAs for all conditions
@@ -298,7 +306,8 @@ lac_lags_label <- expression(paste(italic('lac'), ' induction lag (min)'))
 myscales <- list()
 myplots <- list()
 mytables <- list()
-theme_set(theme_cowplot() + theme(strip.text.x=element_text(margin=margin(t=1, b=2)),
+theme_set(theme_cowplot() + theme(title = element_text(size = rel(1/1.14)),
+                                  strip.text.x=element_text(margin=margin(t=1, b=2)),
                                   strip.text.y=element_text(margin=margin(l=2, r=1))) )
 theme_cowplot_legend_inset <- function(.rel=0.7) theme(legend.title=element_text(size=rel(.rel), face='bold'),
                                                        legend.text=element_text(size=rel(.rel)))
@@ -322,7 +331,7 @@ rmarkdown::render_site('./src/MoM_lacInduction_Controls.Rmd')
 rmarkdown::render_site('./src/index.Rmd')
 rmarkdown::render_site('./src/MoM_lacInduction_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacInduction_PerturbRepressed.Rmd')
-rmarkdown::render_site('./src/MoM_lacInduction_Sensitivity.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_PopulationLags.Rmd.Rmd')
 
 
 # RENDER ARTICLE FILES ####

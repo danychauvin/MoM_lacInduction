@@ -125,7 +125,7 @@ According to our prediction, no short lags are observed with reduced basal expre
       theme_cowplot_legend_inset(0.8) +
       theme(axis.title.x=element_blank(),
             axis.text.x=element_text(size=rel(1), colour='black',
-                                     angle=45, hjust=0.8, vjust=0.9),
+                                     angle=45, hjust=1, vjust=0.5, margin=margin(t=-28, b=34)),
             legend.margin=margin(),
             # legend.title=element_text(size=rel(0.7), face='bold'),
             # legend.text=element_text(size=rel(0.7)),
@@ -399,26 +399,30 @@ Another prediction of our interpretation is that the proportion of short lag sho
           # condition=fct_recode(factor(condition), 'glucose + lactose > lactose'='switch_glcLac_lac',
           #                      'glycerol > lactose'='switch_gly_lac',
           #                      'glucose > lactose (control)'='control') ) %>%
-          laci=ifelse(condition=='control', 'control', NA),
+          # laci=ifelse(condition=='control', 'control', NA),
           condition=fct_recode(factor(condition), 'gluc + lac > lac'='switch_glcLac_lac',
                                'glyc > lac'='switch_gly_lac',
-                               'gluc > lac (control)'='control') ) %>%
+                               'gluc > lac\n(control)'='control',
+                               ) ) %>%
    mutate(lag=lag_200,
           lag=ifelse(lag>240*60, Inf, lag)
    ) %>% 
    (function(.df)
      ggplot(.df, aes(x=condition, y=lag/60)) +
       geom_hline(yintercept=50, lty='dashed') +
-      geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
+      geom_violin(aes(group=date, fill=condition, col=condition), adjust=.7, width=1.1, alpha=.4, position='identity') +
       geom_text(aes(y=-10, label=annot), vjust=0.5, size=3, lineheight=1,
-                data=.df %>% group_by(condition, laci) %>% 
+                data=.df %>% group_by(condition) %>% 
                   summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
                             annot=sprintf("%.0f%%\nn=%d", prop*100, n)) ) +
       coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
-      labs(y=lac_lags_label, col='LacI activity', fill='LacI activity') +
-      scale_colour_discrete(limits=c('lower', 'control', 'higher')) +
-      scale_fill_discrete(limits=c('lower', 'control', 'higher')) +
-      guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      labs(y=lac_lags_label) +
+      scale_colour_manual(values=qual_cols[c(2,1,3)]) +
+      scale_fill_manual(values=qual_cols[c(2,1,3)]) +
+      # scale_colour_discrete(palette=function(.n) qual_cols[c(2,1,3)]) +
+      # scale_fill_discrete(limits=c('lower', 'control', 'higher')) +
+      # guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      guides(col='none', fill='none') +
       theme_cowplot_legend_inset(0.8) +
       theme(axis.title.x=element_blank(),
             axis.text.x=element_text(size=rel(1), colour='black',

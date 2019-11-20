@@ -189,16 +189,15 @@ mycells_btw %>%
 (myplots[['gr_length_medians']] <- function(.article_ds=FALSE)
   mycells_btw %>% ungroup() %>% 
     filter(!is.na(medium)) %>% 
-    filter(!.article_ds | ( !str_detect(condition, "_stdIllum") &
-      !condition %in% c("switch_ramp15min", "switch_lactose_priming") ) ) %>%
+    filter_article_ds(.article_ds) %>%
     group_by(condition) %>% 
     mutate(m_col=as.numeric(fct_inorder(factor(medium))) %>% interaction(m_cycle)) %>% 
     filter(m_col=='1.1') %>% 
     ungroup %>% 
     filter(! condition %in% c('mg1655', 'lactose'),
            (time_birth>2*3600 & time_birth<6*3600)) %>%
-    left_join(condition_ts %>% filter(t_start==0) %>% 
-                select(condition, nutrient=medium) ) %>% 
+    left_join(condition_acq_times %>% group_by(condition, medium, m_cycle) %>% slice(1) %>%
+                filter(m_start==0) %>% select(condition, nutrient=medium) ) %>% 
     mutate(condition=fct_relabel(factor(condition), rename_conds),
            type=ifelse(date %in% discarded_dates, 'discarded', 'analysed')) %>% 
            # nutrient='glucose', 
@@ -220,7 +219,8 @@ mycells_btw %>%
         geom_errorbar(aes(exp(lls_med), ymin=lltsl_min/log(2) * 3600, ymax=lltsl_max/log(2) * 3600, col=nutrient, alpha=type)) +
         geom_errorbarh(aes(exp(lls_med), lltsl_med/log(2) * 3600, xmin=exp(lls_min), xmax=exp(lls_max), col=nutrient, alpha=type))+
         scale_alpha_manual(values=c(1, 0.2)) +
-        coord_cartesian(xlim=c(1.4, 2.), ylim=c(0, 0.85)) +
+        # coord_cartesian(xlim=c(1.4, 2.), ylim=c(0, 0.85)) +
+        expand_limits(y=0) +
         labs(x='birth length (µm)', y='growth rate (doublings/h)') +
         NULL
     })
@@ -404,8 +404,8 @@ Based on the relationship between growth rate before the switch, we set a minimu
   mycells_switching %>% 
    filter(condition != 'switch_gly_lac') %>% 
    filter(! date %in% discarded_dates) %>%
-   left_join(condition_ts %>% filter(t_start==0) %>% 
-               select(condition, medium_ini=medium) ) %>% 
+   left_join(condition_acq_times %>% group_by(condition, medium, m_cycle) %>% slice(1) %>%
+               filter(t_start==0) %>% select(condition, medium_ini=medium) ) %>% 
    ggplot() +
    (if (.size_n) {
      geom_point(aes(logl_time_slope_before / log(2) * 3600,  lag_200/60, size=n_preswitch, col=medium_ini), alpha=0.2, stroke=0)
@@ -424,8 +424,8 @@ Based on the relationship between growth rate before the switch, we set a minimu
     filter(condition != 'switch_gly_lac') %>% 
     filter(! date %in% discarded_dates) %>%
     filter(switch_idx == 1) %>% 
-    left_join(condition_ts %>% filter(t_start==0) %>% 
-                select(condition, medium_ini=medium) ) %>% 
+    left_join(condition_acq_times %>% group_by(condition, medium, m_cycle) %>% slice(1) %>%
+                filter(t_start==0) %>% select(condition, medium_ini=medium) ) %>% 
     # mutate(isna=is.na(lag_200)) %>% 
     # group_by(medium_ini) %>% summarise(n=n(), inf=sum(is.infinite(lag_200)))
     ggplot(aes(x=logl_time_slope_before / log(2) * 3600)) +

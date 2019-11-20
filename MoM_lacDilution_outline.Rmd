@@ -12,8 +12,10 @@ An intro outline could be along these lines:
 - Gene regulation happens in response to environmental signals. At first view, the cell state is expected to be controlled by environmental conditions. However it is well known that isogenic cells in the same environment can be in very different states (cf differentiation in multicellular organisms).
 - Microbes constitutes a good model system to study the mechanisms underlying phenotypic heterogeneity. Lots of attention to gene circuits capable of having bistable dynamics since this produces bimodality (i.e. phenotypic heterogeneity) and hysteresis (i.e. memory). Examples (maybe claim here that there are not so many in the end and that this is surprising that not more have been found despite the fact that phenotypic heterogeneity is ubiquitous).
 - Gene expression is stochastic; noticeably the implication of having small number of components involved (+ extrinsic noise) on gene regulatory dynamics have been overlooked so far.
-- We show that the discrete nature of inducer sensing can lead to phenotypic diversification during gene regulatory responses (this requires a positive feedback and no sensing in the “zero state”). This constitutes a new mechanisms to explain the origin of phenotypic heterogeneity in gene circuits. An important implication of this mechanism is that the final population state does not depend only on the final condition but also critically of the initial condition before the switch.
-
+- We discovered recently that the distribution of response times for the lac operon induction during a switch from glucose to lactose is bimodal. Here we characterise the molecular basis of the difference between these 2 subpopulations. 
+We show that the discrete nature of inducer sensing (i.e. whether cells have zero Lac proteins or more) is at the origin of this phenotypic diversification. 
+# This constitutes a new mechanism (which requires a positive feedback and no sensing in the “zero state”) to explain the origin of phenotypic heterogeneity in gene circuits. 
+An important implication of this mechanism is that the final population state does not depend only on the final condition but also critically of the initial condition before the switch.
 
 
 
@@ -24,7 +26,9 @@ An intro outline could be along these lines:
 
 1C. Histo of induction lags
 
-1D. Distributions with IPTG tickling / LacI plasmid
+1D. Growth lag = f(induction lag)
+
+1E. Distributions with IPTG tickling / LacI plasmid
 
 
 
@@ -35,41 +39,45 @@ An intro outline could be along these lines:
 
 2C. Fraction of short lags = f(inherited LacZ)
 
+2D. [[ FLIM ]]
 
 
-## Figure 3: The induction dynamics controls the growth response at the switch (formerly S12)
-3A. Growth lag = f(induction lag)
-
-3B. Histo of growth lags (maybe overlaid on histo of induction lags??)
-
-NB: on this Dany commented that this is one case where the “growth phenotype” is revealed only after the environmental change i.e. that difference in growth becomes only visible in lactose although the difference in terms of Lac proteins content is already present in glucose; he made a point that this illustrates how fitness/growth is environment dependent even for cells simply in different phenotypic states. I’ve not decided yet whether it’s obvious or smart and relevant…
-
-
-
-## Figure 4: The discrete nature of inducer sensing leads to phenotypic diversification during a switch to lactose.
+## Figure 3: The discrete nature of inducer sensing leads to phenotypic diversification during a switch to lactose.
 4A. Cartoon explaining that there is an unstable equilibrium state coming from the << 1 sensitivity threshold
+
+In the main text, explain at this stage that a clear signature of this type of mechanism is the strong heritability of lag type.
 
 4B. Distributions of induction lags for different initial conditions (glucose / glycerol / glucose + lactose; formerly S5)
 
-4C. Population lag in diauxie experiments is shorter when more lactose is provided (indep of glucose concentration)
+4C. Simulation of population growth curves from distributions of single-cell lags
 
-NB: 4C is also true for different SC1 strain (might go in 4C or in a SI figure depending on how I show it)
+4D. Population lags inferred from distributions of single-cell lags
+
+4E. Population growth curves in diauxie experiments
+
+4F. Population lag in diauxie experiments is shorter when more lactose is provided (indep of glucose concentration)
+
+NB: 4F is also true for different SC1 strains (might go in 4F or in a SI figure depending on how I show it)
 
 
 
 Figures S1, S2, S3, S4, S6, S7, S9, S10 and S11 remain as supplement.
 
-
+other SI Figs to prepare:
+- lag distribution in wider GLs
+- lag distribution when LacI is titrated on plasmids
+- threshold at 1 protein also for low [lactose]
+- wash-control for diauxie experiments
+- proteomics analysis
 
 
 
 Various remarks (in random order):
 
-- in principle it would be possible to set the stage starting with the diauxie experiments and the shorter population lags at higher lactose concentration; not sure what we would gain though (I’m not surfe that the single-cell experiments we’ve done are natural things to do to understand this…). Can you think of a striking way to use them? (I realise this is a stupid question since you havent seen a figure; I pasted what the “raw” data look like at https://vannimwegenlab.slack.com/archives/C9R5LA70Q/p1562162859000100)
-0) 
+- in principle it would be possible to set the stage starting with the diauxie experiments and the shorter population lags at higher lactose concentration; not sure what we would gain though (I’m not sure that the single-cell experiments we’ve done are natural things to do to understand this…). Can you think of a striking way to use them?
 
 - it would be nice to have the FLIM results in this article (but I don’t know whether they will ever come)
-- the high heritability of the induction lag and growth lag is a strong signature of this “discrete inducer sensing”; could make a nice point with a figure / panel (maybe squeezed in 4A??)
+- the high heritability of the induction lag and growth lag is a strong signature of this “discrete inducer sensing”; could make a nice point with a figure / panel (could make a figure 3 with the cartoon of 3A)
 - to explain the principle and how heritability constitutes a signature, my stochastic simulation of Lac expression before the switch might be nice. I would have to use it to only predict the short / long ratio instead of the distribution otherwise there are so many variables in the air (how the burst probability changes after the switch, the fact that there is cross-induction, etc)
 - in this version, I dont touch the effect of glucose concentration on population lag; it’s arguably more complicated to interpret (I dont believe that we have a proper working model yet)
 - I didn’t manage to fit the cross induction in this version; I don’t believe that it kills any of the message since it is induction of cells with long lags by other cells having long lags but bursting earlier on (as far as I remember we’ve clear cases with short and long in the same GL, i.e. I dont expect this cross-induction doesn’t kill the bimodality in bulk when all cells are talking to each other)

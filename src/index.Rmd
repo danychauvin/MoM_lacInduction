@@ -38,7 +38,7 @@ mygl <- myframes %>% ungroup() %>%
 
 ```{r}
 (mytables[['expts_list']] <- mygl %>% ungroup() %>% 
-   # mutate(condition=factor(condition, levels=unique(condition_ts$condition)) ) %>% 
+   # mutate(condition=factor(condition, levels=unique(condition_acq_times$condition)) ) %>% 
    group_by(condition, label, date) %>%
    summarise(n_lanes=length(unique(interaction(date, pos, gl))),
              # n_div_cells=sum(is.na(n_div_cells)),

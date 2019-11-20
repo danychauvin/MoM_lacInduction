@@ -132,7 +132,7 @@ filter(myframes, condition=='mg1655') %>%
   filter(!discard_top) %>% 
   head(1e4) %>% 
 ggplot(aes(time_sec, fluo_amplitude/length_um)) + 
-  geom_rect(aes(x=1, y=1, xmin=t_start, xmax=t_end, ymin=-Inf, ymax=Inf, fill=medium), alpha=.1, data=filter(condition_ts, condition=='mg1655')) + # draws one rectangle per data line
+  geom_rect(aes(x=1, y=1, xmin=m_start, xmax=m_end, ymin=-Inf, ymax=Inf, fill=medium), alpha=.1, data=condition_acq_times %>% group_by(condition, medium, m_cycle) %>% slice(1) %>% filter(condition=='mg1655')) + # draws one rectangle per data line
   geom_hline(yintercept=mean_autofluo$slope0, lty='dashed') +
   geom_point(alpha=.2, size=1) +
   geom_smooth(method='loess', span=.05, se=FALSE) +

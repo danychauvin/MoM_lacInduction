@@ -158,8 +158,8 @@ mycells_switching %>%
   })(.)) %>% 
   inner_join(mutate(myframes, genealogy=sub(':', '', genealogy)), .) %>% 
   ggplot() +
-  geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=11e3, ymax=Inf, fill=medium, group=1), size=0.2, data=filter(condition_ts, condition=='switch_04h') ) +
-  geom_vline(aes(xintercept=t_start - 2*3600, group=1), alpha=.2, size=.5, data=filter(condition_ts, condition=='switch_04h')) +
+  geom_rect(aes(xmin=m_start - 2*3600, xmax=m_end - 2*3600, ymin=11e3, ymax=Inf, fill=medium, group=1), size=0.2, data=condition_acq_times %>% group_by(condition, medium, m_cycle) %>% slice(1) %>% filter(condition=='switch_04h') ) +
+  geom_vline(aes(xintercept=m_start - 2*3600, group=1), alpha=.2, size=.5, data=condition_acq_times %>% group_by(condition, medium, m_cycle) %>% slice(1) %>% filter(condition=='switch_04h')) +
   geom_line(aes(time_sec - 2*3600, gfp_nb, col=gl_id, group=switch_cell), alpha=.25) +
   scale_colour_periodic_brewer(guide='none') +
   scale_x_hours() +
