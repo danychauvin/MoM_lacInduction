@@ -147,7 +147,7 @@ myplots[['lags_inherited_gfp']] %>%
   load('material/SC1ss_diauxieGC_plots.RData', envir=diauxie_env)
   # browser()
   diauxie_env$myplots[['diauxie_gcs_all']] +
-    scale_color_manual(values = c('0µM'=ggCustomTJ::qual_cols[2], '200µM'=ggCustomTJ::qual_cols[1])) +
+    # scale_color_manual(values = c('0µM'=ggCustomTJ::qual_cols[2], '200µM'=ggCustomTJ::qual_cols[1])) +
     theme_half_open() + # this is needed otherwise setting strip.text raises an error ?!?
     theme(legend.position = 'top', panel.border = element_rect(colour='gray50')) +
     # guides(colour=guide_legend(title.position="top")) +

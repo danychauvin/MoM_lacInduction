@@ -71,51 +71,73 @@ save_plot(here("plots", "figs", "MoM_lacInduction_fig1.pdf"), myfigs[[1]](),
 ))
 
 save_plot(here("plots", "figs", "MoM_lacInduction_fig2.pdf"), myfigs[[2]],
-          base_height=NULL, base_width=2.25 * 14/8, # 2 cols
+          base_height=NULL, base_width=2.25 * 14/8, # 1 col
           base_aspect_ratio = 1/1.7
 )
 
 ############
 (myfigs[[3]] <- function() { # local envt
   # browser()
-  diauxie_env <- new.env()
-  load('material/SC1ss_diauxieGC_plots.RData', envir=diauxie_env)
   # pdftools_installed <- require(pdftools)
-  plot_grid(
     plot_grid(
       NULL,
+      
       myplots[['glyc_mix_violin']] +
         theme(axis.title.x = element_blank()),
-      nrow=2, labels=c("A", "B"), rel_heights = c(1.2,1)),
-    plot_grid(
-      myplots[['simul_gcs']] +
+      
+      myplots[['simul_lags']] +
         scale_x_continuous(breaks=scales::pretty_breaks(n=3)) +
-        scale_y_continuous(trans='log10', breaks=c(2e8, 4e8, 8e8)) +
-        geom_polygon(aes(fill=type), x=0, y=0) + # hack to change the legend appearance
+        scale_y_continuous(breaks=scales::pretty_breaks(n=4)) +
+        labs(col='condition') +
+        # labs(x="fraction of short\ngrowth lags") +
         scale_fill_manual(values=c(
           'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
           'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
           'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
-        labs(title="simulations") + # population lag predicted by simulations
-        theme(legend.position = 'bottom', legend.title=element_blank(),
-              legend.text = element_text(size=rel(0.8)), legend.key.size = unit(0.6, "lines"),
-              legend.box.spacing = unit(0.25, "lines"), #plot.margin=margin(14, 7, 7, 7, "pt"),
-              ) +
-        guides(col=guide_legend(ncol = 1)) +
-        NULL, 
-      myplots[['simul_lags']] +
-        scale_x_continuous(breaks=scales::pretty_breaks(n=3)) +
-        scale_y_continuous(breaks=scales::pretty_breaks(n=4)) +
-        labs(x="fraction of short\ngrowth lags") +
-        theme(legend.position = 'none') +
-        NULL, 
-      nrow=2, labels=c("C", "D"), rel_heights = c(1.3, 1)), align="v",
+        guides(col=guide_legend(ncol = 2)) +
+        theme(
+          # legend.position = 'right',
+          legend.position = 'bottom', legend.title=element_blank(),
+          # legend.box.spacing = unit(0.25, "lines"), #plot.margin=margin(14, 7, 7, 7, "pt"),
+          legend.text = element_text(size=rel(0.8)), legend.key.size = unit(0.6, "lines"),
+        ) +
+        
+        expand_limits(y=-.1) +
+        annotation_custom(ggplotGrob(
+          myplots[['simul_gcs']] +
+            theme_cowplot(font_size = 11) +
+            scale_x_continuous(breaks=scales::pretty_breaks(n=3)) +
+            scale_y_continuous(trans='log10', breaks=c(2e8, 4e8, 8e8)) +
+            geom_polygon(aes(fill=type), x=0, y=0) + # hack to change the legend appearance
+            theme(legend.position = 'none') +
+            guides(col=guide_legend(ncol = 1)) +
+            labs(y='pop. size') +
+            NULL), 
+          xmin=-.04, xmax=0.5, ymin=-.18, ymax=0.8) +
+        NULL
+      , 
+      
+      nrow=3, labels="AUTO", rel_heights = c(0.9, 1, 1)) 
+}) ()
+
+save_plot(here("plots", "figs", "MoM_lacInduction_fig3.pdf"), myfigs[[3]](),
+          base_height=NULL, base_width=2.25 * 14/8, # 1 col
+          base_aspect_ratio = 1/2.1
+)
+
+
+
+(myfigs[[4]] <- function() { # local envt
+  diauxie_env <- new.env()
+  load('material/SC1ss_diauxieGC_plots.RData', envir=diauxie_env)
+  # browser()
+  
+  plot_grid(
     plot_grid(
       diauxie_env$myplots[['diauxie_gcs']] +
         xlim(NA, 10) +
         guides(alpha='none') +
-        labs(title="diauxie experiments") +
-      # theme(legend.position=c(0.02, 0.98), legend.justification=c(0, 1)) +
+        # theme(legend.position=c(0.02, 0.98), legend.justification=c(0, 1)) +
         theme(legend.position = "top") +
         annotation_custom(ggplotGrob(
           diauxie_env$myplots[['diauxie_delay']] +
@@ -136,13 +158,17 @@ save_plot(here("plots", "figs", "MoM_lacInduction_fig2.pdf"), myfigs[[2]],
           #legend.position = c(.01, .99), legend.justification = c(0,1),
           legend.position = 'top', 
           axis.text.x=element_text(angle=45, hjust=1, vjust=1)),
-      nrow=2, labels=c("E", "F"), rel_heights = c(1,1), align="v"), # 
-    ncol=3, rel_widths = c(1, 1, 1.2))
+      ncol=2, labels=c("A", "B"), rel_widths = c(1,1), align="h"),
+    
+    myplots[['2cs_qms_kinases']] +
+      coord_cartesian(xlim=c(0.08, 500), ylim=c(0, 1.8)) +
+      scale_x_continuous(labels = identity, trans = 'log10') +
+      NULL,
+    nrow=2, labels=c("", "C"), rel_heights = c(1, 0.8))
 }) ()
 
-save_plot(here("plots", "figs", "MoM_lacInduction_fig3.pdf"), myfigs[[3]](),
-          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-          base_aspect_ratio = 1.4
+save_plot(here("plots", "figs", "MoM_lacInduction_fig4.pdf"), myfigs[[4]](),
+          base_height=NULL, base_width=4 * 14/8, # 1 col
+          base_aspect_ratio = 1.25
 )
-
 
