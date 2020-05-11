@@ -1,5 +1,5 @@
 ---
-title: "Implications of the single-cell lags distributions on the population lag"
+title: "Simulating population lag during diauxic shift from distributions of single-cell lags"
 author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
@@ -139,7 +139,6 @@ my_simgcs <- bind_rows(
      'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
      'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
    labs(x='time (min)', y='population size') +
-   # theme_cowplot() +
    NULL)
 
 #  my_simgcs %>% 

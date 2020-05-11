@@ -575,19 +575,18 @@ NB: the lower bound of the GFP lags probably comes from GFP maturation time.
 )
  # ggsave('plots/BZSposter2017/gfp_growth_lags.pdf', width=180/25.4/2, height=100/25.4/2)
 
-mycells_switching %>% ungroup() %>% 
-  filter(!date %in% discarded_dates) %>%
-  filter(!discard_arrested) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-  filter(switch_idx==1) %>%
-  mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
-  group_by(growth_lag, lag_200) %>% 
-  summarise(n=n()) %>% ungroup %>% 
-  with(sum( is.infinite(growth_lag) & is.finite(lag_200) ) /
-         sum( !is.na(growth_lag) & !is.na(lag_200)) )
-  filter(is.finite(growth_lag), is.finite(lag_200)) %>%
-  with(cor(growth_lag, lag_200)^2)
-
+# mycells_switching %>% ungroup() %>% 
+#   filter(!date %in% discarded_dates) %>%
+#   filter(!discard_arrested) %>% 
+#   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+#   filter(switch_idx==1) %>%
+#   mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
+#   group_by(growth_lag, lag_200) %>% 
+#   summarise(n=n()) %>% ungroup %>% 
+#   with(sum( is.infinite(growth_lag) & is.finite(lag_200) ) /
+#          sum( !is.na(growth_lag) & !is.na(lag_200)) )
+#   filter(is.finite(growth_lag), is.finite(lag_200)) %>%
+#   with(cor(growth_lag, lag_200)^2)
 
 ```
 

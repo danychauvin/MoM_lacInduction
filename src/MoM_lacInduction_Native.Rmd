@@ -129,7 +129,7 @@ mycells_switching %>% ungroup() %>%
 Although the distributions vary from day to day, the bimodality is obserevd in all replicates (particularly visible in the panel with overlayed distributions).
 
 ```{r fig.height=10}
-(myplots[['naive_lags_per_expt']] <- function(na.rm=TRUE)
+(myplots[['naive_lags_per_expt_facet']] <- function(na.rm=TRUE)
   mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -154,6 +154,31 @@ Although the distributions vary from day to day, the bimodality is obserevd in a
      NULL
   )
  )(FALSE) +
+  labs(subtitle='naive cells')
+
+```
+
+```{r include=FALSE}
+(myplots[['naive_lags_per_expt']] <- function(na.rm=TRUE)
+  mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>% 
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  mutate(lag=lag_200) %>% 
+  #        lag=ifelse(is.finite(lag) & lag>240*60, 240*60, lag), 
+  #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+  #        lag=ifelse(!na.rm & is.na(lag), -1, lag)) %>% 
+  # (function(.df) bind_rows(.df, .df %>% mutate(date=NA, condition='all')) ) %>% 
+    ggplot(aes(x=lag/60, y=..density..)) +
+     geom_freqpoly(aes(col=factor(date)), binwidth=6, show.legend=FALSE) +
+     # geom_freqpoly(aes(col=factor(date_col)), breaks=seq(0, 240, 6)-3, pad=TRUE, show.legend=FALSE,
+                   # data=.df %>% mutate(date_col=date, date=NA, condition='all')) +
+     labs(x=lac_lags_label) +
+     coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+     scale_colour_periodic() +
+     NULL
+ )(TRUE) +
   labs(subtitle='naive cells')
 
 ```
@@ -255,6 +280,44 @@ mycells_switching %>% ungroup %>%
   geom_point(size=1, alpha=.4, stroke=0) +
   NULL
 
+myframes %>% 
+  ungroup %>% 
+  filter(condition=='mg1655') %>%
+  filter(!discard_start, !discard_top) %>% 
+  filter(between(length_um, 2, 3.5)) %>% 
+  select(date, gfp_ini=gfp_nb) %>% 
+  (function(.df)
+    ggplot(.df, aes(gfp_ini)) + 
+      geom_line(aes(gfp_ini, cdf),
+                data=.df %>% 
+                  ungroup %>% nest() %>% 
+                  mutate(fit = map(data, ~MASS::fitdistr(.$gfp_ini, "normal") ),
+                         curve = map(fit, ~tibble(gfp_ini=seq(-100, 200, 1), 
+                                                  cdf=pnorm(gfp_ini, .$estimate['mean'], .$estimate['sd']))) ) %>% 
+                  unnest(curve) ) +
+     stat_ecdf(aes(col=factor(date))) +
+     coord_cartesian(xlim=c(-50, 150)) +
+     labs(x='fluo (~GFP)', y = 'cdf', col='date') +
+     theme(legend.position = 'none') +
+     NULL
+   )
+ggsave('gfp_mg1655_cdfs.pdf', width=6, height=3.5)
+
+
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  ggplot(aes(gfp_ini)) + 
+  facet_wrap(~type, ncol=1) +
+  stat_ecdf(aes(col=factor(date))) +
+  coord_cartesian(xlim=c(-30, 200)) +
+  scale_color_hue() +
+  labs(x='fluo at switch (~GFP)', y = 'cdf', col='date')+
+  NULL
+ggsave('gfp_ini_cdfs.pdf', width=6, height=3.5)
+
 mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
@@ -263,14 +326,24 @@ mycells_switching %>% ungroup %>%
   group_by(date) %>%
   mutate(gr=logl_time_slope_before-mean(logl_time_slope_before),
          gfp_ini=gfp_ini-mean(gfp_ini)) %>% 
-  ggplot(aes(gfp_ini)) + 
-  # facet_grid(date~.) +
-  # geom_freqpoly(aes(y= ..density.., col=type), binwidth=.00001) +
-  stat_ecdf(aes(col=factor(date))) +
-  scale_color_hue() +
-  NULL
-  
-
+  (function(.df) {
+    ggplot(.df, aes(gfp_ini)) + 
+      facet_wrap(~type, ncol=1) +
+      stat_ecdf(aes(col=factor(date))) +
+      geom_line(aes(gfp_ini, cdf),
+                data=.df %>% group_by(type) %>% 
+                  filter(date != '20150703') %>% 
+                  nest() %>% 
+                  mutate(fit = map(data, ~MASS::fitdistr(.$gfp_ini,"normal") ),
+                         curve = map(fit, ~tibble(gfp_ini=seq(-100, 200, 1), 
+                                                  cdf=pnorm(gfp_ini, .$estimate['mean'], .$estimate['sd']))) ) %>% 
+                  unnest(curve) ) +
+      coord_cartesian(xlim=c(-50, 150)) +
+      scale_color_hue() +
+      labs(x='fluo at switch (~GFP; centered)', y = 'cdf', col='date')+
+     NULL
+   })
+ggsave('gfp_ini_centered_cdfs.pdf', width=6, height=3.5)
 
 ```
 

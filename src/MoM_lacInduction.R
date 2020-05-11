@@ -1,11 +1,32 @@
 
-# SET VARIABLES & ENVIRONMENT ####
+# SET ENVIRONMENT
+# install.packages(c('tools', 'remotes', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
+# remotes::install_github(c('julou/ggCustomTJ', 'hadley/multidplyr'))
+# remotes::install_github('vanNimwegenLab/vngMoM', auth_token='xxx')
+mylibs <- c('here', 'tidyverse', 'cowplot', 'tools', 'RcppArmadillo', 'vngMoM', 'ggCustomTJ')
+invisible( suppressPackageStartupMessages( # don't use %>% before loading dplyr
+  lapply(mylibs, library, character.only=TRUE) ))
+library(svglite)
+
+dir.create(here("slogs"), showWarnings=FALSE) # create a directory to store logs from the queue
+
+theme_set(theme_cowplot() + theme(title = element_text(size = rel(1/1.14)),
+                                  strip.text.x=element_text(margin=margin(t=1, b=2)),
+                                  strip.text.y=element_text(margin=margin(l=2, r=1))) )
+theme_cowplot_legend_inset <- function(.rel=0.7) theme(legend.title=element_text(size=rel(.rel), face='bold'),
+                                                       legend.text=element_text(size=rel(.rel)))
+
+# set a parallel environment to run multidplyr
+library(multidplyr)
+mycluster <- min(30, parallel::detectCores()-1) %>%  # do not use more than 30 cores
+  create_cluster() %>% cluster_library(mylibs)       # load libraries on each core
+
 
 # SET VARIABLES
 dl <- 0.065                # pixel size (µm)
 vertical_cutoff <- 4 / dl  # after it touched this coordinate a cell is discarded
 min_growth_rate <- 4e-5    # growth rate threshold to discard non growing cells before the switch (sec-1)
-use_eriks_params <- TRUE
+use_kaiser2018_params <- TRUE
 
 data2preproc_dir <- function(.d)
   str_match(.d, '20\\d{6}') %>% na.omit %>% as.character %>% 
@@ -73,6 +94,9 @@ myconditions <- list(
   #      medium=c('glucose', 'lactose', 'glucose'),
   #      paths=c("./data_thomas/20170926/20170926_glu_lac_30h_hiExpr_curated/")),
   
+  # glu/zero switch: 20151221
+  # lac lowIllum: 20160318, 20160427
+  
   # LAC PROTEINS THRESHOLD
   list(condition='switch_pre_lac001_6h', duration=c(360, 1080), dt=c(180, 360), 
        medium=c('glucose', 'lactose'),
@@ -132,21 +156,6 @@ myconditions <- list(
   
 )
 
-# SET ENVIRONMENT
-# install.packages(c('tools', 'devtools', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
-# devtools::install_github(c('julou/ggCustomTJ', 'hadley/multidplyr'))
-# devtools::install_github('vanNimwegenLab/vngMoM', auth_token='xxx')
-mylibs <- c('here', 'tidyverse', 'cowplot', 'tools', 'RcppArmadillo', 'vngMoM', 'ggCustomTJ')
-invisible( suppressPackageStartupMessages( # don't use %>% before loading dplyr
-  lapply(mylibs, library, character.only=TRUE) ))
-library(svglite)
-
-dir.create(here("slogs"), showWarnings=FALSE) # create a directory to store logs from the queue
-
-# set a parallel environment to run multidplyr
-library(multidplyr)
-mycluster <- min(30, parallel::detectCores()-1) %>%  # do not use more than 30 cores
-  create_cluster() %>% cluster_library(mylibs)       # load libraries on each core
 
 # LOAD MoMA DATA ####
 # find raw data files from myconditions and store them in a dataframe
@@ -234,7 +243,7 @@ myframes <- myfiles %>%
          length_erik=length_um, length_um=length_raw)
 
 # CONVERT FLUO UNITS ####
-if (use_eriks_params)
+if (use_kaiser2018_params)
   autofluo_predict <- function(.h) .h * 422.8
 myframes <- myframes %>% ungroup() %>% mutate(
   fluo_amplitude=fluo_amplitude * ifelse(date==20190605 & time_sec/3600 >= 6, 5, 1),
@@ -245,7 +254,7 @@ myframes <- myframes %>% ungroup() %>% mutate(
 
 
 fp_per_oligomers <- 4 # lacZ is tetrameric
-if (use_eriks_params)
+if (use_kaiser2018_params)
   fp_per_dn <- 0.0361 * fp_per_oligomers
 myframes <- myframes %>% ungroup() %>% 
   # convert to gfp units (after subtracting autofluorescence)
@@ -289,9 +298,8 @@ rename_conds <- function (.str) {
 # TODO: check NAs for all conditions
   .labels <- .str
   # .labels[.labels=='1'] <- 'switch:1'
-  .labels <- str_replace(.labels, "switch_glcLac_lac", "glc+lac > lac")
+  # .labels <- str_replace(.labels, "switch_glcLac_lac", "glc+lac > lac")
   .labels <- str_replace(.labels, "switch_gly_lac", "glyc > lac")
-  .labels <- str_replace(.labels, "switch_lactulose", "> lactulose")
   .labels <- str_replace(.labels, "switch_glycerol_", "> glyc ")
   # .labels <- str_replace(.labels, "glycerol", "glyc")
   .labels <- str_replace(.labels, "switch_0?(\\d+)h", "memory \\1h")
@@ -306,11 +314,7 @@ lac_lags_label <- expression(paste(italic('lac'), ' induction lag (min)'))
 myscales <- list()
 myplots <- list()
 mytables <- list()
-theme_set(theme_cowplot() + theme(title = element_text(size = rel(1/1.14)),
-                                  strip.text.x=element_text(margin=margin(t=1, b=2)),
-                                  strip.text.y=element_text(margin=margin(l=2, r=1))) )
-theme_cowplot_legend_inset <- function(.rel=0.7) theme(legend.title=element_text(size=rel(.rel), face='bold'),
-                                                       legend.text=element_text(size=rel(.rel)))
+
 knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE,
   dev="svglite"
@@ -318,23 +322,25 @@ knitr::opts_chunk$set(
 # rmarkdown::clean_site()
 
 # render control plots of each GC
-# source('./src/MoM_lacInduction_GCplots.R')
-
-# rmarkdown::render_site('./src/MoM_lacInduction_GFP_Estimation.Rmd')
-rmarkdown::render_site('./src/MoM_lacInduction_Constant_Envts.Rmd')
+# source('./src/MoM_lacInduction_GCplots.Rd')
+rmarkdown::render_site('./src/MoM_lacInduction_Constant_Envts.Rmd') # to produce comparison values
 rmarkdown::render_site('./src/MoM_lacInduction_Lags_Estimation.Rmd')
-# rmarkdown::render_site('./src/MoM_lacInduction_Heritability_Estimation.Rmd')
 
 # DISCARD SOME DATASETS
 rmarkdown::render_site('./src/MoM_lacInduction_Controls.Rmd')
 
 rmarkdown::render_site('./src/index.Rmd')
+
 rmarkdown::render_site('./src/MoM_lacInduction_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacInduction_PerturbRepressed.Rmd')
-rmarkdown::render_site('./src/MoM_lacInduction_PopulationLags.Rmd.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_PopLagSimul.Rmd')
+
+rmarkdown::render_site('./src/MoM_lacInduction_FLIM.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_diauxieGrowthCurves.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_QMS.Rmd')
 
 
-# RENDER ARTICLE FILES ####
+# RENDER ARTICLE FIGURES ####
 
 knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE
@@ -344,24 +350,4 @@ myfigs <- list()
 source('./src/MoM_lacInduction_Figs.R')
 source('./src/MoM_lacInduction_FigsSI.R')
 
-
-# rmarkdown::render("./manuscript/MoM_lacInduction_ms.Rmd", 
-#                   bookdown::pdf_book(base_format=bookdown::pdf_book, fig_width=4.75, fig_height=2.25*14/9), 
-#                   # bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
-#                   clean=FALSE)
-# 
-# rmarkdown::render("./manuscript/MoM_lacInduction_SM.Rmd", 
-#                   bookdown::pdf_book(base_format=rticles::plos_article, fig_width=4.75, fig_height=2.25*14/9), 
-#                   clean=FALSE)
-# 
-# # resolve references
-# (function(.dir, .files) {
-#   setwd("manuscript")
-#   tinytex::pdflatex("MoM_lacInduction_ms.tex", clean=FALSE)
-#   tinytex::pdflatex("MoM_lacInduction_SM.tex", clean=FALSE)
-#   
-#   tinytex::pdflatex("MoM_lacInduction_ms.tex", clean=TRUE)
-#   tinytex::pdflatex("MoM_lacInduction_SM.tex", clean=TRUE)
-#   setwd('..')
-# })()
-
+# save.image(".RData")

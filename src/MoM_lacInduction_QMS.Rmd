@@ -1,7 +1,7 @@
 ---
-output: html_document
-editor_options: 
-  chunk_output_type: console
+title: "Using fluorescence lifetime to measure pre-existing lac expression"
+author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
 **Aim**: explore whether some signal transduction pathway featuring positive feedback are likely to be metastable in the same sense as the *lac* operon is, i.e. have one of there components expressed at low level in the repressed state and stochastically present/abset in a given cell.
@@ -13,22 +13,7 @@ To address this using data, I used the quantitative MS measurements done in 28 c
 - Check the expression levels of genes involved in simple regulatory pathways known to feature positive feedbacks, namely two-component systems (2CS).
 - Check the expression level of genes involved in transport and metabolism of sugars, since those are typically induced upon addition of the sugar using a positive feedback mechanism (cf lactose, xylose, arabinose, galactose, etc).
 
-
-```{r housekeeping, eval=FALSE, echo=FALSE}
-library(svglite)
-knitr::opts_chunk$set(echo = FALSE,
-                      warning = FALSE,
-                      message = FALSE,
-                      fig.width=10, fig.height=7
-                      # dev = "svglite",
-                      )
-
-```
-
 ```{r loading}
-# library(tidyverse)
-# library(ggCustomTJ)
-
 myqms_file <- tempfile() # "/Users/julou/Documents/Zotero/storage/YMGBBIKN/nbt.3418-S2.xlsx"
 download.file("https://media.nature.com/original/nature-assets/nbt/journal/v34/n1/extref/nbt.3418-S2.xlsx", myqms_file)
 

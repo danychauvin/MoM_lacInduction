@@ -50,6 +50,9 @@ mycells_constant <- filter(myframes, condition %in% c('glucose', 'lactose'), !di
   arrange(condition, date, pos, gl, id) %>% 
   mutate(gl_id=gsub('\\.[0-9]+$', '', cell))
 
+```
+
+```{r eval=FALSE}
 myframes_constant <- semi_join(myframes, mycells_constant) %>% 
   # group_by(date, pos, gl, id) %>% 
   partition(date, pos, gl, id, cluster=mycluster) %>%
@@ -69,7 +72,7 @@ myframes_constant <- semi_join(myframes, mycells_constant) %>%
 
 ## Heritability of various life history traits
 
-```{r}
+```{r eval=FALSE}
 mycells_constant <- mycells_constant %>% 
   mutate(alpha=logl_time_slope, dblt=log(2)/alpha, 
          l_birth=exp(loglength_start), l_div=exp(loglength_end),
@@ -127,7 +130,7 @@ last_plot() +
 ```
 
 
-```{r}
+```{r eval=FALSE}
 mypairs_constant %>% 
   filter(div_min==div_max) %>% 
   group_by(condition, variable, rel) %>% 
@@ -146,7 +149,7 @@ mypairs_constant %>%
 
 ## Fluo in glucose
 
-```{r}
+```{r eval=FALSE}
 myframes_constant %>% 
   filter(condition=='glucose') %>% 
   filter(!discard_start, !discard_top) %>%  

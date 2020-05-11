@@ -11,25 +11,29 @@ author: Thomas Julou
 navbar:
   title: "Single-cell analysis of the glucose/lactose diauxic shift"
   left:
-    - text: "Prerequisites"
-      icon: fa-gear
+    - text: "Mother machine experiments"
+#      icon: fa-flask
       menu:
-        - text: "GFP Estimation"
-          href: MoM_lacDilution_GFP_Estimation.html
+#        - text: "GFP Estimation"
+#          href: MoM_lacDilution_GFP_Estimation.html
         - text: "Lags estimation"
           href: MoM_lacDilution_Lags_Estimation.html
-#        - text: "Heritability estimation"
-#          href: MoM_lacDilution_Heritability_Estimation.html
-        - text: "---------"
         - text: "Controls"
           href: MoM_lacDilution_Controls.html
-    - text: "Analysis"
-      icon: fa-flask
-      menu:
+        - text: "---------"
         - text: "Induction and memory of the native *lac* operon"
           href: MoM_lacDilution_Native.html
         - text: "Perturbations of the repressed lac operon expression"
           href: MoM_lacDilution_PerturbRepressed.html
-        - text: "Sensitivity to inducers"
-          href: MoM_lacDilution_Sensitivity.html
-
+        - text: "---------"
+        - text: "Simulation of population lags from distribution of single-cell lags"
+          href: MoM_lacInduction_PopLagSimul.html
+    - text: "Additional experiments"
+#      icon: fa-gear
+      menu:
+        - text: "Fluorescence lifetime experiments"
+          href: MoM_lacInduction_FLIM.html
+        - text: "Population lags in diauxie experiments"
+          href: MoM_lacInduction_diauxieGrowthCurves.html
+        - text: "Identification of SMT candidates in MS data"
+          href: MoM_lacInduction_QMS.html

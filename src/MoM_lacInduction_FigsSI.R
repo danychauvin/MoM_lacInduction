@@ -49,24 +49,38 @@ myplots[['gr_length_medians']](.article_ds=TRUE) %>%
 # # gr-before-filtering
 
 
-myplots[['naive_lags_per_expt']]() %>% 
+myplots[['naive_lags_per_expt_facet']]() %>% 
   save_plot(here("plots", "SI_figs", "naive-lags-per-expt.pdf"), .,
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 1.2)
 
 
-myplots[['naive_lags_per_pos']] %>% 
+myplots[['naive_lags_per_pos']]() %>% 
   save_plot(here("plots", "SI_figs", "naive-lags-per-pos.pdf"), .,
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 1.6)
 
-myplots[['lags_hist_ramp']] %>% 
-  save_plot(here("plots", "SI_figs", "lags-hist-ramp.pdf"), .,
+myplots[['naive_arrest_hist']] %>% 
+  save_plot(here("plots", "SI_figs", "growth-lags-histo.pdf"), .,
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2.1)
 
-myplots[['naive_arrest_hist']] %>% 
-  save_plot(here("plots", "SI_figs", "growth-lags-histo.pdf"), .,
+plot_grid(
+  plot_grid(
+    myplots[['naive_lags_per_expt']](),
+    myplots[['naive_arrest_hist']] +
+      coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+      NULL,
+    ncol=1, labels = c('A', 'C'), align = 'v'),
+  myplots[['naive_lags_per_pos']](c(1, 1)),
+  nrow = 1, labels=c('', 'B'), align='hv', rel_widths = c(0.45, 0.6)) %>% 
+  save_plot(here("plots", "SI_figs", "sc-lags-ctrls.pdf"), .,
+            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_aspect_ratio = 1.6)
+
+
+myplots[['lags_hist_ramp']] %>% 
+  save_plot(here("plots", "SI_figs", "lags-hist-ramp.pdf"), .,
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2.1)
 
@@ -142,32 +156,23 @@ myplots[['lags_inherited_gfp']] %>%
             base_aspect_ratio = 2.3)
 
 
-(function() { # local envt
-  diauxie_env <- new.env()
-  load('material/SC1ss_diauxieGC_plots.RData', envir=diauxie_env)
-  # browser()
-  diauxie_env$myplots[['diauxie_gcs_all']] +
+(myplots[['diauxie_gcs_all']] +
     # scale_color_manual(values = c('0µM'=ggCustomTJ::qual_cols[2], '200µM'=ggCustomTJ::qual_cols[1])) +
     theme_half_open() + # this is needed otherwise setting strip.text raises an error ?!?
     theme(legend.position = 'top', panel.border = element_rect(colour='gray50')) +
     # guides(colour=guide_legend(title.position="top")) +
-    NULL
-}) () %>% 
+    NULL) %>% 
   save_plot(here("plots", "SI_figs", "diauxie-gcs-all.pdf"), .,
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = .75)
 
-(function() { # local envt
-  diauxie_env <- new.env()
-  load('material/SC1ss_diauxieGC_plots.RData', envir=diauxie_env)
-  # browser()
-  diauxie_env$myplots[['diauxie_wash_ctrl']] +
-    ggCustomTJ::scale_colour_discrete() +
-    theme_half_open() + # this is needed otherwise setting strip.text raises an error ?!?
-    theme(legend.position = 'top',
-          strip.background = element_blank(), strip.text = element_blank()) +
-    guides(colour=guide_legend(title.position="top"))
-}) () %>% 
+(myplots[['diauxie_wash_ctrl']] +
+  ggCustomTJ::scale_colour_discrete() +
+  theme_half_open() + # this is needed otherwise setting strip.text raises an error ?!?
+  theme(legend.position = 'top',
+        strip.background = element_blank(), strip.text = element_blank()) +
+  guides(colour=guide_legend(title.position="top")) +
+  NULL) %>% 
   save_plot(here("plots", "SI_figs", "diauxie-wash-ctrl.pdf"), .,
             base_height=NULL, base_width=2.25 * 14/8, # 1 col
             base_aspect_ratio = 1.15)
