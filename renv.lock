@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "3.5.0",
+    "Version": "3.6.3",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -721,13 +721,6 @@
       "RemoteRepos": "c(CRAN = \"https://cran.rstudio.com/\")",
       "RemotePkgType": "source",
       "Hash": "a4d58c51865e1e3808318787e62fcc38"
-    },
-    "pdftools": {
-      "Package": "pdftools",
-      "Version": "1.8",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "db82887e21664a101f48141cc0becdc3"
     },
     "pillar": {
       "Package": "pillar",

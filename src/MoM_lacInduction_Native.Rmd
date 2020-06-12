@@ -393,6 +393,15 @@ ggsave('gfp_ini_centered_cdfs.pdf', width=6, height=3.5)
   coord_cartesian(xlim=c(-60, 120)) +
   NULL)
   
+mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1, !is.na(lag_200)) %>% 
+  mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
+  group_by(date) %>% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
+  with(t.test(gfp_ini[type=='short'], gfp_ini[type=='long'], var.equal=TRUE, alternative = 'greater'))
+
 ```
 
 ```{r eval=FALSE}
@@ -419,7 +428,6 @@ mycells_switching %>% ungroup %>%
   mutate(type=ifelse(lag_200/60<50, 'short', 'long')) %>% 
   group_by(date) %>% 
   mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
-  # with(t.test(gfp_ini[type=='short'], gfp_ini[type=='long'], var.equal=TRUE))
   group_by(date, type) %>% summarise(n=n()) %>%
   spread(type, n)
 

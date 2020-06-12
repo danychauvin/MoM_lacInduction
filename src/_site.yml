@@ -15,16 +15,16 @@ navbar:
 #      icon: fa-flask
       menu:
 #        - text: "GFP Estimation"
-#          href: MoM_lacDilution_GFP_Estimation.html
+#          href: MoM_lacInduction_GFP_Estimation.html
         - text: "Lags estimation"
-          href: MoM_lacDilution_Lags_Estimation.html
+          href: MoM_lacInduction_Lags_Estimation.html
         - text: "Controls"
-          href: MoM_lacDilution_Controls.html
+          href: MoM_lacInduction_Controls.html
         - text: "---------"
         - text: "Induction and memory of the native *lac* operon"
-          href: MoM_lacDilution_Native.html
+          href: MoM_lacInduction_Native.html
         - text: "Perturbations of the repressed lac operon expression"
-          href: MoM_lacDilution_PerturbRepressed.html
+          href: MoM_lacInduction_PerturbRepressed.html
         - text: "---------"
         - text: "Simulation of population lags from distribution of single-cell lags"
           href: MoM_lacInduction_PopLagSimul.html

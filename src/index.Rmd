@@ -36,7 +36,7 @@ mygl <- myframes %>% ungroup() %>%
 ```
 
 
-```{r include=FALSE}
+```{r}
 (mytables[['expts_list']] <- mygl %>% ungroup() %>% 
    # mutate(condition=factor(condition, levels=unique(condition_acq_times$condition)) ) %>% 
    group_by(condition, label, date) %>%
