@@ -150,10 +150,47 @@ myplots[['memory_elapsed_divs']] %>%
             base_aspect_ratio = 2)
 
 
-myplots[['lags_inherited_gfp']] %>% 
+(myplots[['lags_inherited_gfp']] +
+  scale_x_log10(labels=function(.x) formatC(.x, format="fg")) ) %>% 
   save_plot(here("plots", "SI_figs", "lags-inherited-gfp.pdf"), .,
             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
             base_aspect_ratio = 2.3)
+
+
+plot_grid(
+  plot_grid(
+    myplots[['flim_gfp_criteria_cpm']],
+    
+    ggdraw() + 
+      draw_text("Criteria 1:\nnorm CPM > mean + 5 s.d. of background", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
+          
+    myplots[['flim_gfp_criteria_nb']] +
+      theme(axis.title.x = element_blank()),
+    
+    ggdraw() + 
+      draw_text("Criteria 2:\nfitted number of molecules < 20", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
+    
+    myplots[['flim_gfp_criteria_diff']] +
+      theme(axis.title.x = element_blank()),
+    
+    ggdraw() + 
+      draw_text("Criteria 3:\n3ms < fitted diffusion time < 30ms", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
+    
+    ncol=2, nrow=3, rel_widths = c(2,1), rel_heights = c(1.3, 1, 1), align='v'
+  ),
+  plot_grid(
+    NULL, 
+    get_legend(
+      myplots[['flim_gfp_criteria_nb']] +
+        labs(col='LacZ-GFP status\nbefore the switch') +
+        theme(legend.position = 'bottom') +
+        NULL),
+    nrow=1, rel_widths = c(.125, 1)),
+  ncol=1, rel_heights=c(10, 1) ) %>% 
+# draw_grob(, 2/3, 2/3, 1/3, 0.5) # cf https://stackoverflow.com/a/41570754/576684
+  save_plot(here("plots", "SI_figs", "flim-gfp-criteria.pdf"), .,
+          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_aspect_ratio = 1.4)
 
 
 (myplots[['diauxie_gcs_all']] +

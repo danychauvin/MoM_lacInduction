@@ -15,7 +15,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
            decay=decay/max(decay) - .0011, fit=fit/max(fit, na.rm=T) - .0011) ,
   read_delim(here('./data_FLIM/decay_curves/decay_noGFP.dat'), delim='\t', skip=2, na = "---", 
              col_names=c("time_decay", "decay", "time_fit", "fit", "time_resid", "resid")) %>% 
-    mutate(sample='Autofluorescence (GFP)',
+    mutate(sample='Autofluorescence',
            decay=decay-.0131, fit=fit-.0131) , 
 ) %>% 
   ggplot(aes(group=sample)) +
@@ -80,6 +80,80 @@ bind_cols(
 
 We do mother machine experiments where growth and LacZ-GFP expression are measured using FLIM. Before the switch, one to 2 cells per growth channel is measured with FLCS (and analysed using filters pattern-matched to LAcZ-GFP decay curves).
 
+Cells must match 3 criteria in order to be called GFP positive:
+
+- the distribution of count per molecule looks like a mixture of normal + uniform, where the normal distibution correspond to cells with very low CPM and hence no GFP. Criteria 1 is that CPM must be higher than mean + 5 standard deviations of the background.
+- the fitted number of molecules must be low enough that it is not detected in the difference of signal intensity (we set the threshold at 20 molecules which discards 3 cells (note that cells called GFP positive all have fitted numbers flower than 12 molecules).
+- the diffusion time should be compatible with what is know for LacZ-GFP, between 3 and 30ms on our setup (which corresponds to diffusion coefficients between 1 and 10 µm2/sec).
+
+
+```{r}
+(myplots[['flim_gfp_criteria_cpm']] <- 
+   bind_cols(
+     readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet="MotherMachine", range = "A1:C75"),
+     readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet='MotherMachine', range = "K2:P75", col_types="numeric",
+                       col_names = c('n', 'n_se', 'D', 'D_se', 'cpm', 'cpm_se')),
+   ) %>%
+   mutate(gfp=as.numeric(gfp),
+          ncpm = cpm / median(cpm, na.rm=T),
+          d_time = .33^2/(4*D) * 1000,
+   ) %>% 
+   # filter(!is.na(ncpm))
+   ggplot(aes(ncpm, fill=factor(gfp))) +
+   geom_histogram(binwidth = .4) +
+   geom_vline(xintercept = 2.55, lty='dashed') +
+   scale_fill_discrete(limits=c(0, 1, -1), labels=c('undetected', 'detected', 'dubious')) +
+   coord_cartesian(xlim=c(0, 28)) +
+   labs(x='normalized CPM (AU)')+
+   theme(legend.position = 'none') +
+   NULL)
+
+(myplots[['flim_gfp_criteria_nb']] <- 
+    bind_cols(
+      readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet="MotherMachine", range = "A1:C75"),
+      readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet='MotherMachine', range = "K2:P75", col_types="numeric",
+                        col_names = c('n', 'n_se', 'D', 'D_se', 'cpm', 'cpm_se')),
+    ) %>%
+    mutate(gfp=as.numeric(gfp),
+           ncpm = cpm / median(cpm, na.rm=T),
+           d_time = .33^2/(4*D) * 1000,
+    ) %>% 
+    ggplot(aes(ncpm, n, col=factor(gfp))) +
+    geom_point() +
+    geom_vline(xintercept = 2.55, lty='dashed') +
+    geom_hline(yintercept = 20, lty='dashed') +
+    scale_y_log10() +
+    scale_colour_discrete(limits=c(0, 1, -1), labels=c('undetected', 'detected', 'dubious')) +
+    coord_cartesian(xlim=c(0, 28)) +
+    labs(y='fitted number of\nGFP molecules')+
+    theme(legend.position = 'none') +
+    NULL)
+
+(myplots[['flim_gfp_criteria_diff']] <- 
+    bind_cols(
+      readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet="MotherMachine", range = "A1:C75"),
+      readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet='MotherMachine', range = "K2:P75", col_types="numeric",
+                        col_names = c('n', 'n_se', 'D', 'D_se', 'cpm', 'cpm_se')),
+    ) %>%
+    mutate(gfp=as.numeric(gfp),
+           ncpm = cpm / median(cpm, na.rm=T),
+           d_time = .33^2/(4*D) * 1000,
+    ) %>% 
+    ggplot(aes(ncpm, d_time, col=factor(gfp))) +
+    geom_point() +
+    geom_vline(xintercept = 2.55, lty='dashed') +
+    geom_hline(yintercept = 3, lty='dashed') +
+    geom_hline(yintercept = 30, lty='dashed') +
+    scale_y_log10() +
+    scale_colour_discrete(limits=c(0, 1, -1), labels=c('undetected', 'detected', 'dubious')) +
+    coord_cartesian(xlim=c(0, 28)) +
+    labs(y='fitted diffusion\ntime (ms)')+
+    theme(legend.position = 'none') +
+    NULL)
+
+```
+
+
 For all cells measured by FLCS (sample biased for cells with short lags), I estimated the lag visually (as the first frame where the GFP fluorescence become higher than the noise in uninduced neighbouring cells).
 
 This reveals that:
@@ -127,10 +201,13 @@ left_join(
 ) %>% 
   mutate(frame=as.numeric(frame), lag=as.numeric(lag), gfp=as.numeric(gfp)) %>% 
   filter(!is.na(gfp)) %>%
-  filter( lag <35, gfp==0)
+  # filter( lag >= 35, gfp==0) %>% 
+  group_by(type, gfp) %>% 
+  summarise(n=n())
+
 ```
 
-
+Noticeably, the distribution of fitted number of GFP is discontinuous in mother machine experiments. We believe that this is a side effect of the complicated optical environemnt created by PDMS channel which resulted in poor signal-to-noise ratio.
 
 ```{r}
 bind_rows(
@@ -139,6 +216,7 @@ bind_rows(
   readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet='Snapshot', range = "K2:L228", col_names = c('n', 'se')),
 ) %>% 
   select(gfp, n) %>% mutate(dataset='snapshot'), 
+
   bind_cols(
     readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet="MotherMachine", range = "A1:C75"),
     readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet="MotherMachine", range = "K2:L75",
@@ -190,7 +268,7 @@ left_join(
   # mutate(lag=ifelse(is.infinite(lag) & date==20200122, 252, lag)) %>% 
   # mutate(lag=ifelse(is.infinite(lag) & date==20200123, 261, lag)) %>% 
   # mutate(lag=ifelse(is.infinite(lag) & date==20200128, 180, lag)) %>% 
-  mutate(lag_type=lag<35) %>% 
+  mutate(lag_type=lag, lag_type=ifelse(lag<35, 'short', lag_type), lag_type=ifelse(lag>=35, 'long', lag_type)) %>% 
   ggplot(aes(ncpm_flcs)) +
   facet_grid(lag_type~.) +
   geom_histogram(binwidth = .5) +
@@ -204,7 +282,7 @@ left_join(
 
 ## FLIM sensitivity
 
-In order to estimate whether FLIM data can be used to measure difference in GFP before the switch, we proceed as follow: 
+In order to estimate whether FLIM intensity can be used to measure difference in GFP before the switch, we proceed as follow: 
 
 - for one experiment, FLIM data are analysed using pattern matching (for GFP decay),
 - based on GFP intensity at frame 12 in lactose (after 36 min, as identified in the FLCS analysis), cells are classified as short or long lags
