@@ -400,9 +400,9 @@ Another prediction of our interpretation is that the proportion of short lag sho
           #                      'glycerol > lactose'='switch_gly_lac',
           #                      'glucose > lactose (control)'='control') ) %>%
           # laci=ifelse(condition=='control', 'control', NA),
-          condition=fct_recode(factor(condition), 'gluc + lac > lac'='switch_glcLac_lac',
-                               'glyc > lac'='switch_gly_lac',
-                               'gluc > lac\n(control)'='control',
+          condition=fct_recode(factor(condition), 'gluc + lac \u2794 lac'='switch_glcLac_lac',
+                               'glyc \u2794 lac'='switch_gly_lac',
+                               'gluc \u2794 lac\n(control)'='control',
                                ) ) %>%
    mutate(lag=lag_200,
           lag=ifelse(lag>240*60, Inf, lag)
@@ -445,9 +445,9 @@ Another prediction of our interpretation is that the proportion of short lag sho
           #                      'glycerol > lactose'='switch_gly_lac',
           #                      'glucose > lactose (control)'='control') ) %>%
           laci=ifelse(condition=='control', 'control', NA),
-          condition=fct_recode(factor(condition), 'gluc + lac > lac'='switch_glcLac_lac',
-                               'glyc > lac'='switch_gly_lac',
-                               'gluc > lac (control)'='control') ) %>%
+          condition=fct_recode(factor(condition), 'gluc + lac \u2794 lac'='switch_glcLac_lac',
+                               'glyc \u2794 lac'='switch_gly_lac',
+                               'gluc \u2794 lac (control)'='control') ) %>%
    group_by(condition, laci) %>% 
    summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)), 
              prop_se=sqrt(prop*(1-prop)/n)) %>% 

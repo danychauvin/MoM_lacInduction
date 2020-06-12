@@ -131,7 +131,10 @@ save_plot(here("plots", "figs", "MoM_lacInduction_fig3.pdf"), myfigs[[3]],
           scale_fill_manual(values=c(
             'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
             'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
-            'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
+            'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7]),
+            labels=c('gluc \u2794 lac (naive)', 'gluc \u2794 lac (full memory)', 
+                     'gluc + lac \u2794 lac',  'glyc \u2794 lac',  'gluc \u2794 lac (short only)', 
+                     'gluc \u2794 lac (long only)')) +
           guides(col=guide_legend(ncol = 2)) +
           theme(
             # legend.position = 'right',
@@ -149,7 +152,7 @@ save_plot(here("plots", "figs", "MoM_lacInduction_fig3.pdf"), myfigs[[3]],
 }) ()
 
 save_plot(here("plots", "figs", "MoM_lacInduction_fig4.pdf"), myfigs[[4]](),
-          base_height=NULL, base_width=4 * 14/8, # 1 col
+          device=grDevices::cairo_pdf, base_height=NULL, base_width=4 * 14/8, # 1 col
           base_aspect_ratio = 1.25
 )
 

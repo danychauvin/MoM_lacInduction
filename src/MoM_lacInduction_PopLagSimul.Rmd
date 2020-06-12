@@ -137,7 +137,10 @@ my_simgcs <- bind_rows(
    scale_color_manual(values=c( # match the colour of single-cell lags plot
      'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
      'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
-     'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
+     'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7]),
+          labels=c('gluc \u2794 lac (naive)', 'gluc \u2794 lac (full memory)', 
+              'gluc + lac \u2794 lac',  'glyc \u2794 lac',  'gluc \u2794 lac (short only)', 
+              'gluc \u2794 lac (long only)')) +
    labs(x='time (min)', y='population size') +
    NULL)
 
@@ -183,7 +186,10 @@ my_simgcs <- bind_rows(
    scale_color_manual(values=c( # match the colour of single-cell lags plot
      'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
      'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
-     'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7])) +
+     'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7]),
+     labels=c('gluc \u2794 lac (naive)', 'gluc \u2794 lac (full memory)', 
+              'gluc + lac \u2794 lac',  'glyc \u2794 lac',  'gluc \u2794 lac (short only)', 
+              'gluc \u2794 lac (long only)')) +
    labs(x = 'fraction of short growth lags', y = 'population growth lag \n(doublings in lactose)') +
    NULL)
 
