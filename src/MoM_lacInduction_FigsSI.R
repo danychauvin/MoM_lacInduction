@@ -33,7 +33,7 @@ mytables[['expts_list']] %>%
 
 myplots[['gr_length_medians']](.article_ds=TRUE) %>% 
   save_plot(here("plots", "SI_figs", "gr-length-medians.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = 1.35)
 
 # plot_grid(
@@ -49,22 +49,6 @@ myplots[['gr_length_medians']](.article_ds=TRUE) %>%
 # # gr-before-filtering
 
 
-myplots[['naive_lags_per_expt_facet']]() %>% 
-  save_plot(here("plots", "SI_figs", "naive-lags-per-expt.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 1.2)
-
-
-myplots[['naive_lags_per_pos']]() %>% 
-  save_plot(here("plots", "SI_figs", "naive-lags-per-pos.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 1.6)
-
-myplots[['naive_arrest_hist']] %>% 
-  save_plot(here("plots", "SI_figs", "growth-lags-histo.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 2.1)
-
 plot_grid(
   plot_grid(
     myplots[['naive_lags_per_expt']](),
@@ -75,30 +59,24 @@ plot_grid(
   myplots[['naive_lags_per_pos']](c(1, 1)),
   nrow = 1, labels=c('', 'B'), align='hv', rel_widths = c(0.45, 0.6)) %>% 
   save_plot(here("plots", "SI_figs", "sc-lags-ctrls.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = 1.6)
 
 
 myplots[['lags_hist_ramp']] %>% 
   save_plot(here("plots", "SI_figs", "lags-hist-ramp.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = 2.1)
-
-(myplots[['glyc_mix_violin']] +
-  theme(legend.position = 'none')) %>% 
-  save_plot(here("plots", "SI_figs", "glyc-mix-violin.pdf"), .,
-          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-          base_aspect_ratio = 2)
 
 (myplots[['basal_perturb_gfp']] +
   labs(x='', y='LacZ-GFP at the switch\n(molecules / cell)') )%>% 
   save_plot(here("plots", "SI_figs", "basal-perturb-gfp.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = 2)
 
 myplots[['naive_lags_correl']] %>% 
 save_plot(here("plots", "SI_figs", "naive-lags-correl.pdf"), .,
-          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_height=NULL, base_width=5.2 * 12/8, # full width
           base_aspect_ratio = 2)
 
 # (myplots[['high-illum-sensitivity']] <-
@@ -114,46 +92,27 @@ save_plot(here("plots", "SI_figs", "naive-lags-correl.pdf"), .,
 #   labs(x='pixel intensity (AU)') +
 #   NULL)
 
-plot_grid(
-  plot_grid(
-    myplots[['lags_gfp_scatter']](.fit=FALSE) +
-      theme(legend.position = 'none',
-            axis.title.x = element_blank()),
-    myplots[['lags_gfp_diff_cdf']] +
-      scale_y_continuous(breaks=c(0, 0.5, 1)) +
-      theme(legend.position = 'none'),
-    ncol=1, rel_heights = c(1.2, 0.8), align='v'),
-  get_legend(myplots[['lags_gfp_diff_cdf']]) ,
-  nrow=1, rel_widths = c(0.85, 0.15)
-) %>% 
-  save_plot(here("plots", "SI_figs", "lag-gfp-ini.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 1.35)
-
-
-
-# myplots[['memory_cdfs_facets']] %>% 
-#   save_plot(here("plots", "SI_figs", "memory-cdfs-facets.pdf"), .,
-#             base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+# plot_grid(
+#   plot_grid(
+#     myplots[['lags_gfp_scatter']](.fit=FALSE) +
+#       theme(legend.position = 'none',
+#             axis.title.x = element_blank()),
+#     myplots[['lags_gfp_diff_cdf']] +
+#       scale_y_continuous(breaks=c(0, 0.5, 1)) +
+#       theme(legend.position = 'none'),
+#     ncol=1, rel_heights = c(1.2, 0.8), align='v'),
+#   get_legend(myplots[['lags_gfp_diff_cdf']]) ,
+#   nrow=1, rel_widths = c(0.85, 0.15)
+# ) %>% 
+#   save_plot(here("plots", "SI_figs", "lag-gfp-ini.pdf"), .,
+#             base_height=NULL, base_width=5.2 * 12/8, # full width
 #             base_aspect_ratio = 1.35)
-
-
-myplots[['lag_memory']] %>% 
-  save_plot(here("plots", "SI_figs", "lag-memory.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 1.2)
-
-
-myplots[['memory_elapsed_divs']] %>% 
-  save_plot(here("plots", "SI_figs", "memory-elapsed-divs.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
-            base_aspect_ratio = 2)
 
 
 (myplots[['lags_inherited_gfp']] +
   scale_x_log10(labels=function(.x) formatC(.x, format="fg")) ) %>% 
   save_plot(here("plots", "SI_figs", "lags-inherited-gfp.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = 2.3)
 
 
@@ -162,19 +121,19 @@ plot_grid(
     myplots[['flim_gfp_criteria_cpm']],
     
     ggdraw() + 
-      draw_text("Criteria 1:\nnorm CPM > mean + 5 s.d. of background", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
+      draw_text("Criterion 1:\nnorm CPM > mean + 5 s.d. of background", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
           
     myplots[['flim_gfp_criteria_nb']] +
       theme(axis.title.x = element_blank()),
     
     ggdraw() + 
-      draw_text("Criteria 2:\nfitted number of molecules < 20", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
+      draw_text("Criterion 2:\nfitted number of molecules < 20", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
     
     myplots[['flim_gfp_criteria_diff']] +
       theme(axis.title.x = element_blank()),
     
     ggdraw() + 
-      draw_text("Criteria 3:\n3ms < fitted diffusion time < 30ms", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
+      draw_text("Criterion 3:\n3ms < fitted diffusion time < 30ms", size=10, x=-0.5, y=.8, hjust=0, vjust=1),
     
     ncol=2, nrow=3, rel_widths = c(2,1), rel_heights = c(1.3, 1, 1), align='v'
   ),
@@ -189,7 +148,7 @@ plot_grid(
   ncol=1, rel_heights=c(10, 1) ) %>% 
 # draw_grob(, 2/3, 2/3, 1/3, 0.5) # cf https://stackoverflow.com/a/41570754/576684
   save_plot(here("plots", "SI_figs", "flim-gfp-criteria.pdf"), .,
-          base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+          base_height=NULL, base_width=5.2 * 12/8, # full width
           base_aspect_ratio = 1.4)
 
 
@@ -200,7 +159,7 @@ plot_grid(
     # guides(colour=guide_legend(title.position="top")) +
     NULL) %>% 
   save_plot(here("plots", "SI_figs", "diauxie-gcs-all.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = .75)
 
 (myplots[['diauxie_wash_ctrl']] +
@@ -211,7 +170,7 @@ plot_grid(
   guides(colour=guide_legend(title.position="top")) +
   NULL) %>% 
   save_plot(here("plots", "SI_figs", "diauxie-wash-ctrl.pdf"), .,
-            base_height=NULL, base_width=2.25 * 14/8, # 1 col
+            base_height=NULL, base_width=3 * 12/8, # 1 col
             base_aspect_ratio = 1.15)
 
 (myplots[['2cs_qms']] +
@@ -221,6 +180,6 @@ plot_grid(
     theme(legend.position = 'right') +
     NULL ) %>% 
   save_plot(here("plots", "SI_figs", "2cs-qms.pdf"), .,
-            base_height=NULL, base_width=4.75 * 14/8, # 2 cols
+            base_height=NULL, base_width=5.2 * 12/8, # full width
             base_aspect_ratio = 2.3)
 

@@ -91,7 +91,7 @@ mycells_switching %>% ungroup() %>%
 According to our prediction, no short lags are observed with reduced basal expression and the fraction of long lags increases dramatically when basal expression is increased with 5µM IPTG. Supplementing IPTG can also compensate the effect of LacI overexpression.
 
 ```{r}
-(myplots[['basal_perturb_pre_violin']] <- function(.yannot=-10)
+(myplots[['basal_perturb_pre_violin']] <- function(.yannot=-10, .annot_size=3)
    mycells_switching %>% ungroup() %>% 
    filter(!date %in% discarded_dates) %>%
    filter(!discard_arrested) %>% 
@@ -115,7 +115,7 @@ According to our prediction, no short lags are observed with reduced basal expre
      ggplot(.df, aes(x=condition, y=lag/60)) +
       geom_hline(yintercept=50, lty='dashed') +
       geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position='identity') +
-      geom_text(aes(y=.yannot, label=annot), vjust=0.5, size=3, lineheight=1,
+      geom_text(aes(y=.yannot, label=annot), vjust=0.5, size=.annot_size, lineheight=1,
                 data=.df %>% group_by(condition, laci) %>% 
                   summarise(n=n(), type='short', prop=sum(lag/60<50, na.rm=TRUE)/sum(!is.na(lag)),
                             annot=sprintf("%.0f%%\nn=%d", prop*100, n)) ) +

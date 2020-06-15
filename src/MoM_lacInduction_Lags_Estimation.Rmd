@@ -548,8 +548,8 @@ ggplot(data=mycells_switching, aes(growth_lag/60, lag_200/60)) +
 NB: the lower bound of the GFP lags probably comes from GFP maturation time.
 
 ```{r BZSposter}
-(myplots[['lags_types_correl']] <-
-   mycells_switching %>% ungroup() %>% 
+(myplots[['lags_types_correl']] <- function(.max_psize=1.8)
+  mycells_switching %>% ungroup() %>% 
    filter(!date %in% discarded_dates) %>%
    filter(!discard_arrested) %>% 
    filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
@@ -565,14 +565,14 @@ NB: the lower bound of the GFP lags probably comes from GFP maturation time.
        geom_abline(alpha=0.9, size=.25) +
        geom_point(stroke=0) +
        labs(x=lac_lags_label, y='growth lag (min)') +
-       scale_size_continuous(name='nb of obs.', range=c(1.8/max(.df$n), 1.8), breaks=c(5, 20, 100)) +
+       scale_size_continuous(name='nb of obs.', range=c(.max_psize/max(.df$n), .max_psize), breaks=c(5, 20, 100)) +
        # scale_shape_manual(breaks=c(TRUE, FALSE), values=c(2, 1)) +
        expand_limits(x=0, y=0) +
        scale_x_continuous(breaks=seq(0, 200, 50)) + scale_y_continuous(breaks=seq(0, 200, 50)) +
        theme(legend.position=c(1, .01), legend.justification=c(0.99, 0), legend.direction='horizontal') +
        NULL
    )
-)
+)()
  # ggsave('plots/BZSposter2017/gfp_growth_lags.pdf', width=180/25.4/2, height=100/25.4/2)
 
 # mycells_switching %>% ungroup() %>% 
