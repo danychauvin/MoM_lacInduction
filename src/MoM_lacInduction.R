@@ -3,10 +3,15 @@
 # install.packages(c('tools', 'remotes', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
 # remotes::install_github(c('julou/ggCustomTJ', 'hadley/multidplyr'))
 # remotes::install_github('vanNimwegenLab/vngMoM', auth_token='xxx')
-mylibs <- c('here', 'tidyverse', 'cowplot', 'tools', 'RcppArmadillo', 'vngMoM', 'ggCustomTJ')
-invisible( suppressPackageStartupMessages( # don't use %>% before loading dplyr
-  lapply(mylibs, library, character.only=TRUE) ))
-library(svglite)
+invisible({
+  library(here)
+  library(tidyverse)
+  library(cowplot)
+  # library(tools)
+  library(RcppArmadillo)
+  library(vngMoM)
+  library(ggCustomTJ)
+})
 
 dir.create(here("slogs"), showWarnings=FALSE) # create a directory to store logs from the queue
 
@@ -19,7 +24,9 @@ theme_cowplot_legend_inset <- function(.rel=0.7) theme(legend.title=element_text
 # set a parallel environment to run multidplyr
 library(multidplyr)
 mycluster <- min(30, parallel::detectCores()-1) %>%  # do not use more than 30 cores
-  create_cluster() %>% cluster_library(mylibs)       # load libraries on each core
+  create_cluster() %>% cluster_library( # load currently loaded packages on each core
+    names(sessionInfo()$otherPkgs)
+  )
 
 
 # SET VARIABLES
@@ -315,6 +322,7 @@ myscales <- list()
 myplots <- list()
 mytables <- list()
 
+library(svglite)
 knitr::opts_chunk$set(
   echo=FALSE, message=FALSE, warning=FALSE,
   dev="svglite"
