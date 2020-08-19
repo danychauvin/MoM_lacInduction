@@ -25,6 +25,8 @@ navbar:
           href: MoM_lacInduction_Native.html
         - text: "Perturbations of the repressed lac operon expression"
           href: MoM_lacInduction_PerturbRepressed.html
+       - text: "lac induction at lower lactose concentrations"
+          href: MoM_lacInduction_lowLactose.html
         - text: "---------"
         - text: "Simulation of population lags from distribution of single-cell lags"
           href: MoM_lacInduction_PopLagSimul.html
