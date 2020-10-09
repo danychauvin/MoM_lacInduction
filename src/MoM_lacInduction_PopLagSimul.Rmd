@@ -7,7 +7,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 # Computing population lags from distribution of single-cell lags
 
 ```{r}
-gc_sim_params = list(lbd_1 = 1/(49*60), # in sec (coarse estimation from pop growth curves)
+gc_sim_params <- list(lbd_1 = 1/(49*60), # in sec (coarse estimation from pop growth curves)
                      lbd_2 = 1/(58*60),
                      N_max = 1e9,
                      dilution = 1600,
@@ -144,32 +144,13 @@ my_simgcs <- bind_rows(
    labs(x='time (min)', y='population size') +
    NULL)
 
-#  my_simgcs %>% 
-#    mutate(type=fct_relevel(type, 'gluc > lac (naive)', 'gluc > lac (full memory)', 
-#                            'gluc + lac > lac',  'glyc > lac',  'gluc > lac (short only)'),
-#           pars=NULL) %>% 
-#    filter(type %in% c('gluc > lac (naive)', 'gluc > lac (full memory)')) %>% 
-#    unnest(simul) %>% 
-#    filter(between(n, 8e7, 1.2e9)) %>%
-#    ggplot(aes(t/60, n, col=type)) +
-#    geom_line() +
-#    # geom_point() +
-#    # geom_hline(yintercept = 7e8) +
-#    scale_y_log10() +
-#    coord_cartesian(xlim=c(-40, 185), ylim=c(1.5e8, 1e9)) +
-#    scale_color_manual(values=c( # match the colour of single-cell lags plot
-#      'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4] )) +
-#    labs(x='time (min)', y='population size') +
-#    guides(col='none') +
-#    NULL
-# ggsave('inset.pdf', width=3, height=2)
 ```
 
 ```{r}
 (myplots[['simul_lags']] <- 
    my_simgcs %>% 
-   mutate(type=fct_relevel(type, 'gluc > lac (naive)', 'gluc > lac (full memory)', 
-                           'gluc + lac > lac',  'glyc > lac',  'gluc > lac (short only)') ) %>% 
+   mutate(type=fct_relevel(type, 'gluc > lac (naive)', 'gluc + lac > lac', 'glyc > lac', 
+            'gluc > lac (full memory)', 'gluc > lac (short only)', 'gluc > lac (long only)') ) %>% 
    mutate(
      mod = map(simul, ~ lm(log(n)~t, filter(.x, between(n, 1e10, 1e11)))),
      # i = map_dbl(mod, ~ coefficients(.x)[1]),
@@ -184,12 +165,11 @@ my_simgcs <- bind_rows(
    geom_point(size=3) +
    expand_limits(x = 0, y = 0) + 
    scale_color_manual(values=c( # match the colour of single-cell lags plot
-     'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
-     'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  'glyc > lac'=ggCustomTJ::qual_cols[3],  
+     'gluc > lac (naive)'=ggCustomTJ::qual_cols[2], 'gluc + lac > lac'=ggCustomTJ::qual_cols[1],  
+     'glyc > lac'=ggCustomTJ::qual_cols[3], 'gluc > lac (full memory)'=ggCustomTJ::qual_cols[4], 
      'gluc > lac (short only)'=ggCustomTJ::qual_cols[5], 'gluc > lac (long only)'=ggCustomTJ::qual_cols[7]),
-     labels=c('gluc \u2794 lac (naive)', 'gluc \u2794 lac (full memory)', 
-              'gluc + lac \u2794 lac',  'glyc \u2794 lac',  'gluc \u2794 lac (short only)', 
-              'gluc \u2794 lac (long only)')) +
+     labels=c('gluc \u2794 lac', 'gluc + lac \u2794 lac',  'glyc \u2794 lac',  
+              'gluc \u2794 lac (no arrest)', 'gluc \u2794 lac (short only)', 'gluc \u2794 lac (long only)')) +
    labs(x = 'fraction of short growth lags', y = 'population growth lag \n(doublings in lactose)') +
    NULL)
 

@@ -50,7 +50,7 @@ mycells_switching %>% ungroup() %>%
 
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -204,7 +204,9 @@ mycells_switching %>% ungroup() %>%
   group_by(condition, lag_type) %>% 
   summarise(n=n(), m=mean(lag_200/60), sd=sd(lag_200/60)) %>% 
   group_by(condition) %>% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %>% 
-  knitr::kable(digits=3)
+  knitr::kable(digits=3) %>% 
+  kableExtra::kable_styling() %>% 
+  identity()
 
 ```
 
@@ -301,7 +303,7 @@ Another prediction of our interpretation is that the proportion of short lag sho
 - in M9 + 0.4% glycerol, cells grow slower and CRP is active which is expecetd to produce more frequent bursts of spontaneous *lac* epxression <!-- cite Alon on CRP -->
 - in M9 + 0.2% glucose + 0.2% lactose (which is the initial condition used in classical diauxie experiments), the fraction of fast switching cells is also increased which we interpret as each burst being larger (since it can be transiently amplified by teh presence of lactose which is an inducer; note that the cells are still kept off mostly due to inducer exclusion)
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 (myplots[['lags_hist_glcLac']] <- 
    mycells_switching %>% ungroup %>% 
    filter(! date %in% discarded_dates) %>% 
@@ -402,7 +404,7 @@ Another prediction of our interpretation is that the proportion of short lag sho
           # laci=ifelse(condition=='control', 'control', NA),
           condition=fct_recode(factor(condition), 'gluc + lac \u2794 lac'='switch_glcLac_lac',
                                'glyc \u2794 lac'='switch_gly_lac',
-                               'gluc \u2794 lac\n(control)'='control',
+                               'gluc \u2794 lac'='control',
                                ) ) %>%
    mutate(lag=lag_200,
           lag=ifelse(lag>240*60, Inf, lag)

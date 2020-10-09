@@ -6,6 +6,8 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 
 ## Decay curves
 
+Import from Ludovit's analysis (offset adjusted manually so that the exponential fit looks straight in semi-log scale):
+
 ```{r}
 (myplots[['FLIM_decay']] <- bind_rows(
   read_delim(here('./data_FLIM/decay_curves/decay_GFP.dat'), delim='\t', skip=2, na = "---",
@@ -194,7 +196,7 @@ It is remarkable that 8 out of 22 cells featuring short lags have no GFP detecte
 
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 left_join(
   readxl::read_xlsx(here("./data_FLIM/FLCS_lags.xlsx"), range = "A1:E75"),
   readxl::read_xlsx(here("./data_FLIM/FLCS_lacInduction.xlsx"), sheet="MotherMachine", range = "A1:C75"),
@@ -282,7 +284,7 @@ left_join(
 
 ## FLIM sensitivity
 
-In order to estimate whether FLIM intensity can be used to measure difference in GFP before the switch, we proceed as follow: 
+In order to estimate whether FLIM intensity (without FLCS) can be used to measure difference in GFP before the switch, we proceed as follow: 
 
 - for one experiment, FLIM data are analysed using pattern matching (for GFP decay),
 - based on GFP intensity at frame 12 in lactose (after 36 min, as identified in the FLCS analysis), cells are classified as short or long lags
@@ -317,7 +319,7 @@ bind_rows(
 
 Unfortunately, we cannot find any statistics capable of separating the 2 types of cells...
 
-### sanity check
+### Sanity check
 
 Let's look at the total intensity of GFP channel vs total intensity of noGFP channel.
 From the epifluorescence measurement on cells with no GFP sequence, we know that autofluo fluctuates by ± 20 equivalent GFP molecules; here there is a 3-fold change (would correspond to e.g. 40 ± 20 for epifluo measurements).

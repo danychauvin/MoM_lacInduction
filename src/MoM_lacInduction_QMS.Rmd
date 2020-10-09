@@ -1,5 +1,5 @@
 ---
-title: "Using fluorescence lifetime to measure pre-existing lac expression"
+title: "Identification of single-molecule trigger candidates in MS data"
 author: Thomas Julou
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
@@ -40,7 +40,7 @@ myqms_conds <- bind_cols(
   
 ```
 
-```{r sanity checks, eval=FALSE}
+```{r sanity checks, eval=FALSE, echo=FALSE}
 # surprisingly 46 proteins have different gene names in the two "gene" columns
 myqms %>% filter(Gene!=Gene1) %>% select(Gene, Gene1)
 # most gene is measured only once (i.e. in one of the 2 datasets)
@@ -198,9 +198,12 @@ Summary plot for kinases only:
 ```
 
   
-## enrichment in GO categories
+## Enrichment in GO categories
 
-```{r eval=FALSE}
+Exploratory…   
+Question: can we find clear sign of enrichment for low expressed genes in certain GO categories?
+
+```{r eval=FALSE, echo=FALSE}
 #  paste lowly expressed gene for GO enrichment analysis
 myqms %>% 
   group_by(`Annotated functional COG group (description)`, Gene, `Uniprot Accession`) %>% nest() %>% 
@@ -242,7 +245,7 @@ myqms %>%
 
 ## Sugars transport and metabolism
   
-```{r fig.height=8, eval=FALSE}
+```{r fig.height=8, eval=FALSE, echo=FALSE}
 myqms %>% 
   ggplot(aes(n, group=Gene)) +
   facet_wrap(~`Annotated functional COG group (description)`, ncol = 3) +

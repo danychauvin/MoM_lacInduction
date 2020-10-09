@@ -1,9 +1,9 @@
 
 # SET ENVIRONMENT
-# install.packages(c('tools', 'remotes', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
+# install.packages(c('remotes', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
 # remotes::install_github(c('julou/ggCustomTJ', 'hadley/multidplyr'))
 # remotes::install_github('vanNimwegenLab/vngMoM', auth_token='xxx')
-invisible({
+suppressPackageStartupMessages({
   library(here)
   library(tidyverse)
   library(cowplot)
@@ -40,7 +40,7 @@ data2preproc_dir <- function(.d)
   file.path('.', 'preproc', .)
 data2preproc_file <- function(.f)
   basename(.f) %>% sub("ExportedCellStats_", "", .) %>% 
-  file_path_sans_ext %>% paste0("_frames.txt")
+  tools::file_path_sans_ext() %>% paste0("_frames.txt")
 data2preproc <- function(.f)
   file.path(data2preproc_dir(.f), data2preproc_file(.f))
 
@@ -324,8 +324,9 @@ mytables <- list()
 
 library(svglite)
 knitr::opts_chunk$set(
-  echo=FALSE, message=FALSE, warning=FALSE,
+  echo=TRUE, message=FALSE, warning=FALSE,
   dev="svglite"
+  # dev.args=list(),
 )
 # rmarkdown::clean_site()
 
@@ -341,6 +342,7 @@ rmarkdown::render_site('./src/index.Rmd')
 
 rmarkdown::render_site('./src/MoM_lacInduction_Native.Rmd')
 rmarkdown::render_site('./src/MoM_lacInduction_PerturbRepressed.Rmd')
+rmarkdown::render_site('./src/MoM_lacInduction_lowLactose.Rmd')
 rmarkdown::render_site('./src/MoM_lacInduction_PopLagSimul.Rmd')
 
 rmarkdown::render_site('./src/MoM_lacInduction_FLIM.Rmd')
@@ -358,4 +360,4 @@ myfigs <- list()
 source('./src/MoM_lacInduction_Figs.R')
 source('./src/MoM_lacInduction_FigsSI.R')
 
-# save.image(".RData")
+save.image(".RData")

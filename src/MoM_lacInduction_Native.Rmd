@@ -90,12 +90,14 @@ mycells_switching %>% ungroup() %>%
   group_by(lag_type) %>% 
   summarise(n=n(), m=mean(lag_200/60), sd=sd(lag_200/60)) %>% 
   ungroup() %>% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %>% 
-  knitr::kable(digits=3)
+  knitr::kable(digits=3) %>% 
+  kableExtra::kable_styling() %>% 
+  identity()
 
 ```
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -114,7 +116,7 @@ mycells_switching %>% ungroup() %>%
 
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
  mycells_switching %>% ungroup() %>% 
   filter(!date %in% discarded_dates) %>%
   filter(!discard_arrested) %>% 
@@ -202,7 +204,9 @@ mycells_switching %>% ungroup() %>%
   summarise(n=n()) %>% 
   group_by(sample) %>% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %>% 
   rename("lag type"=lag_200) %>% 
-  knitr::kable(digits=3)
+  knitr::kable(digits=3) %>% 
+  kableExtra::kable_styling() %>% 
+  identity()
 
 ```
 
@@ -260,7 +264,7 @@ mycells_switching %>% ungroup %>%
   
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 myframes %>% ungroup %>% 
   filter(condition=='mg1655', length_um) %>% 
   ggplot(aes(length_um, gfp_nb)) + 
@@ -404,7 +408,7 @@ mycells_switching %>% ungroup %>%
 
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
@@ -434,7 +438,7 @@ mycells_switching %>% ungroup %>%
 ```
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # compare distributions for several traits
 mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
@@ -501,7 +505,7 @@ mycells_switching %>% ungroup %>%
            mutate(dt=time_div-time_birth) %>% pull(dt) %>% mean ),
          dl=length_ini - length_um_birth,
          growth_rate=logl_time_slope_before/log(2)*3600) %>% 
-  select(date, lag_200, type, gfp_ini, growth_rate, cc, dl) %>% 
+  select(date, lag_200, type, length_ini, gfp_ini, growth_rate, cc, dl) %>% 
   # group_by(date) %>% 
   # mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %>%
   filter(cc < 1.5) %>% 
@@ -535,114 +539,6 @@ mycells_switching %>% ungroup %>%
 
 ```
 
-
-### Heritability of induction lag in naive cells
-
-Heritability of the lag at the first switch:
-
-```{r compute cells pairs}
-mypairs_switching <- mycells_switching %>%
-  group_by(condition, date, pos, gl, switch_idx) %>%
-  filter(n() > 1) %>%
-  do((function(.df) {
-    # browser()
-    return( combn(.df$genealogy, 2, simplify=FALSE) %>%
-      lapply(function(.x) as.data.frame(genealogy_relationship(.x), stringsAsFactors=FALSE)) %>%
-      do.call(rbind, .) )
-  })(.)) %>%
-  # rbind one df per variable type
-  mutate(foo=1) %>% left_join(data.frame(foo=1, variable=c('growth_lag', 'gfp_lag', 'lag_200'))) %>% select(-foo) %>%
-  # join variables of interest
-  mutate(rel=factor(rel, levels=c("sisters", "cousins1", "cousins2", "niece"))) %>%
-  left_join(mycells_switching %>% ungroup %>%
-              gather(variable, value, growth_lag, gfp_lag, lag_200) %>%
-              setNames(., paste(names(.), "1", sep="_")) %>%
-              rename(date=date_1, pos=pos_1, gl=gl_1, switch_idx=switch_idx_1, variable=variable_1) ) %>%
-  left_join(mycells_switching %>% ungroup %>%
-              gather(variable, value, growth_lag, gfp_lag, lag_200) %>%
-              setNames(., paste(names(.), "2", sep="_")) %>%
-              rename(date=date_2, pos=pos_2, gl=gl_2, switch_idx=switch_idx_2, variable=variable_2) )
-
-```
-
-```{r}
-mypairs_switching %>%
-  # group_by(rel, div_1, div_2) %>% summarise(n())
-  ungroup() %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$') ) %>%
-  filter(switch_idx==1) %>%
-  filter(rel!='niece') %>%
-  filter(variable=='lag_200') %>%
-  filter(!is.na(value_1), !is.na(value_2)) %>%
-  select(rel, value_1, value_2) %>% 
-  # append pairs of independent lags
-  bind_rows(
-    # extract lag values
-    mycells_switching %>% ungroup %>% 
-      filter(!date %in% discarded_dates) %>%
-      filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-      filter(switch_idx==1, !is.na(lag_200)) %>% 
-      pull(lag_200) %>% 
-      # draw random pairs
-      (function(.l)
-        tibble(rel='indep', #variable='lag_200', 
-               value_1=quantile(.l, runif(length(.l))), 
-               value_2=quantile(.l, runif(length(.l))) )
-      ) ) %>% 
-  mutate(type_1=ifelse(value_1 < 50*60, 's', 'l'),
-         type_2=ifelse(value_2 < 50*60, 's', 'l'),
-         type=paste0(type_1, type_2), type=ifelse(type=='ls', 'sl', type) ) %>%
-  mutate(rel=fct_relevel(rel, 'indep', 'sisters')) %>% 
-  group_by(rel, type) %>% summarise(n=n()) %>%
-  group_by(rel) %>% mutate(p=n/sum(n)) %>%
-  ggplot(aes(rel, type)) +
-  geom_point(aes(size=p)) +
-    # geom_tile(aes(fill=p)) +
-    # scale_fill_viridis_c() +
-    # scale_fill_viridis_c(limits=c(0, 1)) +
-    NULL
-
-```
-
-```{r eval=FALSE}
-# set.seed(1)
-mypairs_switching %>%
-  # group_by(rel, div_1, div_2) %>% summarise(n())
-  ungroup() %>%
-  filter(str_detect(condition, '^switch_[0-9]+h$') ) %>%
-  filter(switch_idx==1) %>%
-  filter(rel!='niece') %>%
-  filter(variable=='lag_200') %>%
-  filter(!is.na(value_1), !is.na(value_2)) %>%
-  select(rel, value_1, value_2) %>% 
-  # append pairs of independent lags
-  bind_rows(
-    # extract lag values
-    mycells_switching %>% ungroup %>% 
-      filter(!date %in% discarded_dates) %>%
-      filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-      filter(switch_idx==1, !is.na(lag_200)) %>% 
-      pull(lag_200) %>% 
-      # draw random pairs
-      (function(.l)
-        tibble(rel='indep', #variable='lag_200', 
-               value_1=quantile(.l, runif(length(.l))), 
-               value_2=quantile(.l, runif(length(.l))) )
-      ) ) %>% 
-  mutate(type_1=ifelse(value_1 < 50*60, 's', 'l'),
-         type_2=ifelse(value_2 < 50*60, 's', 'l'),
-         type=paste0(type_1, type_2) ) %>%
-  mutate(rel=fct_relevel(rel, 'indep', 'sisters')) %>% 
-  group_by(rel, type) %>% summarise(n=n()) %>%
-  group_by(rel) %>% mutate(p=n/sum(n)) %>%
-  summarise(n = sum(n), mi = entropy::mi.plugin(matrix(p, 2, 2)),
-            nmi = mi / entropy::entropy(c(.3, .7)) ) %>% 
-  ggplot(aes(rel, nmi)) +
-  geom_point(aes(size=n)) +
-  expand_limits(y=0) +
-  NULL
-
-```
 
 
 ## Growth arrest at the switch to lactose
@@ -852,31 +748,38 @@ First, let's look at the distribution of induction lags at the second switch. Th
           lag=ifelse(lag>240*60, Inf, lag),
           # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+1e6),
           # lag=ifelse(is.na(lag), -1e6, lag),
+          condition = ifelse(str_detect(condition, "switch_\\d+h"),
+                             str_replace(condition, "switch_0?", ""), condition),
           ) %>% 
    # group_by(condition, switch_idx) %>% summarise(n())
    (function(.df)
-     ggplot(data=NULL, aes(x=lag/60, y=1-..y.., col=condition)) +
-      stat_ecdf(aes(col='control', lty='dotted'), geom='line', size=rel(0.75),
+     ggplot(data=NULL, aes(x=lag/60, y=1-..y.., col=condition, lty=condition)) +
+      stat_ecdf(aes(col='control', lty='control'), geom='line', size=rel(0.75), show.legend = FALSE,
                 data=filter(.df, switch_idx==1, condition != 'switch_late')) +
-      stat_ecdf(aes(lty='dotted'), geom='line', size=rel(0.75),
+      stat_ecdf(aes(col='control (late)', lty='control (late)'), geom='line', size=rel(0.75), show.legend = FALSE,
                 data=filter(.df, switch_idx==1, condition == 'switch_late')) +
-      stat_ecdf(aes(lty='solid'), geom='line', #size=.3,
-                data=.df %>% filter(switch_idx==2)) +
-      geom_rect(aes(x=NULL), xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, fill='white', col='transparent',
-                data=data.frame()) +
-      scale_color_manual(name='delay between\nlactose exposures',
-                         limits=c(sprintf('switch_%02dh', seq(4, 24, 4)), 'control', 'switch_late'),
-                         labels=c(sprintf('%dh', seq(4, 24, 4)), 'control', 'control (late)'),
-                         values=c(scales::viridis_pal()(6), 'gray40', 'gray70') ) +
+      stat_ecdf(geom='line', #size=.3,
+                data=filter(.df, switch_idx==2)) +
+      # geom_rect(aes(x=NULL), xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, fill='white', col='transparent',
+                # data=data.frame()) +
+      scale_color_manual(
+        name='delay between\nlactose exposures',
+        limits=c(sprintf('%dh', seq(4, 24, 4)), 'control', 'control (late)'),
+        values=c(scales::viridis_pal()(6), 'gray40', 'gray70') ) +
+      scale_linetype_manual(
+        name='delay between\nlactose exposures',
+        limits=c(sprintf('%dh', seq(4, 24, 4)), 'control', 'control (late)'),
+        values=c("11", "41", "4111", "11", "41", "4111", "solid", "solid")) +
+        # values=c(3, 2, 4, 3, 2, 4, 1, 1)) +
+      guides(col=guide_legend(ncol=2), lty=guide_legend(ncol=2)) +
       coord_cartesian(xlim=c(-10, 240), ylim=c(-.01, 1.01), expand=FALSE) +
       labs(x=lac_lags_label,  y='reverse cumulative\nprobability') +
-      scale_linetype_manual(values=c('dotted'='dotted', 'solid'='solid'), guide=FALSE) +
-      guides(col=guide_legend(ncol=2)) +
       theme_cowplot_legend_inset() +  
       theme(axis.line.x=element_line(), axis.line.y=element_line(),
             strip.background=element_rect(fill='gray95', colour='transparent'), 
             legend.position = c(1, 1), legend.justification = c(1,1),
-            legend.margin=margin()
+            legend.margin=margin(),
+            legend.key.width = unit(1.8, "lines"),
             # legend.key.height=unit(0.7, "lines")
       ) +
       NULL

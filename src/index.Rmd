@@ -1,16 +1,46 @@
 ---
-title: "Single-cell analysis of the glucose/lactose diauxic shift"
+title: "Single-cell analysis of the glucose/lactose diauxic shift in E. coli"
 author: Thomas Julou
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     toc: false
-    toc_float: false
 ---
+
+This is a companion website describing the data analysis underlying the article [*Subpopulations of sensorless bacteria drive fitness in fluctuating environments*](https://doi.org/10.1101/2020.01.04.894766).
+
+This project consists for a large part of single-cell experiments done using microfluidics:
+
+- [Lags estimation](MoM_lacInduction_Lags_Estimation.html)
+- [Controls](MoM_lacInduction_Controls.html)
+- [Induction and memory of the native *lac* operon](MoM_lacInduction_Native.html)
+- [Perturbations of the repressed lac operon expression](MoM_lacInduction_PerturbRepressed.html)
+- [*lac* induction at lower lactose concentrations](MoM_lacInduction_lowLactose.html)
+- [Simulation of population lags from distribution of single-cell lags](MoM_lacInduction_PopLagSimul.html)
+
+
+In addition, we used an array of other techniques and analysis:
+
+- [Fluorescence lifetime experiments](MoM_lacInduction_FLIM.html)
+- [Population lags in diauxie experiments](MoM_lacInduction_diauxieGrowthCurves.html)
+- [Identification of SMT candidates in MS data](MoM_lacInduction_QMS.html)
+
+
+Available material includes:
+
+- raw image datasets, as well as images processed for analysis (https://doi.org/10.17867/10000149),
+- data tables obtained from image analysis (https://doi.org/10.5281/zenodo.3894719),
+- analysis source code and additional data (https://github.com/julou/MoM_lacInduction).
+
+
+## Mother Machine experiments
+
+In typical experiments, E. coli is grown in a Dual-Input Mother Machine where glucose and lactose alternate every 4 hours:
 
 <iframe width="853" height="480" src="https://www.youtube.com/embed/2Tznm868fmc?rel=0" frameborder="0" allowfullscreen></iframe>
 
 
-# Dataset description
+### Dataset description
 
 ```{r}
 mygl <- myframes %>% ungroup() %>% 
@@ -57,14 +87,19 @@ mygl <- myframes %>% ungroup() %>%
    )
 ) %>% 
   filter(! date %in% discarded_dates) %>% 
-  knitr::kable()
+  knitr::kable() %>% 
+  kableExtra::kable_styling() %>% 
+  identity()
 
 ```
 
 
+
 ## Colophon
 
-```{r}
+Package versions are managed with `renv` and can be found in the corresponding [lockfile](https://github.com/julou/MoM_lacInduction/blob/master/renv.lock).
+
+```{r eval=FALSE, echo=FALSE}
 devtools::loaded_packages() %>% 
   mutate(version = unlist(lapply(package, function(x) as.character(packageVersion(x)))) ) %>% 
   arrange(package) %>% 

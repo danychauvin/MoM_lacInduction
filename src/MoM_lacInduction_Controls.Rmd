@@ -231,7 +231,7 @@ mycells_btw %>%
 ```
 
 
-```{r growth_rate_medians, eval=FALSE}
+```{r growth_rate_medians, eval=FALSE, echo=FALSE}
 mycells_btw %>% 
   ungroup %>% 
   filter(time_birth>2*3600, time_birth<6*3600) %>% 
@@ -253,7 +253,7 @@ mycells_btw %>%
 
 ```
 
-The systematic relationship between growth rate and cell size at birth indicates that cells growing slower are in a different physiological state. 
+The systematic relationship between growth rate and cell size at birth indicates that cells growing slower are in a different physiological state. Note that lower illumination during experiments with low lactose concentration induces less damage and hence leads to higher growth rate before the switch.
 
 ```{r}
 mycells_btw %>% 
@@ -451,7 +451,8 @@ mycells_switching %>%
   arrange(date) %>%
 # TODO: check NAs for all conditions
   ungroup() %>% mutate(condition=rename_conds(condition)) %>% 
-  knitr::kable()
+  knitr::kable() %>% 
+  kableExtra::kable_styling()
 
 ```
 

@@ -6,7 +6,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 
 In order to study the diauxie at th epopulation level, we measured growth curves for several strains in different mixture of glucose + lactose. Since we want to monitor the lag when cells are far from stationary phase (to avoid interfering with the lag itself), we keep the glucose concentration low (0.05%).
 
-Let's plot the growth curves in all conditions:
+Let's plot the growth curves for all strains (columns) in all conditions (rows):
 
 ```{r}
 read_csv(here('./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz')) %>% as_tibble() %>% 
@@ -26,6 +26,9 @@ read_csv(here('./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz')) %>% a
   NULL
 
 ```
+
+
+## Diauxic lag estimation
 
 In order to measure the lag, a precise reference growth curve can be obtained for a given glucose + lactose mixture by using the same nutrient concentration and supplementing cells with IPTG so that the *lac* operon is expressed at all time. The rationale is that the diauxic lag comes mostly from the triggering of the positive feedback and the expression of the first Lac proteins while the kinetics of lactose import, conversion to allolactose and binding to LacI are comparatively fast.
 
@@ -99,37 +102,7 @@ In order to measure the lag, we compute the delay relative to the growth curve w
 ```
 
 
-For lab strains only, we performed additional control experiments to disentangle the effect of lactose before and after glucose exhaustion (aka the "switch"), by taking cells from a given mixture of glucose + lactose and transfering them to another one:
-
-As a proxy for the population lag, we can measure the time taken to increase by 0.001 in OD (approx. 10% increase) after the start. NB: this is the smallest OD increment for which the estimation is stable; with smaller increment it is messed up by the fact that OD decreases at the start in most cases.
-
-The lag decrease in each panel corresponds to the effect of the lactose availability before the switch i.e. the fraction of cells with long lags decrease; the decrease from the left to the right panel corresponds to the effect of lactose concentration after the switch i.e. how the import gets faster for higher lactose concentrations. These two effetcs seem to be of similar magnitude. 
-
-```{r}
-(myplots[['diauxie_wash_ctrl']] <- 
-   read_csv(here('./data/Julou2020_lacInduction_DiauxieGrowthCurves_WashCtrl.csv.gz')) %>% as_tibble() %>% 
-   group_by(date, row, col, lac_before, lac_after) %>% 
-   nest() %>% ungroup() %>% 
-   mutate(date=as.character(date),
-          od_min = map_dbl(data, ~mean(.$od[between(.$time, 15*60, 45*60)])),
-          t2 = map2_dbl(data, od_min, ~min(.x$time[.x$od > 2 * .y])),
-          t_min = map2_dbl(data, od_min, ~min(.x$time[.x$time  >15*60 & .x$od > .y + 1e-3])), 
-   ) %>% 
-   filter(t_min > 17*60) %>% # remove one case where estimation failed (before the end of the decrease at the start)
-   ggplot(aes(factor(lac_before), t_min/60)) +
-   facet_grid(~lac_after, scales='free_y',
-              labeller=as_labeller(paste0("[lactose] after the switch: ", c(0.02, 0.2), "%") %>% set_names(c(0.02, 0.2)))) +
-   geom_jitter(aes(shape=date), col='gray80', width=.1) +
-   stat_summary(aes(col=paste0(lac_after, "%")), fun.data=mean_se) +
-   expand_limits(y=0) +
-   labs(x='[lactose] before the switch (%)', y='population lag (min)', col='[lactose] after the switch') + 
-   guides(shape='none') +
-   NULL) +
-  # theme(legend.position = 'top', strip.background = element_blank(), strip.text = element_blank()) +
-  NULL
-
-```
-
+## Diauxic lag at low/high glucose
 
 We then compare the lags with using two different lactose concentration for different strains spanning *E. coli* diversity:
 
@@ -226,6 +199,7 @@ read_csv(here('./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz')) %>% a
 
 ```
 
+From delay plots, we measured the lags manually: 
 
 ```{r}
 (myplots[['diauxie_lags']] <- 
@@ -269,6 +243,40 @@ read_csv(here('./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz')) %>% a
    labs(y="lag (min)", col="[lactose]") +
    theme(legend.position = 'top') +
    NULL )
+
+```
+
+
+## Controls
+
+For lab strains only, we performed additional control experiments to disentangle the effect of lactose before and after glucose exhaustion (aka the "switch"), by taking cells from a given mixture of glucose + lactose and transfering them to another one:
+
+As a proxy for the population lag, we can measure the time taken to increase by 0.001 in OD (approx. 10% increase) after the start. NB: this is the smallest OD increment for which the estimation is stable; with smaller increment it is messed up by the fact that OD decreases at the start in most cases.
+
+The lag decrease in each panel corresponds to the effect of the lactose availability before the switch i.e. the fraction of cells with long lags decrease; the decrease from the left to the right panel corresponds to the effect of lactose concentration after the switch i.e. how the import gets faster for higher lactose concentrations. These two effetcs seem to be of similar magnitude. 
+
+```{r}
+(myplots[['diauxie_wash_ctrl']] <- 
+   read_csv(here('./data/Julou2020_lacInduction_DiauxieGrowthCurves_WashCtrl.csv.gz')) %>% as_tibble() %>% 
+   group_by(date, row, col, lac_before, lac_after) %>% 
+   nest() %>% ungroup() %>% 
+   mutate(date=as.character(date),
+          od_min = map_dbl(data, ~mean(.$od[between(.$time, 15*60, 45*60)])),
+          t2 = map2_dbl(data, od_min, ~min(.x$time[.x$od > 2 * .y])),
+          t_min = map2_dbl(data, od_min, ~min(.x$time[.x$time  >15*60 & .x$od > .y + 1e-3])), 
+   ) %>% 
+   filter(t_min > 17*60) %>% # remove one case where estimation failed (before the end of the decrease at the start)
+   ggplot(aes(factor(lac_before), t_min/60)) +
+   facet_grid(~lac_after, scales='free_y',
+              labeller=as_labeller(paste0("[lactose] after the switch: ", c(0.02, 0.2), "%") %>% set_names(c(0.02, 0.2)))) +
+   geom_jitter(aes(shape=date), col='gray80', width=.1) +
+   stat_summary(aes(col=paste0(lac_after, "%")), fun.data=mean_se) +
+   expand_limits(y=0) +
+   labs(x='[lactose] before the switch (%)', y='population lag (min)', col='[lactose] after the switch') + 
+   guides(shape='none') +
+   NULL) +
+  # theme(legend.position = 'top', strip.background = element_blank(), strip.text = element_blank()) +
+  NULL
 
 ```
 

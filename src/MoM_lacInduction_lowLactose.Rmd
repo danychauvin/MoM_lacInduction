@@ -10,7 +10,7 @@ In order to assess how the sensitivity threshold (number of Lac proteins require
 - we performed 2 experiments at 0.01% lactose (200x less than our standard condition) with various levels of preinduction with IPTG (3 pre-cultures per experiment; designed to extend the range of inherited LacZ-GFP at the switch to lactose in order to estimate the threshold).
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # let's first check raw data look ok (given that variable acquisition frequency and low illum in lactose)
 set.seed(11)
 myframes %>% 
@@ -34,7 +34,7 @@ myframes %>%
 
 We checked that fluorescence time series don't feature abherent patterns despite the corrections required by the change of illumination. Nonetheless, we note that modifying the illumination frequency (and intensity?) changes the photobleaching which is complicated to correct for on total fluorescence (only instantaneous production rates could be corrected in a straightforward way but we don't use them in our analysis).
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # need to correct for autofluo shift??
 myframes %>% 
   ungroup() %>% filter(str_detect(condition, 'switch_pre_lac001')) %>%
@@ -176,7 +176,7 @@ mycells_switchingLow_memory <- mycells_switching %>% ungroup() %>%
 
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # control plots
 set.seed(11)
 mycells_switchingLow_memory %>% 
@@ -255,6 +255,13 @@ Data analysis revealed that virtually all cells descended from a mother cell wit
 
 ```
 
+```{r eval=FALSE, echo=FALSE}
+mycells_switchingLow_memory %>% 
+    filter(!fluo_focus) %>% 
+  summarise(n=n(), na=sum(!is.na(lag_200)))
+```
+
+
 ```{r}
 (myplots[['lowLac_memory_frac_short']] <- mycells_switchingLow_memory %>% 
   filter(!fluo_focus) %>% 
@@ -283,7 +290,7 @@ Data analysis revealed that virtually all cells descended from a mother cell wit
 
 Last, we measure the growth rate after the switch in 0.01% lactose in order (1) to check that cells grow regularly, and (2) to compare the growth rate with 0.2% lactose.
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # myframes %>% 
 #   ungroup %>% 
 #   filter(str_detect(condition, 'switch_pre_lac001')) %>% 

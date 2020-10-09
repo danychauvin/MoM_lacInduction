@@ -327,12 +327,14 @@ mycells_switching %>%
     "numeric"  , "numeric", "NA"     , "(fluo either lower than 200 or wiggly)",
     "numeric"  , "numeric", "numeric", "success: growth and induction lags estimated"
   )) %>% 
-  knitr::kable(digits=2)
+  knitr::kable(digits=2) %>% 
+  kableExtra::kable_styling() %>%
+  identity()
 options(knitr.kable.NA = NULL)
 
 ```
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # lookup for cells of a given type
 mycells_switching %>% 
   filter(! condition %in% c('switch_long_lac_hiExpr')) %>%  # lag_200 is NaN
@@ -379,7 +381,7 @@ ggplot(aes(t_switch/60, mean, alpha=n)) +
 ```
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 myframes_switching %>%
   filter(is.finite(growth_lag)) %>%
   mutate(t_switch=time_sec-t_lac_switch-growth_lag, rel_resid=llength_residual/log(length_predict)) %>%
@@ -416,7 +418,7 @@ myframes_switching %>%
 ```
 
 
-```{r lag control plots, eval=FALSE}
+```{r lag control plots, eval=FALSE, echo=FALSE}
 # print control plots to pdf
 pdf('plots/MoM_Switch_lag_verif.pdf', width=12, height=9)
 myframes_switching %>%
@@ -465,7 +467,7 @@ dev.off()
 
 ```
 
-```{r lag inference BZSposter, eval=FALSE}
+```{r lag inference BZSposter, eval=FALSE, echo=FALSE}
 # lag inference example plot
 myframes_switching %>% 
   filter(date==20150703, pos==0, gl==27, genealogy=='0:BBBBB') %>% 
@@ -505,7 +507,7 @@ myframes_switching %>%
 ```
 
 
-```{r lags export, eval=FALSE}
+```{r lags export, eval=FALSE, echo=FALSE}
 mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
@@ -548,7 +550,7 @@ ggplot(data=mycells_switching, aes(growth_lag/60, lag_200/60)) +
 NB: the lower bound of the GFP lags probably comes from GFP maturation time.
 
 ```{r BZSposter}
-(myplots[['lags_types_correl']] <- function(.max_psize=1.8)
+(myplots[['lags_types_correl']] <- function(.min_psize=.5, .max_psize=3)
   mycells_switching %>% ungroup() %>% 
    filter(!date %in% discarded_dates) %>%
    filter(!discard_arrested) %>% 
@@ -565,7 +567,7 @@ NB: the lower bound of the GFP lags probably comes from GFP maturation time.
        geom_abline(alpha=0.9, size=.25) +
        geom_point(stroke=0) +
        labs(x=lac_lags_label, y='growth lag (min)') +
-       scale_size_continuous(name='nb of obs.', range=c(.max_psize/max(.df$n), .max_psize), breaks=c(5, 20, 100)) +
+       scale_size_continuous(name='nb of obs.', range=c(.min_psize, .max_psize), breaks=c(5, 20, 80)) +
        # scale_shape_manual(breaks=c(TRUE, FALSE), values=c(2, 1)) +
        expand_limits(x=0, y=0) +
        scale_x_continuous(breaks=seq(0, 200, 50)) + scale_y_continuous(breaks=seq(0, 200, 50)) +
@@ -575,18 +577,27 @@ NB: the lower bound of the GFP lags probably comes from GFP maturation time.
 )()
  # ggsave('plots/BZSposter2017/gfp_growth_lags.pdf', width=180/25.4/2, height=100/25.4/2)
 
-# mycells_switching %>% ungroup() %>% 
-#   filter(!date %in% discarded_dates) %>%
-#   filter(!discard_arrested) %>% 
-#   filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
-#   filter(switch_idx==1) %>%
-#   mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>% 
-#   group_by(growth_lag, lag_200) %>% 
-#   summarise(n=n()) %>% ungroup %>% 
-#   with(sum( is.infinite(growth_lag) & is.finite(lag_200) ) /
-#          sum( !is.na(growth_lag) & !is.na(lag_200)) )
-#   filter(is.finite(growth_lag), is.finite(lag_200)) %>%
-#   with(cor(growth_lag, lag_200)^2)
+mycells_switching %>% ungroup() %>%
+  filter(!date %in% discarded_dates) %>%
+  filter(!discard_arrested) %>%
+  filter(str_detect(condition, '^switch_[0-9]+h$')) %>%
+  filter(switch_idx==1) %>%
+  mutate(growth_lag=ifelse(growth_lag>240*60, Inf, growth_lag) ) %>%
+  # group_by(growth_lag, lag_200) %>%
+  # summarise(n=n()) %>% ungroup %>%
+  
+  # filter(is.infinite(growth_lag) & is.finite(lag_200)) %>% 
+  # pull(lag_200) %>% (function(.x) .x/60) %>% table()
+  
+  summarise(n=n(), n_na=sum(is.na(growth_lag)), n_inf=sum(is.infinite(growth_lag)),
+            n_induce_arrested = sum( is.infinite(growth_lag) & is.finite(lag_200) ),
+  )
+
+    # with(sum( is.infinite(growth_lag) & is.finite(lag_200) ) /
+    #      sum( !is.na(growth_lag) & !is.na(lag_200)) ) 
+
+  # filter(is.finite(growth_lag), is.finite(lag_200)) %>%
+  # with(cor(growth_lag, lag_200)^2)
 
 ```
 
@@ -654,7 +665,8 @@ mycells_switching %>%
     })(.)) %>% 
   spread("var", "value", fill=0) %>% 
   select(condition, date, switch_idx, n, short, long, "Inf", everything()) %>% 
-  knitr::kable() %>%
+  knitr::kable(digits = 3) %>%
+  kableExtra::kable_styling() %>% 
   identity()
 
 ```
@@ -679,22 +691,7 @@ mycells_switching %>% ungroup %>%
 
 ```{r histo perturbations, fig.height=12}
 mycells_switching %>% ungroup %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h') | condition=='switch_long_lac' | str_detect(condition, 'CM') ) %>%
-  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
-                          'switch', condition)) %>%
-  filter(switch_idx==1) %>% 
-  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %>% 
-  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
-         lag=ifelse(is.na(lag), -1, lag)) %>% 
-  ggplot(aes(lag/60)) +
-  facet_grid(condition~variable, scales='free_y', labeller=as_labeller(rename_conds)) +
-  geom_histogram(aes(fill=factor(date), group=date), alpha=.2, position='identity', binwidth=6) +
-  geom_step_hist(aes(col=factor(date), group=date), position='identity', binwidth=6) +
-  xlim(0, 240) +
-  ggplot2::scale_color_discrete() + ggplot2::scale_fill_discrete() +
-  labs(x='lag after the switch (min)')
-
-mycells_switching %>% ungroup %>% 
+  filter(!date %in% discarded_dates) %>% 
   filter(str_detect(condition, '^switch_[0-9]+h') | condition=='switch_long_lac' | str_detect(condition, 'IPTG') ) %>%
   mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') | condition=='switch_long_lac',
                           'switch', condition)) %>%
@@ -728,7 +725,7 @@ mycells_switching %>% ungroup %>%
 ```
 
 
-```{r eval=FALSE}
+```{r eval=FALSE, echo=FALSE}
 # plot for one specific condition
 
 (function(.condition='switch_pre_lac001') {
@@ -762,7 +759,9 @@ mycells_switching %>% ungroup %>%
     group_by(switch_idx, lag_200) %>% 
     summarise(n=n()) %>% 
     group_by(switch_idx) %>% mutate(p=n/sum(n)) %>% 
-    knitr::kable(digits=3)
+    knitr::kable(digits=3) %>% 
+    kableExtra::kable_styling() %>% 
+    identity()
 })()
 
 ```

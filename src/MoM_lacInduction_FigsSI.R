@@ -116,6 +116,27 @@ save_plot(here("plots", "SI_figs", "naive-lags-correl.pdf"), .,
             base_aspect_ratio = 2.3)
 
 
+# plot_grid(
+#   myplots[['lowLac_gfp_lineages']] +
+#     coord_cartesian(ylim=c(60, 15e3)) +
+#     scale_y_continuous(trans='log', breaks=c(200, 1600, 12800)) +
+#     scale_color_manual(values=c('TRUE'='gray50', 'FALSE'=qual_cols[1])) +
+#     theme(legend.position = 'none'),
+  plot_grid(
+    myplots[['lowLac_lags_inherited_gfp']] +
+      scale_x_continuous(trans='log', breaks=10^(0:3)) +
+      scale_color_manual(values=c('TRUE'='gray50', 'FALSE'=qual_cols[1])) +
+      theme(legend.position = 'none'),
+    myplots[['lowLac_memory_frac_short']] +
+      theme_cowplot_legend_inset() +
+      theme(legend.position = c(0.02, 0), legend.justification = c(0, -.8)),
+    nrow=1, rel_widths=c(1, 1.2), labels=c("A", "B")
+  # ), ncol=1, labels=c("A", "")
+) %>% 
+  save_plot(here("plots", "SI_figs", "low-lactose.pdf"), .,
+            base_height=NULL, base_width=5.2 * 12/8, # full width
+            base_aspect_ratio = 2.7)
+
 plot_grid(
   plot_grid(
     myplots[['flim_gfp_criteria_cpm']],
