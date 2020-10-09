@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Thomas Julou" />
+
+
+<title>Perturbations of the repressed lac operon expression</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Single-cell analysis of the glucose/lactose diauxic shift</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Mother machine experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_Lags_Estimation.html">Lags estimation</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_Controls.html">Controls</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_Native.html">Induction and memory of the native lac operon</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_PerturbRepressed.html">Perturbations of the repressed lac operon expression</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_lowLactose.html">lac induction at lower lactose concentrations</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_PopLagSimul.html">Simulation of population lags from distribution of single-cell lags</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Additional experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_FLIM.html">Fluorescence lifetime experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_diauxieGrowthCurves.html">Population lags in diauxie experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_QMS.html">Identification of SMT candidates in MS data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://github.com/julou/MoM_lacInduction">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Perturbations of the repressed <em>lac</em> operon expression</h1>
+<h4 class="author">Thomas Julou</h4>
+<h4 class="date">09 October, 2020</h4>
+
+</div>
+
+
+<p>Our memory experiments revealed that the threshold of Lac proteins required to be readily sensitive to lactose as an inducer is on the order of 1 molecule. Accordingly, we predict that the fraction of short and long lags will change if we perturb the expression of the <em>lac</em> operon in its repressed state.</p>
+<div id="perturbing-laci-activity" class="section level2">
+<h2>Perturbing LacI activity</h2>
+<p>First, we perturb the repressed <em>lac</em> operon expression by manipulating LacI activity: using minute amounts of artificial inducer (IPTG), we can titrate a given fraction of LacI, conversly, LacI can be mildly overexpressed from a low copy number plasmid.</p>
+<p>In a series of preliminary experiments, we check how to titrate LacI with IPTG: xxx In the following, we add IPTG only before the switch.</p>
+<pre class="r"><code>(myplots[[&#39;cmp_iptg_inhib&#39;]] &lt;- 
+mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(switch_idx==1) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | 
+           str_detect(condition, &#39;withIPTG5uM&#39;) |  str_detect(condition, &#39;lacIPTG5uM&#39;) | 
+           str_detect(condition, &#39;preIPTG5uM&#39;) ) %&gt;% 
+  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;lactose&#39;, .x)),
+         laci=factor(ifelse(condition==&#39;lactose&#39;, &#39;control&#39;, &#39;lower&#39;)) %&gt;% fct_relevel(&#39;lower&#39;, &#39;control&#39;) ) %&gt;%
+  mutate(lag=lag_200,
+         lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -200, lag)) %&gt;% 
+  ggplot(aes(x=condition, y=lag/60)) +
+  geom_violin(aes(group=date, col=laci, fill=laci), adjust=0.7, 
+              alpha=.4, position=&#39;identity&#39;) +
+  geom_hline(yintercept=50, lty=&#39;dashed&#39;) +
+  # ylim(0, 240) +
+  scale_x_discrete(breaks=c(&#39;lactose&#39;, &#39;switch_withIPTG5uM&#39;, &#39;switch_lacIPTG5uM&#39;, &#39;switch_preIPTG5uM&#39;), 
+                   labels=c(&#39;glucose\n&gt; lactose&#39;, &#39;glucose+IPTG\n&gt; lactose+IPTG&#39;, 
+                            &#39;glucose\n&gt; lactose+IPTG&#39;, &#39;glucose+IPTG\n&gt; lactose&#39;) )+ 
+  expand_limits(y=0) +
+  labs(y=lac_lags_label, col=&#39;LacI activity&#39;, fill=&#39;LacI activity&#39;) +
+  theme_cowplot_legend_inset() +
+  theme(#axis.text.x=element_text(angle=45, hjust=1.25, vjust=1.1), 
+        axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;),
+        axis.title.x=element_blank(),
+        legend.position=&#39;top&#39;) +
+  NULL
+) +
+  labs(subtitle=&#39;with [IPTG] = 5µM&#39;)</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-1-1.svg" width="672" /></p>
+<p>According to our prediction, no short lags are observed with reduced basal expression and the fraction of long lags increases dramatically when basal expression is increased with 5µM IPTG. Supplementing IPTG can also compensate the effect of LacI overexpression.</p>
+<pre class="r"><code>(myplots[[&#39;basal_perturb_pre_violin&#39;]] &lt;- function(.yannot=-10, .annot_size=3)
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(switch_idx==1) %&gt;%
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) |
+            str_detect(condition, &#39;preIPTG&#39;) | str_detect(condition, &#39;lacIoe$&#39;)) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          laci=fct_recode(condition, &#39;lower&#39;=&#39;switch_preIPTG5uM&#39;,
+                          &#39;lower&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;,
+                          &#39;higher&#39;=&#39;switch_lacIoe&#39;) %&gt;% 
+            fct_relevel(&#39;lower&#39;, &#39;control&#39;),
+          condition=fct_relevel(condition, &#39;switch_lacIoe&#39;, &quot;control&quot;,
+                                &#39;switch_lacIoe_preIPTG10uM&#39;, &#39;switch_preIPTG5uM&#39;) %&gt;% 
+            fct_recode(&#39;+ 5µM IPTG&#39;=&#39;switch_preIPTG5uM&#39;,
+                       &#39;+ LacI plasmid&#39;=&#39;switch_lacIoe&#39;, 
+                       &#39;+ LacI plasmid\n+ 10µM IPTG&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;) ) %&gt;% 
+   mutate(lag=lag_200,
+          lag=ifelse(lag&gt;240*60, Inf, lag)
+   ) %&gt;% 
+   (function(.df)
+     ggplot(.df, aes(x=condition, y=lag/60)) +
+      geom_hline(yintercept=50, lty=&#39;dashed&#39;) +
+      geom_violin(aes(group=date, fill=laci, col=laci), adjust=.7, width=1.1, alpha=.4, position=&#39;identity&#39;) +
+      geom_text(aes(y=.yannot, label=annot), vjust=0.5, size=.annot_size, lineheight=1,
+                data=.df %&gt;% group_by(condition, laci) %&gt;% 
+                  summarise(n=n(), type=&#39;short&#39;, prop=sum(lag/60&lt;50, na.rm=TRUE)/sum(!is.na(lag)),
+                            annot=sprintf(&quot;%.0f%%\nn=%d&quot;, prop*100, n)) ) +
+      coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
+      labs(y=lac_lags_label, col=&#39;LacI activity&#39;, fill=&#39;LacI activity&#39;) +
+      guides(fill=guide_legend(override.aes=list(alpha=1), reverse=TRUE), col=guide_legend(reverse=TRUE)) +
+      theme_cowplot_legend_inset(0.8) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;,
+                                     angle=45, hjust=1, vjust=0.5, margin=margin(t=-28, b=34)),
+            legend.margin=margin(),
+            # legend.title=element_text(size=rel(0.7), face=&#39;bold&#39;),
+            # legend.text=element_text(size=rel(0.7)),
+            legend.position=&#39;top&#39;) +
+      NULL
+   ) )()</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-3-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;basal_perturb_pre_frac_short&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(switch_idx==1) %&gt;%
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) |
+            str_detect(condition, &#39;preIPTG&#39;) | str_detect(condition, &#39;lacIoe$&#39;)) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          laci=fct_recode(condition, &#39;lower&#39;=&#39;switch_preIPTG5uM&#39;,
+                          &#39;lower&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;,
+                          &#39;higher&#39;=&#39;switch_lacIoe&#39;) %&gt;% 
+            fct_relevel(&#39;lower&#39;, &#39;control&#39;),
+          condition=fct_relevel(condition, &#39;switch_lacIoe&#39;, &quot;control&quot;,
+                                &#39;switch_lacIoe_preIPTG10uM&#39;, &#39;switch_preIPTG5uM&#39;) %&gt;% 
+            fct_recode(&#39;with 5µM IPTG&#39;=&#39;switch_preIPTG5uM&#39;,
+                       &#39;with LacI plasmid&#39;=&#39;switch_lacIoe&#39;, 
+                       &#39;with LacI plasmid\n+ 10µM IPTG&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;) ) %&gt;% 
+    mutate(lag=lag_200,
+           lag=ifelse(lag&gt;240*60, Inf, lag)
+    ) %&gt;% 
+    group_by(condition, laci) %&gt;% 
+    summarise(n=n(), type=&#39;short&#39;, prop=sum(lag/60&lt;50, na.rm=TRUE)/sum(!is.na(lag)), 
+              prop_se=sqrt(prop*(1-prop)/n)) %&gt;% 
+    ggplot(aes(x=condition, y=prop)) +
+    geom_bar(aes(y=1), fill=&#39;gray95&#39;, stat=&#39;identity&#39;) +
+    geom_bar(aes(fill=laci), stat=&#39;identity&#39;) +
+    # geom_rect(aes(xmin=as.numeric(condition)-.45, xmax=as.numeric(condition)+.45, 
+    #               ymin=prop-prop_se, ymax=prop+prop_se), data=.df) +
+    geom_errorbar(aes(ymin=prop-prop_se, ymax=prop+prop_se), width=.25) +
+    geom_text(aes(y=1, label=sprintf(&#39;n=%d&#39;, n)), vjust=1.3) +
+    labs(y=&#39;prop. of short lags&#39;) +
+    # expression(paste(&quot;type of &quot;, italic(&quot;lac&quot;), &quot; induction lag&quot;))
+    theme_cowplot_legend_inset(0.8) +
+    theme(axis.title.x=element_blank(),
+          axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;,
+                                   angle=45, hjust=0.8, vjust=0.9),
+          legend.margin=margin(),
+          legend.position=&#39;top&#39;) +
+    NULL
+)</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-3-2.svg" width="672" /></p>
+<pre class="r"><code>mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(switch_idx==1) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) |
+           str_detect(condition, &#39;preIPTG&#39;) | str_detect(condition, &#39;lacIoe$&#39;)) %&gt;% 
+  mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+         laci=fct_recode(condition, &#39;lower&#39;=&#39;switch_preIPTG5uM&#39;, 
+                         &#39;lower&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;,
+                         &#39;higher&#39;=&#39;switch_lacIoe&#39;) %&gt;% 
+           fct_relevel(&#39;lower&#39;, &#39;control&#39;),
+         condition=fct_relevel(condition, &#39;switch_lacIoe&#39;, &quot;control&quot;, 
+                               &#39;switch_lacIoe_preIPTG10uM&#39;, 
+                               &#39;switch_preIPTG5uM&#39;) %&gt;% 
+           fct_recode(&#39;with 5µM IPTG&#39;=&#39;switch_preIPTG5uM&#39;,
+                      &#39;with LacI plasmid&#39;=&#39;switch_lacIoe&#39;, 
+                      &#39;with LacI plasmid\n+ 10µM IPTG&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;) ) %&gt;% 
+  mutate(
+    lag_type=lag_200,
+    lag_type=as.character(lag_type), lag_type=ifelse(is.na(lag_type), &#39;NA&#39;, lag_type),
+    lag_type=ifelse(is.finite(as.numeric(lag_type)) &amp; as.numeric(lag_type)&lt;50*60, &#39;short lags&#39;, lag_type),
+    lag_type=ifelse(is.finite(as.numeric(lag_type)) &amp; as.numeric(lag_type)&gt;=50*60, &#39;long lags&#39;, lag_type) ) %&gt;%
+  group_by(condition, lag_type) %&gt;% 
+  summarise(n=n(), m=mean(lag_200/60), sd=sd(lag_200/60)) %&gt;% 
+  group_by(condition) %&gt;% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %&gt;% 
+  knitr::kable(digits=3) %&gt;% 
+  kableExtra::kable_styling() %&gt;% 
+  identity()</code></pre>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+condition
+</th>
+<th style="text-align:left;">
+lag_type
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+m
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+p
+</th>
+<th style="text-align:right;">
+p_se
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+Inf
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+0.009
+</td>
+<td style="text-align:right;">
+0.054
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid
+</td>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+281
+</td>
+<td style="text-align:right;">
+127.463
+</td>
+<td style="text-align:right;">
+67.399
+</td>
+<td style="text-align:right;">
+0.841
+</td>
+<td style="text-align:right;">
+0.022
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+31
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.093
+</td>
+<td style="text-align:right;">
+0.052
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid
+</td>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:right;">
+39.000
+</td>
+<td style="text-align:right;">
+7.810
+</td>
+<td style="text-align:right;">
+0.057
+</td>
+<td style="text-align:right;">
+0.053
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+control
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+52
+</td>
+<td style="text-align:right;">
+Inf
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+0.032
+</td>
+<td style="text-align:right;">
+0.024
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+control
+</td>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+1061
+</td>
+<td style="text-align:right;">
+89.601
+</td>
+<td style="text-align:right;">
+33.097
+</td>
+<td style="text-align:right;">
+0.650
+</td>
+<td style="text-align:right;">
+0.015
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+control
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+106
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.065
+</td>
+<td style="text-align:right;">
+0.024
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+control
+</td>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+414
+</td>
+<td style="text-align:right;">
+34.261
+</td>
+<td style="text-align:right;">
+7.056
+</td>
+<td style="text-align:right;">
+0.254
+</td>
+<td style="text-align:right;">
+0.021
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid + 10µM IPTG
+</td>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+78
+</td>
+<td style="text-align:right;">
+77.154
+</td>
+<td style="text-align:right;">
+21.339
+</td>
+<td style="text-align:right;">
+0.448
+</td>
+<td style="text-align:right;">
+0.056
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid + 10µM IPTG
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.080
+</td>
+<td style="text-align:right;">
+0.073
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with LacI plasmid + 10µM IPTG
+</td>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+82
+</td>
+<td style="text-align:right;">
+36.951
+</td>
+<td style="text-align:right;">
+5.923
+</td>
+<td style="text-align:right;">
+0.471
+</td>
+<td style="text-align:right;">
+0.055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with 5µM IPTG
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+Inf
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.053
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with 5µM IPTG
+</td>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+112
+</td>
+<td style="text-align:right;">
+67.554
+</td>
+<td style="text-align:right;">
+13.944
+</td>
+<td style="text-align:right;">
+0.322
+</td>
+<td style="text-align:right;">
+0.044
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with 5µM IPTG
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+20
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.057
+</td>
+<td style="text-align:right;">
+0.052
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+with 5µM IPTG
+</td>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+214
+</td>
+<td style="text-align:right;">
+33.393
+</td>
+<td style="text-align:right;">
+7.309
+</td>
+<td style="text-align:right;">
+0.615
+</td>
+<td style="text-align:right;">
+0.033
+</td>
+</tr>
+</tbody>
+</table>
+<p>A similar picture is obtained when IPTG is added before and after the switch:</p>
+<pre class="r"><code>(myplots[[&#39;basal_perturb_with&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(switch_idx==1) %&gt;%
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) |
+            str_detect(condition, &#39;withIPTG&#39;) | str_detect(condition, &#39;lacIoe$&#39;)) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          laci=fct_recode(condition, &#39;lower&#39;=&#39;switch_withIPTG5uM&#39;, &#39;lower&#39;=&#39;switch_withIPTG1uM&#39;,
+                          &#39;higher&#39;=&#39;switch_lacIoe&#39;, &#39;higher&#39;=&#39;switch_lacIoe_withIPTG10uM&#39;) %&gt;% 
+            fct_relevel(&#39;lower&#39;, &#39;control&#39;),
+          condition=fct_relevel(condition, &#39;switch_lacIoe&#39;, &#39;switch_lacIoe_withIPTG10uM&#39;, 
+                                &quot;control&quot;, &#39;switch_withIPTG1uM&#39;, &#39;switch_withIPTG5uM&#39;) %&gt;% 
+            fct_recode(&#39;with 5µM IPTG&#39;=&#39;switch_withIPTG5uM&#39;, &#39;with 1µM IPTG&#39;=&#39;switch_withIPTG1uM&#39;,
+                       &#39;with LacI plasmid&#39;=&#39;switch_lacIoe&#39;, 
+                       &#39;with LacI plasmid\n+ 10µM IPTG&#39;=&#39;switch_lacIoe_withIPTG10uM&#39;) ) %&gt;% 
+   mutate(lag=lag_200,
+          lag=ifelse(lag&gt;240*60, Inf, lag)
+          #        lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          #        lag=ifelse(is.na(lag), -200, lag)
+   ) %&gt;% 
+   (function(.df) 
+     ggplot(.df, aes(x=condition, y=lag/60)) +
+      geom_hline(yintercept=50, lty=&#39;dashed&#39;) +
+      geom_violin(aes(group=date, fill=laci, col=laci), adjust=0.7, width=1.45, alpha=.4, position=&#39;identity&#39;) +
+      geom_text(aes(y=0, label=annot), vjust=0.5,
+                data=.df %&gt;% group_by(condition, laci) %&gt;% 
+                  summarise(n=n(), type=&#39;short&#39;, prop=sum(lag/60&lt;50, na.rm=TRUE)/sum(!is.na(lag)),
+                            annot=sprintf(&quot;p=%.02f\nn=%d&quot;, prop, n)) ) +
+      expand_limits(y=-10) +
+      labs(y=lac_lags_label, col=&#39;LacI activity&#39;, fill=&#39;LacI activity&#39;) +
+      guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      theme_cowplot_legend_inset(0.8) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;,
+                                     angle=45, hjust=0.8, vjust=0.9),
+            legend.margin=margin(),
+            legend.position=&#39;top&#39;) +
+      NULL
+   ))</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-5-1.svg" width="672" /></p>
+<p>Importantly, we perturb the basal expression such that the <em>lac</em> promoter is not induced before the switch. xxx add induced levels</p>
+<pre class="r"><code>(myplots[[&#39;basal_perturb_gfp&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(switch_idx==1) %&gt;%
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | str_detect(condition, &#39;preIPTG&#39;) ) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          laci=fct_recode(condition, &#39;lower&#39;=&#39;switch_preIPTG5uM&#39;, &#39;higher&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;) %&gt;% 
+            fct_relevel(&#39;lower&#39;, &#39;control&#39;),
+          condition=fct_relevel(condition, &#39;switch_lacIoe&#39;, &#39;switch_lacIoe_preIPTG10uM&#39;, 
+                                &quot;control&quot;, &#39;switch_preIPTG5uM&#39;) %&gt;% 
+            fct_recode(&#39;with 5µM IPTG&#39;=&#39;switch_preIPTG5uM&#39;, &#39;no IPTG&#39;=&#39;control&#39;,
+                       &#39;with LacI plasmid\n+ 10µM IPTG&#39;=&#39;switch_lacIoe_preIPTG10uM&#39;) ) %&gt;% 
+   mutate(lag=lag_200,
+          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          lag=ifelse(is.na(lag), -200, lag)) %&gt;% 
+   ggplot(aes(condition, gfp_ini)) +
+   geom_violin(aes(group=date, col=laci, fill=laci), adjust=0.7, alpha=.4, position=&#39;identity&#39;) +
+   labs(x=&#39;&#39;, y=&#39;LacZ-GFP at the switch (molecules / cell)&#39;, col=&#39;LacI activity&#39;, fill=&#39;LacI activity&#39;) +
+   guides(fill=guide_legend(override.aes=list(alpha=1))) +
+   theme(axis.title.x=element_blank(),
+         axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;,
+                                  angle=45, hjust=0.8, vjust=0.9),
+         legend.margin=margin(),
+         legend.title=element_text(size=rel(0.7), face=&#39;bold&#39;),
+         legend.text=element_text(size=rel(0.7)),
+         legend.position=&#39;top&#39;) +
+   NULL
+)</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-6-1.svg" width="672" /></p>
+</div>
+<div id="perturbing-repressed-expression-with-different-media" class="section level2">
+<h2>Perturbing repressed expression with different media</h2>
+<p>Another prediction of our interpretation is that the proportion of short lag should increase when cells are switched from conditions where the basal expresion of the <em>lac</em> operon is higher than in M9 + 0.2% glucose:</p>
+<ul>
+<li>in M9 + 0.4% glycerol, cells grow slower and CRP is active which is expecetd to produce more frequent bursts of spontaneous <em>lac</em> epxression <!-- cite Alon on CRP --></li>
+<li>in M9 + 0.2% glucose + 0.2% lactose (which is the initial condition used in classical diauxie experiments), the fraction of fast switching cells is also increased which we interpret as each burst being larger (since it can be transiently amplified by teh presence of lactose which is an inducer; note that the cells are still kept off mostly due to inducer exclusion)</li>
+</ul>
+<pre class="r"><code>(myplots[[&#39;lags_hist_glyc_glcLac&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup %&gt;% 
+   filter(! date %in% discarded_dates) %&gt;% 
+   filter(!discard_arrested | condition==&#39;switch_gly_lac&#39;) %&gt;%
+   filter(switch_idx==1) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition %in% c(&#39;switch_glcLac_lac&#39;, &#39;switch_gly_lac&#39;) ) %&gt;%
+   mutate(lag=lag_200, 
+          lag=ifelse(is.na(lag), -1000, lag) ) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          condition=fct_recode(factor(condition), &#39;glucose + lactose &gt; lactose&#39;=&#39;switch_glcLac_lac&#39;,
+                               &#39;glycerol &gt; lactose&#39;=&#39;switch_gly_lac&#39;,
+                               &#39;glucose &gt; lactose (control)&#39;=&#39;control&#39;) ) %&gt;%
+   ggplot(aes(lag/60, ..density..)) +
+   geom_freqpoly(aes(col=condition), binwidth=6) +
+   coord_cartesian(xlim=c(0, 240)) +
+   labs(x=lac_lags_label) +
+   NULL
+) +
+  labs(subtitle=&#39;naive cells&#39;)</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-8-1.svg" width="672" /></p>
+<pre class="r"><code># mycells_switching %&gt;% ungroup %&gt;% 
+#   filter(! date %in% discarded_dates) %&gt;% 
+#   filter(!discard_arrested | condition==&#39;switch_gly_lac&#39;) %&gt;%
+#   filter(switch_idx==1) %&gt;% 
+#   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition %in% c(&#39;switch_glcLac_lac&#39;, &#39;switch_gly_lac&#39;) ) %&gt;%
+#   mutate(lag=lag_200) %&gt;% 
+#   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+#          condition=fct_recode(factor(condition), &#39;glucose + lactose &gt; lactose&#39;=&#39;switch_glcLac_lac&#39;,
+#                               &#39;glycerol &gt; lactose&#39;=&#39;switch_gly_lac&#39;,
+#                               &#39;glucose &gt; lactose (control)&#39;=&#39;control&#39;) ) %&gt;%
+#   group_by(condition) %&gt;% 
+#   summarise(n=n(), p_short=sum(lag/60&lt;50, na.rm=TRUE)/sum(!is.na(lag)), p_short_se=sqrt(p_short*(1-p_short)/n)) %&gt;% 
+#   ggplot(aes(x=condition, y=p_short)) +
+#   geom_bar(stat=&#39;identity&#39;) +
+#   geom_errorbar(aes(ymin=p_short-p_short_se, ymax=p_short+p_short_se), width=.4) +
+#   geom_text(aes(y=0.65, label=sprintf(&#39;n=%d&#39;, n)), vjust=1.1) +
+#   # coord_cartesian(xlim=c(0, 240)) +
+#   labs(y=&#39;fraction of short lags&#39;) +
+#   theme(axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;), axis.title.x=element_blank()) +
+#   NULL
+
+
+(myplots[[&#39;glyc_mix_violin&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup %&gt;% 
+   filter(! date %in% discarded_dates) %&gt;% 
+   filter(!discard_arrested | condition==&#39;switch_gly_lac&#39;) %&gt;%
+   filter(switch_idx==1) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition %in% c(&#39;switch_glcLac_lac&#39;, &#39;switch_gly_lac&#39;) ) %&gt;%
+   mutate(lag=lag_200) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          # condition=fct_recode(factor(condition), &#39;glucose + lactose &gt; lactose&#39;=&#39;switch_glcLac_lac&#39;,
+          #                      &#39;glycerol &gt; lactose&#39;=&#39;switch_gly_lac&#39;,
+          #                      &#39;glucose &gt; lactose (control)&#39;=&#39;control&#39;) ) %&gt;%
+          # laci=ifelse(condition==&#39;control&#39;, &#39;control&#39;, NA),
+          condition=fct_recode(factor(condition), &#39;gluc + lac \u2794 lac&#39;=&#39;switch_glcLac_lac&#39;,
+                               &#39;glyc \u2794 lac&#39;=&#39;switch_gly_lac&#39;,
+                               &#39;gluc \u2794 lac&#39;=&#39;control&#39;,
+                               ) ) %&gt;%
+   mutate(lag=lag_200,
+          lag=ifelse(lag&gt;240*60, Inf, lag)
+   ) %&gt;% 
+   (function(.df)
+     ggplot(.df, aes(x=condition, y=lag/60)) +
+      geom_hline(yintercept=50, lty=&#39;dashed&#39;) +
+      geom_violin(aes(group=date, fill=condition, col=condition), adjust=.7, width=1.1, alpha=.4, position=&#39;identity&#39;) +
+      geom_text(aes(y=-10, label=annot), vjust=0.5, size=3, lineheight=1,
+                data=.df %&gt;% group_by(condition) %&gt;% 
+                  summarise(n=n(), type=&#39;short&#39;, prop=sum(lag/60&lt;50, na.rm=TRUE)/sum(!is.na(lag)),
+                            annot=sprintf(&quot;%.0f%%\nn=%d&quot;, prop*100, n)) ) +
+      coord_cartesian(ylim=c(-35, 240), expand=FALSE) +
+      labs(y=lac_lags_label) +
+      scale_colour_manual(values=qual_cols[c(2,1,3)]) +
+      scale_fill_manual(values=qual_cols[c(2,1,3)]) +
+      # scale_colour_discrete(palette=function(.n) qual_cols[c(2,1,3)]) +
+      # scale_fill_discrete(limits=c(&#39;lower&#39;, &#39;control&#39;, &#39;higher&#39;)) +
+      # guides(fill=guide_legend(override.aes=list(alpha=1))) +
+      guides(col=&#39;none&#39;, fill=&#39;none&#39;) +
+      theme_cowplot_legend_inset(0.8) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;,
+                                     angle=45, hjust=0.8, vjust=0.9),
+            legend.margin=margin(),
+            legend.position=&#39;top&#39;) +
+      NULL
+   ))</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-9-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;glyc_mix_frac_short&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup %&gt;% 
+   filter(! date %in% discarded_dates) %&gt;% 
+   filter(!discard_arrested | condition==&#39;switch_gly_lac&#39;) %&gt;%
+   filter(switch_idx==1) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition %in% c(&#39;switch_glcLac_lac&#39;, &#39;switch_gly_lac&#39;) ) %&gt;%
+   mutate(lag=lag_200) %&gt;% 
+   mutate(condition=fct_relabel(condition, function(.x) ifelse(str_detect(.x, &#39;^switch_[0-9]+h$&#39;), &#39;control&#39;, .x)),
+          # condition=fct_recode(factor(condition), &#39;glucose + lactose &gt; lactose&#39;=&#39;switch_glcLac_lac&#39;,
+          #                      &#39;glycerol &gt; lactose&#39;=&#39;switch_gly_lac&#39;,
+          #                      &#39;glucose &gt; lactose (control)&#39;=&#39;control&#39;) ) %&gt;%
+          laci=ifelse(condition==&#39;control&#39;, &#39;control&#39;, NA),
+          condition=fct_recode(factor(condition), &#39;gluc + lac \u2794 lac&#39;=&#39;switch_glcLac_lac&#39;,
+                               &#39;glyc \u2794 lac&#39;=&#39;switch_gly_lac&#39;,
+                               &#39;gluc \u2794 lac (control)&#39;=&#39;control&#39;) ) %&gt;%
+   group_by(condition, laci) %&gt;% 
+   summarise(n=n(), type=&#39;short&#39;, prop=sum(lag/60&lt;50, na.rm=TRUE)/sum(!is.na(lag)), 
+             prop_se=sqrt(prop*(1-prop)/n)) %&gt;% 
+   ggplot(aes(x=condition, y=prop)) +
+   geom_bar(aes(y=1), fill=&#39;gray95&#39;, stat=&#39;identity&#39;) +
+   geom_bar(aes(fill=laci), stat=&#39;identity&#39;) +
+   # geom_rect(aes(xmin=as.numeric(condition)-.45, xmax=as.numeric(condition)+.45, 
+   #               ymin=prop-prop_se, ymax=prop+prop_se), data=.df) +
+   geom_errorbar(aes(ymin=prop-prop_se, ymax=prop+prop_se), width=.25) +
+   geom_text(aes(y=1, label=sprintf(&#39;n=%d&#39;, n)), vjust=1.3) +
+   labs(y=&#39;prop. of short lags&#39;) +
+   # expression(paste(&quot;type of &quot;, italic(&quot;lac&quot;), &quot; induction lag&quot;))
+    scale_fill_discrete(limits=c(&#39;lower&#39;, &#39;control&#39;, &#39;higher&#39;)) +
+    theme_cowplot_legend_inset(0.8) +
+    theme(axis.title.x=element_blank(),
+          axis.text.x=element_text(size=rel(1), colour=&#39;black&#39;,
+                                   angle=45, hjust=0.8, vjust=0.9),
+          legend.margin=margin(),
+          legend.position=&#39;top&#39;) +
+    NULL
+)</code></pre>
+<p><img src="MoM_lacInduction_PerturbRepressed_files/figure-html/unnamed-chunk-9-2.svg" width="672" /></p>
+<p>NB: 2 independent replicates per condition</p>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

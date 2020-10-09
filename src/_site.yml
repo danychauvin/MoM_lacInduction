@@ -1,4 +1,4 @@
-output_dir: "html"
+output_dir: "../docs" # can be used as root by GitHub Pages
 exclude: ["*"]
 include: []
 

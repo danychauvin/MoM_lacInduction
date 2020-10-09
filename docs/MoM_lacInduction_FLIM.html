@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Thomas Julou" />
+
+
+<title>Using fluorescence lifetime to measure pre-existing lac expression</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Single-cell analysis of the glucose/lactose diauxic shift</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Mother machine experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_Lags_Estimation.html">Lags estimation</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_Controls.html">Controls</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_Native.html">Induction and memory of the native lac operon</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_PerturbRepressed.html">Perturbations of the repressed lac operon expression</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_lowLactose.html">lac induction at lower lactose concentrations</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_PopLagSimul.html">Simulation of population lags from distribution of single-cell lags</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Additional experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_FLIM.html">Fluorescence lifetime experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_diauxieGrowthCurves.html">Population lags in diauxie experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_QMS.html">Identification of SMT candidates in MS data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://github.com/julou/MoM_lacInduction">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Using fluorescence lifetime to measure pre-existing lac expression</h1>
+<h4 class="author">Thomas Julou</h4>
+<h4 class="date">09 October, 2020</h4>
+
+</div>
+
+
+<div id="decay-curves" class="section level2">
+<h2>Decay curves</h2>
+<p>Import from Ludovit’s analysis (offset adjusted manually so that the exponential fit looks straight in semi-log scale):</p>
+<pre class="r"><code>(myplots[[&#39;FLIM_decay&#39;]] &lt;- bind_rows(
+  read_delim(here(&#39;./data_FLIM/decay_curves/decay_GFP.dat&#39;), delim=&#39;\t&#39;, skip=2, na = &quot;---&quot;,
+             col_names=c(&quot;time_IRF&quot;, &quot;IRF&quot;, &quot;time_decay&quot;, &quot;decay&quot;, &quot;time_fit&quot;, &quot;fit&quot;, &quot;time_resid&quot;, &quot;resid&quot;)) %&gt;%
+    mutate(sample=&#39;LacZ-GFPmut2&#39;,
+           time_decay=time_decay - .3, time_fit=time_fit - .3,
+           decay=decay/max(decay) - .0011, fit=fit/max(fit, na.rm=T) - .0011) ,
+  read_delim(here(&#39;./data_FLIM/decay_curves/decay_noGFP.dat&#39;), delim=&#39;\t&#39;, skip=2, na = &quot;---&quot;, 
+             col_names=c(&quot;time_decay&quot;, &quot;decay&quot;, &quot;time_fit&quot;, &quot;fit&quot;, &quot;time_resid&quot;, &quot;resid&quot;)) %&gt;% 
+    mutate(sample=&#39;Autofluorescence&#39;,
+           decay=decay-.0131, fit=fit-.0131) , 
+) %&gt;% 
+  ggplot(aes(group=sample)) +
+  geom_point(aes(time_decay, decay, col=sample), size=1, stroke=0, alpha=.5) +
+  geom_line(aes(time_fit, fit)) +
+  scale_y_log10() +
+  coord_cartesian(xlim=c(0, 17), ylim=c(1e-2, 1)) +
+  labs(x= &#39;decay time (ns)&#39;, y=&#39;normalised count&#39;) +
+  guides(col=guide_legend(override.aes = list(size=3, alpha=1))) +
+  theme(legend.position = c(.99, .99), legend.justification = c(1, 1)) +
+  NULL)</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-1-1.svg" width="672" /></p>
+<pre class="r"><code># ggsave(&#39;GFPmut2_decay.pdf&#39;, width=5, height=4)</code></pre>
+</div>
+<div id="flcs-snapshot" class="section level2">
+<h2>FLCS snapshot</h2>
+<p>First, we compare the proportions of cells with detectable LacZ-GFP in FLCS snapshots and the fraction of cells with short lags</p>
+<pre class="r"><code>(myplots[[&#39;FLIM_snapshot_hist&#39;]] &lt;- bind_rows(
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;Snapshot&#39;, range = &quot;A1:C228&quot;) %&gt;% 
+    filter(is.na(date), gfp!=&#39;-1&#39;) %&gt;% 
+    mutate(gfp=as.numeric(gfp)) %&gt;% 
+    summarise(n=sum(!is.na(gfp)), p=sum(gfp==1)/n, p_se=sqrt(p*(1-p)/n)) %&gt;% 
+    mutate(method=&#39;LacZ-GFP\n(FLCS)&#39;),
+  tibble(n=1633, p=0.3, p_se=sqrt(p*(1-p)/n), method=&#39;short lag\n(microfluidics)&#39;),
+) %&gt;% 
+  ggplot(aes(method, p)) +
+  geom_bar(stat=&#39;identity&#39;, width=0.7) +
+  geom_errorbar(aes(ymin=p-p_se, ymax=p+p_se), width=.2) +
+  geom_text(aes(method, y=0.5, label=paste0(&#39;(n = &#39;, n, &#39;)&#39;))) +
+  expand_limits(y=0.5) +
+  labs(y=&#39;proportion of cells&#39;) +
+  theme(axis.title.x = element_blank()) +
+  NULL)</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-2-1.svg" width="672" /></p>
+<pre class="r"><code>bind_cols(
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;Snapshot&#39;, range = &quot;A1:C228&quot;) %&gt;% 
+    filter(is.na(date), gfp!=&#39;-1&#39;) %&gt;% 
+    mutate(gfp=as.numeric(gfp)) %&gt;% 
+    summarise(n=sum(!is.na(gfp)), p=sum(gfp==1)/n, p_se=sqrt(p*(1-p)/n)) %&gt;% 
+    rename_all(~paste0(., &#39;_FLCS&#39;)),
+  tibble(n=1633, p=0.3, p_se=sqrt(p*(1-p)/n)) %&gt;% 
+    rename_all(~paste0(., &#39;_lags&#39;)),
+) %&gt;% 
+  ggplot(aes(p_FLCS, p_lags)) +
+  geom_abline(lty=&#39;dashed&#39;, size=.2) +
+  ggforce::geom_ellipse(aes(x0=p_FLCS, y0=p_lags, a=p_se_FLCS, b=p_se_lags, angle=0), fill=&#39;gray20&#39;, size=.2, alpha=.2) +
+  geom_point(col=ggCustomTJ::brewer_cols[1]) +
+  # geom_errorbar(aes(ymin=p-p_se, ymax=p+p_se), width=.5) +
+  expand_limits(x=c(0, 0.5), y=c(0, 0.5)) +
+  coord_fixed() +
+  labs(x=&#39;proportion of cells\nwith LacZ-GFP (FLCS)&#39;, y=&#39;proportion of cells with\nshort lags (microfluidics)&#39;)+
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-2-2.svg" width="672" /></p>
+</div>
+<div id="flcs-with-timelapse" class="section level2">
+<h2>FLCS with timelapse</h2>
+<p>We do mother machine experiments where growth and LacZ-GFP expression are measured using FLIM. Before the switch, one to 2 cells per growth channel is measured with FLCS (and analysed using filters pattern-matched to LAcZ-GFP decay curves).</p>
+<p>Cells must match 3 criteria in order to be called GFP positive:</p>
+<ul>
+<li>the distribution of count per molecule looks like a mixture of normal + uniform, where the normal distibution correspond to cells with very low CPM and hence no GFP. Criteria 1 is that CPM must be higher than mean + 5 standard deviations of the background.</li>
+<li>the fitted number of molecules must be low enough that it is not detected in the difference of signal intensity (we set the threshold at 20 molecules which discards 3 cells (note that cells called GFP positive all have fitted numbers flower than 12 molecules).</li>
+<li>the diffusion time should be compatible with what is know for LacZ-GFP, between 3 and 30ms on our setup (which corresponds to diffusion coefficients between 1 and 10 µm2/sec).</li>
+</ul>
+<pre class="r"><code>(myplots[[&#39;flim_gfp_criteria_cpm&#39;]] &lt;- 
+   bind_cols(
+     readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;A1:C75&quot;),
+     readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;MotherMachine&#39;, range = &quot;K2:P75&quot;, col_types=&quot;numeric&quot;,
+                       col_names = c(&#39;n&#39;, &#39;n_se&#39;, &#39;D&#39;, &#39;D_se&#39;, &#39;cpm&#39;, &#39;cpm_se&#39;)),
+   ) %&gt;%
+   mutate(gfp=as.numeric(gfp),
+          ncpm = cpm / median(cpm, na.rm=T),
+          d_time = .33^2/(4*D) * 1000,
+   ) %&gt;% 
+   # filter(!is.na(ncpm))
+   ggplot(aes(ncpm, fill=factor(gfp))) +
+   geom_histogram(binwidth = .4) +
+   geom_vline(xintercept = 2.55, lty=&#39;dashed&#39;) +
+   scale_fill_discrete(limits=c(0, 1, -1), labels=c(&#39;undetected&#39;, &#39;detected&#39;, &#39;dubious&#39;)) +
+   coord_cartesian(xlim=c(0, 28)) +
+   labs(x=&#39;normalized CPM (AU)&#39;)+
+   theme(legend.position = &#39;none&#39;) +
+   NULL)</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-3-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;flim_gfp_criteria_nb&#39;]] &lt;- 
+    bind_cols(
+      readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;A1:C75&quot;),
+      readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;MotherMachine&#39;, range = &quot;K2:P75&quot;, col_types=&quot;numeric&quot;,
+                        col_names = c(&#39;n&#39;, &#39;n_se&#39;, &#39;D&#39;, &#39;D_se&#39;, &#39;cpm&#39;, &#39;cpm_se&#39;)),
+    ) %&gt;%
+    mutate(gfp=as.numeric(gfp),
+           ncpm = cpm / median(cpm, na.rm=T),
+           d_time = .33^2/(4*D) * 1000,
+    ) %&gt;% 
+    ggplot(aes(ncpm, n, col=factor(gfp))) +
+    geom_point() +
+    geom_vline(xintercept = 2.55, lty=&#39;dashed&#39;) +
+    geom_hline(yintercept = 20, lty=&#39;dashed&#39;) +
+    scale_y_log10() +
+    scale_colour_discrete(limits=c(0, 1, -1), labels=c(&#39;undetected&#39;, &#39;detected&#39;, &#39;dubious&#39;)) +
+    coord_cartesian(xlim=c(0, 28)) +
+    labs(y=&#39;fitted number of\nGFP molecules&#39;)+
+    theme(legend.position = &#39;none&#39;) +
+    NULL)</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-3-2.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;flim_gfp_criteria_diff&#39;]] &lt;- 
+    bind_cols(
+      readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;A1:C75&quot;),
+      readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;MotherMachine&#39;, range = &quot;K2:P75&quot;, col_types=&quot;numeric&quot;,
+                        col_names = c(&#39;n&#39;, &#39;n_se&#39;, &#39;D&#39;, &#39;D_se&#39;, &#39;cpm&#39;, &#39;cpm_se&#39;)),
+    ) %&gt;%
+    mutate(gfp=as.numeric(gfp),
+           ncpm = cpm / median(cpm, na.rm=T),
+           d_time = .33^2/(4*D) * 1000,
+    ) %&gt;% 
+    ggplot(aes(ncpm, d_time, col=factor(gfp))) +
+    geom_point() +
+    geom_vline(xintercept = 2.55, lty=&#39;dashed&#39;) +
+    geom_hline(yintercept = 3, lty=&#39;dashed&#39;) +
+    geom_hline(yintercept = 30, lty=&#39;dashed&#39;) +
+    scale_y_log10() +
+    scale_colour_discrete(limits=c(0, 1, -1), labels=c(&#39;undetected&#39;, &#39;detected&#39;, &#39;dubious&#39;)) +
+    coord_cartesian(xlim=c(0, 28)) +
+    labs(y=&#39;fitted diffusion\ntime (ms)&#39;)+
+    theme(legend.position = &#39;none&#39;) +
+    NULL)</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-3-3.svg" width="672" /></p>
+<p>For all cells measured by FLCS (sample biased for cells with short lags), I estimated the lag visually (as the first frame where the GFP fluorescence become higher than the noise in uninduced neighbouring cells).</p>
+<p>This reveals that:</p>
+<ol style="list-style-type: decimal">
+<li>the short lags estimated this way are between 20 and 35 minutes,</li>
+<li>that virtually no cell with long lag had GFP before the switch (which would be explained e.g. due to presence of LacZ but no LacY, or LacZ but not as functionnal tetramers).</li>
+</ol>
+<p>It is remarkable that 8 out of 22 cells featuring short lags have no GFP detected. This can be due to</p>
+<ul>
+<li>LacZ-GFP not diffusing freely (hence not detected in the focal volume)</li>
+<li>unsufficient sensitivity</li>
+<li>bleaching of the existing GFP tetramer(s)</li>
+</ul>
+<!-- NB: some cells possibly misassigned... -->
+<pre class="r"><code>(myplots[[&#39;FLIM_lag_hist&#39;]] &lt;- left_join(
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lags.xlsx&quot;), range = &quot;A1:E75&quot;),
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;A1:C75&quot;),
+) %&gt;% 
+  mutate(frame=as.numeric(frame), lag=as.numeric(lag), gfp=as.numeric(gfp)) %&gt;% 
+  filter(!is.na(gfp)) %&gt;%
+  mutate(lag=ifelse(is.infinite(lag) &amp; date==20200122, 252, lag)) %&gt;% 
+  mutate(lag=ifelse(is.infinite(lag) &amp; date==20200123, 261, lag)) %&gt;% 
+  mutate(lag=ifelse(is.infinite(lag) &amp; date==20200128, 180, lag)) %&gt;% 
+  # filter(!is.na(lag), !is.na(gfp))
+  # summarise(n_s=sum(lag&lt;35, na.rm=T)/sum(!is.na(lag)))
+  # filter(lag&lt;30, gfp==0)
+  ggplot(aes(lag, fill=factor(gfp))) +
+  geom_histogram(position=&#39;stack&#39;, binwidth=6) +
+  geom_vline(xintercept=35, lty=&#39;dotted&#39;) +
+  expand_limits(x=0) +
+  scale_fill_discrete(limits=c(0, 1, -1), labels=c(&#39;undetected&#39;, &#39;detected&#39;, &#39;dubious&#39;)) +
+  labs(x=lac_lags_label, fill=&#39;LacZ-GFP status\nbefore the switch&#39;) +
+  # labs(x=lac_lags_label, fill=&#39;GFP status\n(FLCS)&#39;) +
+  NULL)</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-4-1.svg" width="672" /></p>
+<p>Noticeably, the distribution of fitted number of GFP is discontinuous in mother machine experiments. We believe that this is a side effect of the complicated optical environemnt created by PDMS channel which resulted in poor signal-to-noise ratio.</p>
+<pre class="r"><code>bind_rows(
+  bind_cols(
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;Snapshot&#39;, range = &quot;A1:C228&quot;),
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;Snapshot&#39;, range = &quot;K2:L228&quot;, col_names = c(&#39;n&#39;, &#39;se&#39;)),
+) %&gt;% 
+  select(gfp, n) %&gt;% mutate(dataset=&#39;snapshot&#39;), 
+
+  bind_cols(
+    readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;A1:C75&quot;),
+    readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;K2:L75&quot;,
+                      col_names = c(&#39;n&#39;, &#39;se&#39;)),
+  ) %&gt;% 
+  mutate(gfp=as.numeric(gfp), n=as.numeric(n), se=as.numeric(se), dataset=&#39;mother machine&#39;) %&gt;% 
+  select(dataset, gfp, n), 
+) %&gt;%
+  # filter(gfp==1) %&gt;% 
+  mutate(n = ifelse(gfp==0, 0, n), n = ifelse(gfp==-1, NA, n)) %&gt;%
+  mutate(dataset = relevel(factor(dataset), &#39;snapshot&#39;)) %&gt;% 
+  ggplot(aes(n)) +
+  facet_wrap(~dataset, ncol=1, scales = &#39;free_y&#39;) +
+  geom_histogram(binwidth = 1) +
+  expand_limits(x=0) +
+  # scale_y_log10() +
+  # xlim(0, 20) +
+  labs(x=&#39;number of GFP&#39;) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-6-1.svg" width="672" /></p>
+<pre class="r"><code># ggsave(&#39;gfp_histo_FLCS_MoM.pdf&#39;, width=5, height=3)
+
+
+  bind_cols(
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;Snapshot&#39;, range = &quot;A1:C228&quot;),
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&#39;Snapshot&#39;, range = &quot;K2:L228&quot;, col_names = c(&#39;n&#39;, &#39;se&#39;)),
+  ) %&gt;% 
+    filter(gfp==1) %&gt;% 
+    pull(n) %&gt;% sd()</code></pre>
+<pre><code>## [1] 3.475612</code></pre>
+<p>Let’s look at the CPM critera for each class:</p>
+<pre class="r"><code>left_join(
+  readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lags.xlsx&quot;), range = &quot;A1:E75&quot;),
+  bind_cols(
+    readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;A1:C75&quot;),
+    readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;H2:H75&quot;, col_names =&#39;ncpm&#39;),
+    readxl::read_xlsx(here(&quot;./data_FLIM/FLCS_lacInduction.xlsx&quot;), sheet=&quot;MotherMachine&quot;, range = &quot;O2:O75&quot;, col_names =&#39;cpm_flcs&#39;),
+  )
+) %&gt;%
+  mutate(frame=as.numeric(frame), lag=as.numeric(lag), gfp=as.numeric(gfp), 
+         ncpm=as.numeric(ncpm), cpm_flcs=as.numeric(cpm_flcs),
+         ncpm_flcs = cpm_flcs / median(cpm_flcs, na.rm=T),
+         ) %&gt;% 
+  # filter(!is.na(gfp)) %&gt;%
+  # mutate(lag=ifelse(is.infinite(lag) &amp; date==20200122, 252, lag)) %&gt;% 
+  # mutate(lag=ifelse(is.infinite(lag) &amp; date==20200123, 261, lag)) %&gt;% 
+  # mutate(lag=ifelse(is.infinite(lag) &amp; date==20200128, 180, lag)) %&gt;% 
+  mutate(lag_type=lag, lag_type=ifelse(lag&lt;35, &#39;short&#39;, lag_type), lag_type=ifelse(lag&gt;=35, &#39;long&#39;, lag_type)) %&gt;% 
+  ggplot(aes(ncpm_flcs)) +
+  facet_grid(lag_type~.) +
+  geom_histogram(binwidth = .5) +
+  expand_limits(x=0) +
+  # xlim(NA, 20) +
+  # labs(title=&#39;mother machine&#39;) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-7-1.svg" width="672" /></p>
+</div>
+<div id="flim-sensitivity" class="section level2">
+<h2>FLIM sensitivity</h2>
+<p>In order to estimate whether FLIM intensity (without FLCS) can be used to measure difference in GFP before the switch, we proceed as follow:</p>
+<ul>
+<li>for one experiment, FLIM data are analysed using pattern matching (for GFP decay),</li>
+<li>based on GFP intensity at frame 12 in lactose (after 36 min, as identified in the FLCS analysis), cells are classified as short or long lags</li>
+<li>a ROI is drawn manually for each parent cell on frame 1, the intensity is exported for both channels (GFP / noGFP decay)</li>
+<li>we compare the distribution for cells with short and long lags of several staticstics of fuorescence (<code>intden</code> is the total fluorescence in the ROI)</li>
+</ul>
+<!-- NB: as this measurement is done on a single frame, it is not relevant to normalise GFP intensity by noGFP intensity. -->
+<pre class="r"><code>bind_rows(
+  read_csv(here(&#39;./data_FLIM/20200128_lac1_shortLags.csv&#39;)) %&gt;% 
+    mutate(lag=&#39;short&#39;),
+  read_csv(here(&#39;./data_FLIM/20200128_lac1_longLags.csv&#39;)) %&gt;% 
+    mutate(lag=&#39;long&#39;),
+) %&gt;% 
+  rename_all(tolower) %&gt;% 
+  separate(label, c(&#39;img&#39;, &#39;roi&#39;, &#39;frame&#39;), sep=&quot;:&quot;) %&gt;% 
+  select(-x1, -img) %&gt;% 
+  mutate(ch_type=c(&#39;GFP&#39;, &#39;noGFP&#39;)[ch]) %&gt;% 
+  filter(ch_type==&#39;GFP&#39;) %&gt;% 
+  gather(var, value, intden, mean, mode, max) %&gt;% 
+  ggplot(aes(value, col=lag)) +
+  facet_wrap(~var, scales = &#39;free&#39;) +
+  geom_freqpoly() +
+  labs(col=&#39;type of lag&#39;) +
+  # theme(legend.position=&#39;top&#39;) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-8-1.svg" width="672" /></p>
+<pre class="r"><code># ggsave(&#39;FLIM_sensitivity.pdf&#39;, width=8, height=3.5)</code></pre>
+<p>Unfortunately, we cannot find any statistics capable of separating the 2 types of cells…</p>
+<div id="sanity-check" class="section level3">
+<h3>Sanity check</h3>
+<p>Let’s look at the total intensity of GFP channel vs total intensity of noGFP channel. From the epifluorescence measurement on cells with no GFP sequence, we know that autofluo fluctuates by ± 20 equivalent GFP molecules; here there is a 3-fold change (would correspond to e.g. 40 ± 20 for epifluo measurements).</p>
+<!-- Questions: -->
+<!-- - What unit for each channel? (AU, number of molecules? what is the meaning of the zero) -->
+<!-- - Is the strength of the positive correlation (r2 ~ 15-20%) indicating some artifact? -->
+<pre class="r"><code>bind_rows(
+  read_csv(here(&#39;./data_FLIM/20200128_lac1_shortLags.csv&#39;)) %&gt;% 
+    mutate(lag=&#39;short&#39;),
+  read_csv(here(&#39;./data_FLIM/20200128_lac1_longLags.csv&#39;)) %&gt;% 
+    mutate(lag=&#39;long&#39;),
+) %&gt;% 
+  rename_all(tolower) %&gt;% 
+  separate(label, c(&#39;img&#39;, &#39;roi&#39;, &#39;frame&#39;), sep=&quot;:&quot;) %&gt;% 
+  select(-x1, -img) %&gt;% 
+  mutate(ch_type=c(&#39;GFP&#39;, &#39;noGFP&#39;)[ch]) %&gt;% 
+  select(roi, ch_type, lag, intden) %&gt;% 
+  pivot_wider(names_from=ch_type, values_from=intden) %&gt;% 
+  ggplot(aes(GFP, noGFP)) +
+  geom_abline() +
+  stat_density_2d(fill=rgb(0,0,0,.1), geom = &quot;polygon&quot;, show.legend=FALSE) +
+  geom_point(aes(col=lag)) +
+  expand_limits(x=0, y=0) +
+  labs(title=&#39;total intensity&#39;, col=&#39;lag&#39;) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_FLIM_files/figure-html/unnamed-chunk-9-1.svg" width="672" /></p>
+<pre class="r"><code># bind_rows(
+#   read_csv(here(&#39;./data_FLIM/20200128_lac1_shortLags.csv&#39;)) %&gt;% 
+#     mutate(lag=&#39;short&#39;),
+#   read_csv(here(&#39;./data_FLIM/20200128_lac1_longLags.csv&#39;)) %&gt;% 
+#     mutate(lag=&#39;long&#39;),
+# ) %&gt;% 
+#   rename_all(tolower) %&gt;% 
+#   separate(label, c(&#39;img&#39;, &#39;roi&#39;, &#39;frame&#39;), sep=&quot;:&quot;) %&gt;% 
+#   select(-x1, -img) %&gt;% 
+#   mutate(ch_type=c(&#39;GFP&#39;, &#39;noGFP&#39;)[ch]) %&gt;% 
+#   select(roi, ch_type, lag, intden) %&gt;% 
+#   pivot_wider(names_from=ch_type, values_from=intden) %&gt;% 
+#   filter(GFP  &lt; 26) %&gt;%
+#   with(cor(noGFP, GFP)^2)</code></pre>
+</div>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

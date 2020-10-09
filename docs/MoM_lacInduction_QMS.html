@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Thomas Julou" />
+
+
+<title>Identification of single-molecule trigger candidates in MS data</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Single-cell analysis of the glucose/lactose diauxic shift</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Mother machine experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_Lags_Estimation.html">Lags estimation</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_Controls.html">Controls</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_Native.html">Induction and memory of the native lac operon</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_PerturbRepressed.html">Perturbations of the repressed lac operon expression</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_lowLactose.html">lac induction at lower lactose concentrations</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_PopLagSimul.html">Simulation of population lags from distribution of single-cell lags</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Additional experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_FLIM.html">Fluorescence lifetime experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_diauxieGrowthCurves.html">Population lags in diauxie experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_QMS.html">Identification of SMT candidates in MS data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://github.com/julou/MoM_lacInduction">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Identification of single-molecule trigger candidates in MS data</h1>
+<h4 class="author">Thomas Julou</h4>
+<h4 class="date">09 October, 2020</h4>
+
+</div>
+
+
+<p><strong>Aim</strong>: explore whether some signal transduction pathway featuring positive feedback are likely to be metastable in the same sense as the <em>lac</em> operon is, i.e. have one of there components expressed at low level in the repressed state and stochastically present/abset in a given cell.</p>
+<p>From a very general perspective, on the order of half of the genome is expressed in average less than once per cell cycle. Hence it is expected that at least some signal transduction pathway will fall in this category.</p>
+<p>To address this using data, I used the quantitative MS measurements done in 28 conditions by Schmidt, et al. 2016. I followed two lines with those:</p>
+<ul>
+<li>Check the expression levels of genes involved in simple regulatory pathways known to feature positive feedbacks, namely two-component systems (2CS).</li>
+<li>Check the expression level of genes involved in transport and metabolism of sugars, since those are typically induced upon addition of the sugar using a positive feedback mechanism (cf lactose, xylose, arabinose, galactose, etc).</li>
+</ul>
+<pre class="r"><code>myqms_file &lt;- tempfile() # &quot;/Users/julou/Documents/Zotero/storage/YMGBBIKN/nbt.3418-S2.xlsx&quot;
+download.file(&quot;https://media.nature.com/original/nature-assets/nbt/journal/v34/n1/extref/nbt.3418-S2.xlsx&quot;, myqms_file)
+
+myqms &lt;- bind_cols(
+  readxl::read_xlsx(myqms_file, &quot;Table S6&quot;, skip=2, range=&quot;A3:AC2362&quot;),
+  readxl::read_xlsx(myqms_file, &quot;Table S6&quot;, skip=2, range=&quot;BV3:BZ2362&quot;),
+) %&gt;% 
+  gather(condition, n, 8:29) %&gt;% 
+  # add cv
+  left_join(
+    bind_cols(
+      readxl::read_xlsx(myqms_file, &quot;Table S6&quot;, skip=2, range=&quot;C3:C2362&quot;),
+      readxl::read_xlsx(myqms_file, &quot;Table S6&quot;, skip=2, range=&quot;AZ3:BU2362&quot;),
+    ) %&gt;% 
+      gather(condition, cv, 2:23)
+  ) %&gt;% 
+  mutate(n=as.numeric(n), cv=as.numeric(cv))
+
+myqms_conds &lt;- bind_cols(
+  readxl::read_xlsx(myqms_file, &quot;Table S28&quot;, skip=2, range=&quot;A3:D22&quot;),
+  readxl::read_xlsx(myqms_file, &quot;Table S28&quot;, skip=2, range=&quot;J3:J22&quot;)
+) %&gt;% 
+  set_names(c(&quot;condition&quot;, &quot;length&quot;, &quot;width&quot;, &quot;growth_rate&quot;, &quot;volume&quot;))</code></pre>
+<p>The measurement CV is ~ 20% for 10 proteins per cell and ~ 50% for 1 protein per cell:</p>
+<pre class="r"><code>myqms %&gt;% 
+  # filter(!is.na(n), !is.na(cv)) %&gt;% 
+  # group_by(Gene) %&gt;% 
+  # filter(n&gt;4) %&gt;% 
+  # summarise(n=median(n), cv=median(cv)) %&gt;% 
+  ggplot(aes(n, cv)) +
+  geom_point(stroke=0, alpha=.2) +
+  stat_smooth(method=&#39;lm&#39;, col=&#39;red&#39;, data=filter(myqms, between(n, 0.1, 30))) +
+  scale_x_log10() + scale_y_log10() +
+  coord_cartesian(xlim = c(1e-2, 1e5)) +
+  NULL </code></pre>
+<p><img src="MoM_lacInduction_QMS_files/figure-html/reproducibility-1.svg" width="672" /></p>
+<div id="two-components-systems" class="section level2">
+<h2>Two-components systems</h2>
+<p>We consider all two-components systems listed in ecocyc.org.</p>
+<pre class="r"><code>twocomp_genes &lt;- tribble(
+~&quot;kinase&quot;, ~&quot;TF&quot;,
+  &quot;cheA&quot;, &quot;cheY&quot;,
+  &quot;arcB&quot;, &quot;arcA&quot;,
+  &quot;atoS&quot;, &quot;atoC&quot;,
+  &quot;baeS&quot;, &quot;baeR&quot;,
+  &quot;barA&quot;, &quot;uvrY&quot;,
+  &quot;basS&quot;, &quot;basR&quot;,
+  &quot;btsS&quot;, &quot;btsR&quot;,
+  &quot;cpxA&quot;, &quot;cpxR&quot;,
+  &quot;creC&quot;, &quot;creB&quot;,
+  &quot;cusS&quot;, &quot;cusR&quot;,
+  &quot;dcuS&quot;, &quot;dcuR&quot;,
+  &quot;dpiB&quot;, &quot;dpiA&quot;,
+  &quot;envZ&quot;, &quot;ompR&quot;,
+  &quot;evgS&quot;, &quot;evgA&quot;,
+  &quot;glrK&quot;, &quot;glrR&quot;,
+  &quot;hprS&quot;, &quot;hprR&quot;,
+  &quot;kdpD&quot;, &quot;kdpE&quot;,
+  &quot;narQ&quot;, &quot;narL&quot;,
+  &quot;narX&quot;, &quot;narL&quot;,
+  &quot;ntrB&quot;, &quot;ntrC&quot;,
+  &quot;phoQ&quot;, &quot;phoP&quot;,
+  &quot;phoR&quot;, &quot;phoB&quot;,
+  &quot;phyS&quot;, &quot;phyR&quot;,
+  &quot;qseC&quot;, &quot;qseB&quot;,
+  &quot;rstB&quot;, &quot;rstA&quot;,
+  &quot;uhpB&quot;, &quot;uhpA&quot;,
+  &quot;zraS&quot;, &quot;zraR&quot;
+)</code></pre>
+<p>Out of 27 2CS, there are 9 for which both proteins are measured and 12 for which only the TF is measured.</p>
+<ul>
+<li>The kinase is at least 10x less abundant than the TF for all 2CS measured.</li>
+<li>There are 6 out of 9 2CS with a kinase at ≤ 10-20 proteins per cell in most conditions. In addition, 5 out of 12 TFs (measured without their kinase) are present at ≤ 10 proteins per cell in most conditions. Altogether this suggests that on the order of half the 2CS found in E. coli are regulatory pathway with PF where at least one of the 2 components is likely to be stochastically present/absent in a given cell in a give condition.</li>
+</ul>
+<p>NB: for a Poisson distribution of mean <span class="math inline">\(\lambda\)</span>, the fraction at 0 is <span class="math inline">\(exp(-\lambda)\)</span>. So mean expression must be ≤ 3 per cell in order to get ≥ 5% of cells with zero proteins.</p>
+<pre class="r"><code>(myplots[[&#39;2cs_qms&#39;]] &lt;- myqms %&gt;% 
+  semi_join(twocomp_genes %&gt;% gather(Type, Gene)) %&gt;% 
+  left_join(twocomp_genes %&gt;% mutate(Name=paste(kinase, TF, sep=&quot;.&quot;)) %&gt;% gather(Type, Gene, -Name)) %&gt;% 
+  ggplot(aes(n, col=Type, group=Gene)) +
+  facet_wrap(~Name, nrow = 3) +
+  geom_vline(xintercept = 3, lty=&#39;dotted&#39;) +
+  stat_ecdf(aes(y=1-..y..)) +
+  scale_x_log10() +
+  coord_cartesian(xlim=c(8e-2, 8e3)) +
+  labs(x=&quot;proteins per cell&quot;, y=&quot;rev. cumul. proba (all conditions)&quot;) +
+  theme(legend.position = &#39;top&#39;) +
+  NULL )</code></pre>
+<p><img src="MoM_lacInduction_QMS_files/figure-html/unnamed-chunk-1-1.svg" width="672" /></p>
+<p>Summary plot for kinases only:</p>
+<pre class="r"><code>(myplots[[&#39;2cs_qms_kinases&#39;]] &lt;- myqms %&gt;% 
+  semi_join(twocomp_genes %&gt;% gather(Type, Gene)) %&gt;% 
+  left_join(twocomp_genes %&gt;% mutate(Name=paste(kinase, TF, sep=&quot;.&quot;)) %&gt;% gather(Type, Gene, -Name)) %&gt;% 
+  filter(Type==&#39;kinase&#39;) %&gt;% 
+  group_by(Gene) %&gt;% mutate(SMT=quantile(n, 1-.8) &lt; 3) %&gt;% 
+  (function(.df) 
+    ggplot(NULL) +
+     geom_vline(xintercept = 3, lty=&#39;dotted&#39;) +
+     stat_ecdf(aes(n, 1-..y.., col=SMT, group=Gene), data=.df) +
+     ggrepel::geom_text_repel(aes(n, .8, label=Name), data=.df %&gt;% group_by(Gene, Name) %&gt;% summarise(n=quantile(n, 1-.8)),
+       nudge_y      = 0.7,
+       direction    = &quot;x&quot;,
+       angle        = 45,
+       vjust        = 0.5,
+       # hjust        = 2,
+       segment.size = 0.2
+     ) +
+     scale_x_log10() +
+     coord_cartesian(xlim=c(0.1, 500), ylim=c(0, 2)) +
+     scale_color_manual(values=c(&#39;TRUE&#39;=ggCustomTJ::qual_cols[2], &#39;FALSE&#39;=&#39;gray70&#39;)) +
+     labs(x=&quot;proteins per cell&quot;, y=&quot;rev. cumul. proba\n(all conditions)&quot;) +
+     theme(legend.position = &#39;none&#39;) +
+     NULL)
+)</code></pre>
+<p><img src="MoM_lacInduction_QMS_files/figure-html/unnamed-chunk-2-1.svg" width="672" /></p>
+</div>
+<div id="enrichment-in-go-categories" class="section level2">
+<h2>Enrichment in GO categories</h2>
+<p>Exploratory…<br />
+Question: can we find clear sign of enrichment for low expressed genes in certain GO categories?</p>
+<pre class="r"><code>myqms %&gt;% 
+  # bind_rows(., mutate(., `Annotated functional COG group (description)`=&#39;All&#39;)) %&gt;% 
+  group_by(`Annotated functional COG group (description)`, Gene, `Uniprot Accession`) %&gt;% nest() %&gt;% 
+  mutate(n_75pc=map_dbl(data, ~quantile(.$n, .75, na.rm=TRUE)),
+                  Type = ifelse(n_75pc&lt;50, &quot;low&quot;, &quot;high&quot;)) %&gt;% 
+  group_by(`Annotated functional COG group (description)`) %&gt;% 
+  summarise(n_low=sum(Type==&#39;low&#39;), n=n(), p=n_low/n) %&gt;%  #, n_na=sum(is.na(Type))) %&gt;% 
+  mutate(all_low=sum(n_low), all=sum(n), p_all=all_low/all, fc=p/p_all) %&gt;% 
+  # slice(1) %&gt;% 
+  # rowwise() %&gt;%
+  mutate(ctable=pmap(list(n_low, n, all_low, all), ~matrix(c(..1, ..2-..1, ..3, ..4-..3), ncol=2, byrow=TRUE)),
+         ftest=map(ctable, ~fisher.test(., alternative=&#39;greater&#39;)),
+         pvalue=map_dbl(ftest, ~.$p.value)) %&gt;% 
+  select(-all_low, -all, -ctable, -ftest) %&gt;% 
+  arrange(pvalue) %&gt;% 
+  (knitr::kable)(digits=2)</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+Annotated functional COG group (description)
+</th>
+<th style="text-align:right;">
+n_low
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+p
+</th>
+<th style="text-align:right;">
+p_all
+</th>
+<th style="text-align:right;">
+fc
+</th>
+<th style="text-align:right;">
+pvalue
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Replication, recombination and repair
+</td>
+<td style="text-align:right;">
+59
+</td>
+<td style="text-align:right;">
+103
+</td>
+<td style="text-align:right;">
+0.57
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.82
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Cell motility
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+0.88
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+2.78
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Transcription
+</td>
+<td style="text-align:right;">
+67
+</td>
+<td style="text-align:right;">
+150
+</td>
+<td style="text-align:right;">
+0.45
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.42
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+87
+</td>
+<td style="text-align:right;">
+215
+</td>
+<td style="text-align:right;">
+0.40
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.29
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Signal transduction mechanisms
+</td>
+<td style="text-align:right;">
+36
+</td>
+<td style="text-align:right;">
+79
+</td>
+<td style="text-align:right;">
+0.46
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.45
+</td>
+<td style="text-align:right;">
+0.01
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Defense mechanisms
+</td>
+<td style="text-align:right;">
+13
+</td>
+<td style="text-align:right;">
+24
+</td>
+<td style="text-align:right;">
+0.54
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.72
+</td>
+<td style="text-align:right;">
+0.02
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Cell wall/membrane/envelope biogenesis
+</td>
+<td style="text-align:right;">
+54
+</td>
+<td style="text-align:right;">
+142
+</td>
+<td style="text-align:right;">
+0.38
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.21
+</td>
+<td style="text-align:right;">
+0.06
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Inorganic ion transport and metabolism
+</td>
+<td style="text-align:right;">
+36
+</td>
+<td style="text-align:right;">
+96
+</td>
+<td style="text-align:right;">
+0.38
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.19
+</td>
+<td style="text-align:right;">
+0.13
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Secondary metabolites biosynthesis, transport and catabolism
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:right;">
+0.41
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.30
+</td>
+<td style="text-align:right;">
+0.20
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+General function prediction only
+</td>
+<td style="text-align:right;">
+71
+</td>
+<td style="text-align:right;">
+206
+</td>
+<td style="text-align:right;">
+0.34
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.10
+</td>
+<td style="text-align:right;">
+0.20
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Carbohydrate transport and metabolism
+</td>
+<td style="text-align:right;">
+54
+</td>
+<td style="text-align:right;">
+169
+</td>
+<td style="text-align:right;">
+0.32
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+1.02
+</td>
+<td style="text-align:right;">
+0.47
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Cell cycle control, cell division, chromosome partitioning
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+28
+</td>
+<td style="text-align:right;">
+0.29
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.91
+</td>
+<td style="text-align:right;">
+0.69
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Energy production and conversion
+</td>
+<td style="text-align:right;">
+45
+</td>
+<td style="text-align:right;">
+157
+</td>
+<td style="text-align:right;">
+0.29
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.91
+</td>
+<td style="text-align:right;">
+0.79
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Coenzyme transport and metabolism
+</td>
+<td style="text-align:right;">
+31
+</td>
+<td style="text-align:right;">
+110
+</td>
+<td style="text-align:right;">
+0.28
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.90
+</td>
+<td style="text-align:right;">
+0.79
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Lipid transport and metabolism
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+61
+</td>
+<td style="text-align:right;">
+0.26
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.83
+</td>
+<td style="text-align:right;">
+0.84
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Function unknown
+</td>
+<td style="text-align:right;">
+47
+</td>
+<td style="text-align:right;">
+177
+</td>
+<td style="text-align:right;">
+0.27
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.84
+</td>
+<td style="text-align:right;">
+0.93
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nucleotide transport and metabolism
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+72
+</td>
+<td style="text-align:right;">
+0.19
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.62
+</td>
+<td style="text-align:right;">
+0.99
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Intracellular trafficking, secretion, and vesicular transport
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+25
+</td>
+<td style="text-align:right;">
+0.08
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.25
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Posttranslational modification, protein turnover, chaperones
+</td>
+<td style="text-align:right;">
+13
+</td>
+<td style="text-align:right;">
+97
+</td>
+<td style="text-align:right;">
+0.13
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.43
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Amino acid transport and metabolism
+</td>
+<td style="text-align:right;">
+43
+</td>
+<td style="text-align:right;">
+239
+</td>
+<td style="text-align:right;">
+0.18
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.57
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Translation, ribosomal structure and biogenesis
+</td>
+<td style="text-align:right;">
+20
+</td>
+<td style="text-align:right;">
+164
+</td>
+<td style="text-align:right;">
+0.12
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.39
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+RNA processing and modification
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+0.31
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="sugars-transport-and-metabolism" class="section level2">
+<h2>Sugars transport and metabolism</h2>
+<p>We use the GOC (GO category) “Carbohydrate transport and metabolism”. There are 40 out of 169 genes which are express below 20 protein per cell in average in at least 3/4 of all conditions:</p>
+<pre class="r"><code>myqms %&gt;% 
+  filter(`Annotated functional COG group (description)`==&quot;Carbohydrate transport and metabolism&quot;) %&gt;% 
+  group_by(`Annotated functional COG group (description)`, Gene) %&gt;% nest() %&gt;% 
+  mutate(n_75pc = map_dbl(data, ~quantile(.$n, .75, na.rm=TRUE)),
+         n_25pc = map_dbl(data, ~quantile(.$n, .25, na.rm=TRUE)),
+         Type = ifelse(n_25pc&lt;3, &quot;low&quot;, &quot;high&quot;)) %&gt;% 
+  # filter(Type==&#39;low&#39;) %&gt;% arrange(Gene) %&gt;% print(n=200)
+  unnest() %&gt;%
+  ggplot(aes(n, col=Type, group=Gene)) +
+  facet_wrap(~`Annotated functional COG group (description)`) +
+  stat_ecdf(aes(y=1-..y..), alpha=.4) +
+  scale_x_log10() +
+  coord_cartesian(xlim=c(1e-2, 1e5)) +
+  labs(x=&quot;proteins per cell&quot;, y=&quot;rev. cumul. proba (all conditions)&quot;) +
+  NULL  </code></pre>
+<p><img src="MoM_lacInduction_QMS_files/figure-html/unnamed-chunk-6-1.svg" width="672" /></p>
+<p>treC, idnK, yiaO, sgcX, garD, malS, yphF, fucI, srlB, xylG, yihT, kbaZ, kduI, lsrK, mngB, treF, yicI, srlE, uidA, dgoA, dgoK, fucA, hyi, lsrA, malF, mdfA, pgaB, shiA, xylH, yliI, malZ, uhpT, uxaB, chbA, garL, nadK, yciM, yeiQ, ygbM, ytfR</p>
+<p>Several of them feature promising properties for metastability of the corresponding pathway according to their ecocyc summary:</p>
+<ul>
+<li>FucI can function as both an L-fucose isomerase and a D-arabinose isomerase, the first enzymes of the L-fucose and D-arabinose degradation pathways, respectively. However, production of FucI is only induced by L-fucose.</li>
+<li>MalS is one of two α-amylases present in E. coli. [[I assume that there is a PF downstream]]</li>
+<li>MalF is an integral membrane component of the maltose ABC transporter. [[I assume that there is a PF downstream]]</li>
+<li>FucA can function as both an L-fuculose-phosphate aldolase and a D-ribulose-phosphate aldolase, the third enzyme of the L-fucose and D-arabinose degradation pathways, respectively. However, production of FucA is only induced by L-fucose. [[I assume that there is a PF downstream]]</li>
+<li>KduI (…) appeares to be able to utilize both glucuronate and galacturonate, perhaps catalyzing the same reaction as UxaC. (…) Expression of kduI is increased in the presence of galacturonate and glucuronate.</li>
+<li>LsrK is a kinase that is able to phosphorylate the quorum-sensing autoinducer molecule AI-2. [[would have to check that its expression is induced by AI-2]]</li>
+<li>lsrA is predicted to encode the ATP-binding component of an AI-2 ABC transporter.</li>
+<li>srlE is acomponent of the sorbitol-specific PTS. [[I assume that there is a PF downstream]]</li>
+<li>uiaD β-D-glucuronidase catalyzes the cleavage of a wide variety of β-glucuronides. (…) Methyl-β-glucoronide and fructuronate induce production of the enzyme.</li>
+<li>xylG encodes the predicted ATP-binding subunit of a high-affinity xylose uptake system.</li>
+<li>XylH is the predicted integral membrane subunit of a high-affinity, ATP dependent xylose uptake system. [[I assume that there is a PF downstream]]</li>
+<li>Based on sequence similarity, YiaO is the periplasmic solute-binding component of the YiaMNO Binding Protein-dependent Secondary (TRAP) transporter</li>
+<li>ytfR is the putative ATP binding subunit of the galactofuranose ABC transporter.</li>
+</ul>
+<p>Not sure whether those are also of interest:</p>
+<ul>
+<li>The MdfA protein, also known as Cmr, is a multidrug efflux protein belonging to the major facilitator superfamily (MFS) [Paulsen96]. Overexpression of MdfA confers resistance to a broad range of antibiotics and toxic molecules.</li>
+<li>UhpT is a hexose phosphate transporter that is a member of the Major Facilitator Superfamily (MFS).</li>
+<li>PgaB is an outer membrane lipoprotein that is required for the partial de-N-acetylation and hydrolysis of (…) an exopolysaccharide that is a key component of the biofilm matrix of many pathogenic bacteria.</li>
+</ul>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

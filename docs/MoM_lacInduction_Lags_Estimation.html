@@ -1,0 +1,2754 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Thomas Julou" />
+
+
+<title>Measuring the growth and lac induction lags in switching environments</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Single-cell analysis of the glucose/lactose diauxic shift</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Mother machine experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_Lags_Estimation.html">Lags estimation</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_Controls.html">Controls</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_Native.html">Induction and memory of the native lac operon</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_PerturbRepressed.html">Perturbations of the repressed lac operon expression</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_lowLactose.html">lac induction at lower lactose concentrations</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_PopLagSimul.html">Simulation of population lags from distribution of single-cell lags</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Additional experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_FLIM.html">Fluorescence lifetime experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_diauxieGrowthCurves.html">Population lags in diauxie experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_QMS.html">Identification of SMT candidates in MS data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://github.com/julou/MoM_lacInduction">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Measuring the growth and <em>lac</em> induction lags in switching environments</h1>
+<h4 class="author">Thomas Julou</h4>
+<h4 class="date">09 October, 2020</h4>
+
+</div>
+
+
+<div id="estimation" class="section level2">
+<h2>Estimation</h2>
+<p>First, let’s select the cells that undergo a switch (i.e. the first frame occured before a switch to lactose, and the last frame after (or at) the switch). We “prolonge” each cell by summing the variables (length and total GFP) of its two daughters, and discard cells for which the acquisition stopped less than 30’ after the switch (10 points; it is difficult to distinguish growth from lag on shorter traces).</p>
+<p>Based on the log of the length traces, the growth lag is computed by fitting a flat lag followed by a linear increase to the subset of each trace where the length is smaller than 3 times the length at the switch (note that the cells do more than doubling because daughters’ lengths are summed).</p>
+<p>Estimating the induction lag is more cumbersome because GFP traces do not follow a general shape. We compute two lag estimates:</p>
+<ul>
+<li>the GFP lag is computed by fitting a flat lag followed by a linear increase to the subset of each GFP trace where it is lower than the GFP at the switch plus 1000 GFP molecules (NB: the typical value at the switch is 100 molecules while fully induced cells have ca. 6000 molecules in average).</li>
+<li>the lag_200 is computed by finding the delay until the cell increases its GFP by 200 molecules after the switch. <!-- If the GFP becomes lower than this value after this delay, then lag\_200 is undefined. --></li>
+</ul>
+<pre class="r"><code>myframes_switching &lt;- myframes %&gt;% 
+  ungroup %&gt;% 
+  filter(!(condition %in% c(&#39;glucose&#39;, &#39;lactose&#39;, &#39;mg1655&#39;))) %&gt;% 
+  filter(!discard_start, !discard_top) %&gt;%
+  select(condition, date, pos, gl, id, genealogy, start_time, end_time, end_type, dt,
+         time_sec, medium, m_start, m_end, gfp_nb, length_um, m_cycle, cell_num_in_lane, total_cell_in_lane) %&gt;% 
+  # prolonge traces with daughters&#39; data
+  partition(date, pos, gl, cluster=mycluster) %&gt;%
+  # group_by(date, pos, gl) %&gt;%
+  do((function(.dfgl) {
+    # browser()
+    .dfgl %&gt;% 
+      group_by(id) %&gt;% 
+      mutate(is_lac=str_detect(medium, &#39;lactose&#39;) | str_detect(medium, &#39;lactulose&#39;) | 
+               str_detect(medium, fixed(&#39;+TMG&#39;)) | str_detect(medium, &#39;lacCM&#39;), 
+             t_lac_switch=min(m_start[is_lac]), t_lac_end=min(m_end[is_lac])) %&gt;% 
+      filter(first(time_sec)&lt;=t_lac_switch &amp; last(time_sec)&gt;=unique(t_lac_switch)) %&gt;% 
+      do((function(.dfc) bind_rows(
+        mutate(.dfc, type=&#39;cell&#39;),
+        .dfc %&gt;% 
+          ungroup %&gt;% slice(1L) %&gt;% # head(1) %&gt;% 
+          (function(.df)
+            # find the genealogy of the daughters and extract the corresponding rows from myframes
+           bind_rows(mutate(.df, join_gen=paste0(genealogy, &#39;B&#39;)),
+                     mutate(.df, join_gen=paste0(genealogy, &#39;T&#39;)) ) %&gt;% 
+            semi_join(.dfgl %&gt;% mutate(join_gen=genealogy),
+                      ., by=&#39;join_gen&#39;) ) %&gt;%
+         ungroup %&gt;% mutate(genealogy=get_parent_cid(genealogy)) %&gt;% 
+         select(condition, date, pos, gl, id, genealogy, dt,
+                time_sec, medium, m_cycle, m_start, m_end, gfp_nb, length_um) %&gt;% 
+         # group by time, compute the stat of both daughters&#39; and keep only the first row
+         # compared to summarise, this keeps all other variables
+         group_by(genealogy, time_sec) %&gt;% 
+         mutate(gfp_nb=ifelse(n()==2, sum(gfp_nb), 2*gfp_nb), 
+                length_um=ifelse(n()==2, sum(length_um), 2*length_um), 
+                # medium=unique(medium), m_cycle=unique(m_cycle),
+                type=paste0(n(), &quot;dg&quot;)) %&gt;%
+         slice(1L) 
+     ) )(.))
+   })(.) ) %&gt;% 
+  collect() %&gt;% 
+# myframes_switching &lt;- myframes_switching %&gt;% 
+  # fill in missing values
+  group_by(date, pos, gl, genealogy) %&gt;%
+  fill(start_time, end_time, t_lac_switch, t_lac_end) %&gt;% 
+  mutate(ugen=paste(date, pos, gl, genealogy, sep=&#39;.&#39;),
+         pre_switch=time_sec&gt;t_lac_switch+60 &amp; time_sec&lt;t_lac_switch+10*60) %&gt;% 
+  # select data used for lag estimation
+  group_by(condition, ugen) %&gt;%
+  mutate(switch_idx=first(m_cycle),
+         fit_lag=ifelse(
+    type!=&#39;1dg&#39; &amp; # discard traces after one daughter is lost (because of discontinuity)
+      tail(time_sec[type!=&#39;1dg&#39;]-t_lac_switch[type!=&#39;1dg&#39;], 1) &gt; first(4 * dt) &amp; # require at least 4 frames after the switch (one point after the gfp_ini window)
+      m_start==t_lac_switch # focus on the medium after the switch
+    , TRUE, FALSE) )</code></pre>
+<p>Let’s visualise the data used to estimate the lags:</p>
+<pre class="r"><code>myframes_switching %&gt;% 
+  filter(fit_lag) %&gt;% 
+  filter(condition!=&#39;switch_long_lac_hiExpr&#39;) %&gt;%
+  ggplot(aes(time_sec - 2*3600, gfp_nb, col=ugen, alpha=type)) +
+  facet_wrap(~condition+date, dir=&quot;v&quot;, ncol=2, labeller=labeller(.cols=label_value, .multi_line=FALSE)) +
+  # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col=&#39;red&#39;, data=filter(condition_ts, condition==&#39;switch&#39;, medium==&#39;lactose&#39;)) +
+  geom_path() + # geom_point() +
+  scale_colour_periodic(guide=&#39;none&#39;) +
+  scale_alpha_discrete(range=c(0.1, 0.6)) +
+  scale_x_hours() + #, limits=c(19*3600, 23*3600)) +
+  ylim(-100, 1e4) +   expand_limits(x=0, y=0) +
+  labs(y=&#39;total fluorescence (GFP molecules)&#39;) +
+  theme(legend.position=&quot;top&quot;)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/unnamed-chunk-1-1.svg" width="672" /></p>
+<pre class="r"><code># myframes_switching %&gt;% 
+#   filter(condition==&#39;switch_long_lac_hiExpr&#39;) %&gt;% 
+#   filter(fit_lag) %&gt;% 
+#   # group_by(date, pos, gl, id) %&gt;% summarise(n=n()) %&gt;% qplot(n, data=., binwidth=10)
+# ggplot(aes(time_sec - 2*3600, length_um, col=ugen)) +
+#   facet_wrap(~condition, ncol=1) +
+#   # geom_rect(aes(xmin=t_start - 2*3600, xmax=t_end - 2*3600, ymin=-Inf, ymax=Inf, x=NaN, y=NaN, group=1), fill=rgb(1, 0, 0, .1), col=&#39;red&#39;, data=filter(condition_ts, condition==&#39;switch&#39;, medium==&#39;lactose&#39;)) +
+#   # geom_path() + # geom_point() +
+#   stat_smooth(se=FALSE, geom=&#39;line&#39;, alpha=.2) +
+#   scale_colour_periodic(guide=&#39;none&#39;) +
+#   # scale_alpha_discrete(range=c(0.1, 0.6)) +
+#   scale_x_hours(limits=c(3*3600, 12*3600)) +
+#   scale_y_continuous(trans=&#39;log2&#39;)</code></pre>
+<pre class="r"><code>mycells_switching &lt;- myframes_switching %&gt;%
+  filter(fit_lag) %&gt;% 
+  # group_by(condition, switch_idx, date, pos, gl, ugen) %&gt;%
+  partition(condition, switch_idx, date, pos, gl, ugen, cluster=mycluster %&gt;% cluster_assign_func(compute_lag) ) %&gt;%
+  do((function(.df){
+    # browser()
+    # print(unique(.df$ugen))
+    # if (unique(.df$ugen)==&quot;20150703.0.11.0:BBBBTBB&quot;) browser()
+    # if (unique(.df$ugen)==&quot;20150703.3.11.0:BBTBBB&quot;) browser()
+    
+    .cond &lt;- head(.df$condition)
+    .preswitch_gfp &lt;- mean(filter(.df, pre_switch)$gfp_nb)
+    .preswitch_length &lt;- mean(filter(.df, pre_switch)$length_um)
+    # compute growth lag
+    .growth_lag &lt;- .df %&gt;% filter(time_sec&gt;=t_lac_switch, length_um&lt;3*.preswitch_length) %&gt;%
+      pull(length_um) %&gt;% log %&gt;% compute_lag(.scaling_factor=1) #,.plot=TRUE)
+    if (length(.growth_lag) == 0) { warning(&#39;growth lag estimation failed&#39;)
+      .growth_lag &lt;- list(tau_idx=NaN, x_lag=NaN, slope_after=NaN)
+    }
+
+    if (.df$condition %in% c(&#39;switch_long_lac_hiExpr&#39;)) {
+      .gfp_lag &lt;- list(tau_idx=NaN, x_lag=NaN, slope_after=NaN)
+      .t_200 &lt;- NaN
+      .t_200_fail &lt;- NaN
+      .t_1000 &lt;- NaN
+      .t_1000_fail &lt;- NaN
+    } else {
+    .gfp_lag &lt;- .df %&gt;% filter(time_sec&gt;=t_lac_switch, gfp_nb&lt;.preswitch_gfp+ifelse(.cond!=&#39;switch_iptg&#39;, 1000, 2000)) %&gt;%
+      pull(gfp_nb) %&gt;% compute_lag #(.plot=TRUE)
+    if (length(.gfp_lag) == 0)
+      .gfp_lag &lt;- list(tau_idx=NaN, x_lag=NaN, slope_after=NaN)
+
+    # compute induction lag
+    .tmin &lt;- filter(.df, pre_switch)$time_sec %&gt;% max
+    .t_200 &lt;- .df %&gt;% filter(time_sec&gt;.tmin, gfp_nb&gt;.preswitch_gfp+200) %&gt;% pull(time_sec) %&gt;% first() # returns NA if empty
+    .t_200_fail &lt;- .df %&gt;% filter(time_sec&gt;.t_200, gfp_nb&lt;.preswitch_gfp+200) %&gt;% pull(time_sec) %&gt;% first()
+    .t_1000 &lt;- .df %&gt;% filter(time_sec&gt;.tmin, gfp_nb&gt;.preswitch_gfp+1000) %&gt;% pull(time_sec) %&gt;% first() # returns NA if empty
+    .t_1000_fail &lt;- .df %&gt;% filter(time_sec&gt;.t_1000, gfp_nb&lt;.preswitch_gfp+1000) %&gt;% pull(time_sec) %&gt;% first()
+    }
+    
+    .dt &lt;- first(.df$dt) # don&#39;t use unique as some values are NA
+    return(data.frame(dt=.dt, n_fit=nrow(.df), genealogy=gsub(&quot;:&quot;, &quot;&quot;, unique(.df$genealogy)), 
+                      t_lac_switch=first(.df$t_lac_switch), t_lac_end=first(.df$t_lac_end),
+                      tmax_lag_fit=max(.df$time_sec), is_tmax_end=max(.df$time_sec)==first(.df$t_lac_end),
+                      cell_num=filter(.df, time_sec==t_lac_switch)$cell_num_in_lane,
+                      cell_num_from_top=filter(.df, time_sec==t_lac_switch)$cell_num_in_lane, 
+                      cell_num_from_bottom=filter(.df, time_sec==t_lac_switch)$total_cell_in_lane-filter(.df, time_sec==t_lac_switch)$cell_num_in_lane,
+                      # switch_idx=filter(.df, is_lac)$m_cycle %&gt;% first, 
+                      time_birth=unique(.df$start_time), time_div=unique(.df$end_time),
+                      growth_lag=(.growth_lag$tau_idx-1)*.dt, growth_lag_length=exp(.growth_lag$x_lag), growth_lag_rate_after=.growth_lag$slope_after / .dt,
+                      gfp_lag=(.gfp_lag$tau_idx-1)*.dt, gfp_lag_length=.gfp_lag$x_lag, gfp_lag_slope_after=.gfp_lag$slope_after / .dt,
+                      gfp_ini=.preswitch_gfp, length_ini=.preswitch_length, 
+                      lac_200=.t_200, lac_200_fail=.t_200_fail,
+                      lac_1000=.t_1000, lac_1000_fail=.t_1000_fail))
+    })(.)) %&gt;%
+  collect() %&gt;% 
+  arrange(condition, ugen) %&gt;%  # sort data after `partition()`
+  # mycells_switching &lt;- mycells_switching %&gt;% 
+  mutate(lag_200=ifelse(is.na(lac_200) &amp; !is.nan(lac_200), Inf, lac_200-t_lac_switch), # set lag_200 to Inf if no restart (is `&amp; !is.nan(lac_200)` really needed?)
+         lag_1000=ifelse(is.na(lac_1000) &amp; !is.nan(lac_1000), Inf, lac_1000-t_lac_switch)) %&gt;%  
+  # # more complicated heuristic (dropped during MoMA_Methods revisions)
+  # mutate(lac_200=ifelse(is.na(lac_200), Inf, lac_200), # set lag_200 to Inf if no restart
+  #        lag_200 = ifelse(is.na(lac_200_fail) | lac_200_fail-lac_200 &gt; 20*60, lac_200-t_lac_switch, NaN) ) %&gt;%
+# discard lag fit with slope too close to 0
+  mutate(gfp_lag=ifelse(!is.na(gfp_lag_slope_after) &amp; between(gfp_lag_slope_after, 0.12, Inf), gfp_lag, Inf),
+         gfp_lag_slope_after=ifelse(!is.na(gfp_lag_slope_after) &amp; between(gfp_lag_slope_after, 0.12, NaN), gfp_lag_slope_after, NaN),
+         growth_lag=ifelse(!is.na(growth_lag_rate_after) &amp; between(growth_lag_rate_after, 4e-5, 2.5e-4), growth_lag, Inf),
+         growth_lag_rate_after=ifelse(!is.na(growth_lag_rate_after) &amp; between(growth_lag_rate_after, 4e-5, 2.5e-4), growth_lag_rate_after, NaN)) %&gt;% 
+  # set to NA lags of uninduced cells with traces shorter than the lactose episode
+  mutate(reach_lac_end = ifelse(!is_tmax_end, near(tmax_lag_fit, t_lac_end-dt, to=1e-3), 
+                                near(tmax_lag_fit, t_lac_end, to=1e-3)) ) %&gt;% 
+  mutate(lag_200=ifelse(is.infinite(lag_200) &amp; !reach_lac_end, NA, lag_200), 
+             lag_1000=ifelse(is.infinite(lag_1000) &amp; !reach_lac_end, NA, lag_1000), 
+             gfp_lag=ifelse(is.infinite(gfp_lag) &amp; !reach_lac_end, NA, gfp_lag),
+         growth_lag=ifelse(is.infinite(growth_lag) &amp; !reach_lac_end, NA, growth_lag) )
+
+# ggplot(mycells_switching) +
+#   facet_grid(condition~., margins=TRUE, scales=&#39;free&#39;) +
+#   geom_vline(xintercept=0.12, col=&#39;red&#39;) +
+#   geom_histogram(aes(gfp_lag_slope_after), binwidth=0.025)
+# 
+# ggplot(mycells_switching) +
+#   facet_grid(condition~., margins=TRUE, scales=&#39;free&#39;) +
+#   geom_vline(xintercept=4e-5, col=&#39;red&#39;) +
+#   geom_histogram(aes(growth_lag_rate_after), binwidth=2e-6)
+
+  
+# add fit prediction and residual to myframes_switching
+myframes_switching &lt;- myframes_switching %&gt;% 
+  group_by(ugen) %&gt;% 
+  mutate(switch_idx=m_cycle[is_lac] %&gt;% first) %&gt;% 
+  ungroup %&gt;% 
+  left_join(mycells_switching %&gt;% ungroup %&gt;% 
+              select(ugen, growth_lag, growth_lag_length, growth_lag_rate_after, 
+                     gfp_lag, gfp_lag_length, gfp_lag_slope_after,
+                     gfp_ini, lag_200, lac_200, lag_1000, lac_1000)) %&gt;%
+  mutate(length_predict=ifelse(time_sec&lt;t_lac_switch+growth_lag, growth_lag_length,
+    growth_lag_length * exp(growth_lag_rate_after*(time_sec-t_lac_switch-growth_lag) )),
+         length_predict=ifelse(time_sec&gt;=t_lac_switch, length_predict, NA),
+         llength_residual=log(length_um)-log(length_predict))
+
+# # visual control
+# for(i in 1:1000) {
+# filter(myframes_switching, cell==nth(unique(ugen), i)) %&gt;%
+# filter(myframes_switching, ugen==unique(ugen)[i]) %&gt;%
+#   (function(.x) ggplot(.x)+
+#   geom_vline(aes(xintercept = unique(t_lac_switch-start_time+growth_lag)), lty=&#39;dashed&#39;) +
+#   geom_point(aes(time_sec-start_time, log(length_um), col=medium)) +
+#   geom_line(aes(time_sec-start_time, log(length_predict))) ) %&gt;%
+#     print
+# scan(&quot;&quot;)
+# }</code></pre>
+<p>We use the following convention:</p>
+<ul>
+<li>NaN: lag estimation failed (or no lac-GFP data)</li>
+<li>NA: lag longer than the gfp (resp. length) time series (when time series is shorter than the lactose episode)</li>
+<li>Inf: lag longer than the lactose episode</li>
+</ul>
+<pre class="r"><code>mycells_switching &lt;- 
+  # extract relevant frames
+  # don&#39;t discard NA lags otherwise filter(!discard_arrested) also discard NA lags
+  bind_rows(
+    # switching cells
+    mycells_switching %&gt;% ungroup %&gt;% 
+      # filter(!is.na(lag_200)) %&gt;% 
+      mutate(type=&#39;pre&#39;, switch_ugen=ugen) %&gt;% 
+      select(type, ugen, switch_ugen, switch_idx, t_lac_switch) %&gt;% 
+      left_join(myframes) %&gt;% 
+      filter(time_sec &lt;= t_lac_switch),
+    # parent cells
+    mycells_switching %&gt;% ungroup %&gt;% 
+      # filter(!is.na(lag_200)) %&gt;% 
+      left_join(select(myframes, date, gl, pos, id, parent_id, ugen) %&gt;% group_by(ugen) %&gt;% slice(1)) %&gt;% 
+      mutate(type=&#39;parent&#39;, switch_ugen=ugen, 
+             # cell=paste(date, pos, gl, parent_id, sep=&#39;.&#39;)) %&gt;% 
+             ugen=get_parent_cid(ugen) ) %&gt;% 
+      select(type, ugen, switch_ugen, switch_idx, t_lac_switch) %&gt;% 
+      left_join(myframes) %&gt;% 
+      filter(time_sec &lt;= t_lac_switch)
+  ) %&gt;% 
+  # compute elongation rate for these cells
+  group_by(type, ugen, switch_ugen) %&gt;% 
+  do((function(.df) {
+    # browser()
+    if (dim(.df)[1] &lt; 5) return(data.frame())
+    
+    .mod &lt;- lm( log(length_um)~time_sec, .df)
+    data.frame(logl_time_slope=.mod$coefficients[2],
+               logl_time_r2=cor(.df$time_sec, log(.df$length_um))^2)
+  })(.)) %&gt;% 
+  # reshape and join to mycells_switching
+  ungroup %&gt;% 
+  mutate(ugen=switch_ugen, switch_ugen=NULL) %&gt;% 
+  gather(var, val, -type, -ugen) %&gt;% 
+  mutate(var=paste(var, type, sep=&#39;_&#39;), type=NULL) %&gt;% 
+  spread(var, val) %&gt;% 
+  right_join(mycells_switching) %&gt;% 
+  mutate(n_preswitch=(t_lac_switch-time_birth)/dt,
+         logl_time_slope_before=ifelse(n_preswitch&lt;5, 
+                                       logl_time_slope_parent, logl_time_slope_pre),
+         discard_arrested=ifelse(condition==&#39;switch_gly_lac&#39;, NA, logl_time_slope_before &lt;= min_growth_rate),
+         discard_arrested_=discard_arrested,
+         discard_arrested=FALSE, # disable this filtering to keep analysis description simple
+         )
+  
+
+# ggplot(mycells_switching) +
+#   geom_abline() +
+#   geom_point(aes(logl_time_slope_parent, logl_time_slope_pre, size=n_preswitch), alpha=0.2) +
+#   coord_cartesian(ylim=c(0, 3e-4))
+
+# ggplot(mycells_switching) +
+#   geom_point(aes(n_preswitch, 1-logl_time_r2_pre), size=0.2, alpha=0.2) +
+#   scale_y_log10() +
+#   xlim(0, 50)</code></pre>
+</div>
+<div id="validation-of-the-lag-estimation" class="section level2">
+<h2>Validation of the lag estimation</h2>
+<p>Let’s look at the proportion of cells for which a lag can be estimated and identify the different types of indetermination (based on the interaction between the different estimates):</p>
+<pre class="r"><code>options(knitr.kable.NA = &#39;&#39;)
+mycells_switching %&gt;% 
+  filter(! condition %in% c(&#39;switch_long_lac_hiExpr&#39;)) %&gt;%  # lag_200 is NaN
+  mutate(growth_lag=as.character(growth_lag), growth_lag=ifelse(is.na(growth_lag), &#39;NA&#39;, growth_lag),
+         growth_lag=ifelse(growth_lag %in% c(&#39;NaN&#39;, &#39;NA&#39;, &#39;Inf&#39;), growth_lag, &#39;numeric&#39;),
+         gfp_lag=as.character(gfp_lag), gfp_lag=ifelse(is.na(gfp_lag), &#39;NA&#39;, gfp_lag),
+         gfp_lag=ifelse(gfp_lag %in% c(&#39;NaN&#39;, &#39;NA&#39;, &#39;Inf&#39;), gfp_lag, &#39;numeric&#39;),
+         lag_200=as.character(lag_200), lag_200=ifelse(is.na(lag_200), &#39;NA&#39;, lag_200),
+         lag_200=ifelse(lag_200 %in% c(&#39;NaN&#39;, &#39;NA&#39;, &#39;Inf&#39;), lag_200, &#39;numeric&#39;)) %&gt;% 
+  group_by(growth_lag, gfp_lag, lag_200) %&gt;% 
+  summarise(n=n()) %&gt;% 
+  ungroup %&gt;% mutate(p=n/sum(n)) %&gt;% 
+  left_join(tribble(
+    ~growth_lag, ~gfp_lag , ~lag_200 , ~comment,
+    #----------,----------,----------,----------------------,
+    &quot;Inf&quot;      , &quot;Inf&quot;    , &quot;Inf&quot;    , &quot;no restart&quot;,
+    &quot;Inf&quot;      , &quot;Inf&quot;    , &quot;NA&quot;     , &quot;no restart but wiggly fluo&quot;,
+    &quot;Inf&quot;      , &quot;Inf&quot;    , &quot;numeric&quot;, &quot;no restart (with minor fluo increase)&quot;,
+    &quot;Inf&quot;      , &quot;numeric&quot;, &quot;Inf&quot;    , &quot;fluo only restart but lower than 200&quot;,
+    &quot;Inf&quot;      , &quot;numeric&quot;, &quot;NA&quot;     , &quot;fluo only restart but wiggly&quot;,
+    &quot;Inf&quot;      , &quot;numeric&quot;, &quot;numeric&quot;, &quot;fluo restart but no growth&quot;,
+    &quot;NA&quot;       , &quot;numeric&quot;, &quot;numeric&quot;, &quot;fluo restart but no growth&quot;,
+    &quot;NA&quot;       , &quot;NA&quot;     , &quot;NA&quot;     , &quot;aborted time series (cell exit)&quot;,
+    &quot;numeric&quot;  , &quot;NA&quot;     , &quot;NA&quot;     , &quot;growth restart but not fluo&quot;,
+    &quot;numeric&quot;  , &quot;Inf&quot;    , &quot;Inf&quot;    , &quot;growth restart but not fluo&quot;,
+    &quot;numeric&quot;  , &quot;Inf&quot;    , &quot;numeric&quot;, &quot;(missed gfp_lag?)&quot;,
+    &quot;numeric&quot;  , &quot;numeric&quot;, &quot;NA&quot;     , &quot;(fluo either lower than 200 or wiggly)&quot;,
+    &quot;numeric&quot;  , &quot;numeric&quot;, &quot;numeric&quot;, &quot;success: growth and induction lags estimated&quot;
+  )) %&gt;% 
+  knitr::kable(digits=2) %&gt;% 
+  kableExtra::kable_styling() %&gt;%
+  identity()</code></pre>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+growth_lag
+</th>
+<th style="text-align:left;">
+gfp_lag
+</th>
+<th style="text-align:left;">
+lag_200
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+p
+</th>
+<th style="text-align:left;">
+comment
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+140
+</td>
+<td style="text-align:right;">
+0.02
+</td>
+<td style="text-align:left;">
+no restart
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+169
+</td>
+<td style="text-align:right;">
+0.02
+</td>
+<td style="text-align:left;">
+no restart (with minor fluo increase)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:left;">
+fluo only restart but lower than 200
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+112
+</td>
+<td style="text-align:right;">
+0.01
+</td>
+<td style="text-align:left;">
+fluo restart but no growth
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+341
+</td>
+<td style="text-align:right;">
+0.04
+</td>
+<td style="text-align:left;">
+aborted time series (cell exit)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+68
+</td>
+<td style="text-align:right;">
+0.01
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+83
+</td>
+<td style="text-align:right;">
+0.01
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+332
+</td>
+<td style="text-align:right;">
+0.04
+</td>
+<td style="text-align:left;">
+fluo restart but no growth
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:left;">
+growth restart but not fluo
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:left;">
+(missed gfp_lag?)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:left;">
+growth restart but not fluo
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+24
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:left;">
+(fluo either lower than 200 or wiggly)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:right;">
+7524
+</td>
+<td style="text-align:right;">
+0.85
+</td>
+<td style="text-align:left;">
+success: growth and induction lags estimated
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>options(knitr.kable.NA = NULL)</code></pre>
+<!-- TO DO:
+- remove filaments (and "really" arrested cells)
+- length pb before division (cf perl)
+- for Inf lags, check if true arrest by fitting the slope before and after the switch (to identify cells with slow growth that don't arrest)
+- for Inf lag, account for the trace length
+
+iptg:
+20151207 pos0 GL17 0:BBBBBTBT
+20151207 pos0 GL17  0:BBBBBBBT
+-->
+<p>For the growth lag, the residuals around the switch show less than 2% deviation from our model in average. In order to understand the distribution of residuals, it must be stratified by time: the residuals are the largest at the switch and decrease monotonically until the end of the lag exponential fit. During the post-lag exponential growth, the residuals continue to decrease.</p>
+<pre class="r"><code>myframes_switching %&gt;% 
+  filter(is.finite(growth_lag)) %&gt;% 
+  mutate(t_switch=time_sec-t_lac_switch-growth_lag, rel_resid=llength_residual/log(length_predict)) %&gt;% 
+  group_by(t_switch) %&gt;% 
+  summarise(mean=mean(rel_resid, na.rm=TRUE), n=n(), sem=sd(rel_resid, na.rm=TRUE)/sqrt(n)) %&gt;%
+  ungroup() %&gt;% filter(n&gt;max(n)/20) %&gt;% 
+ggplot(aes(t_switch/60, mean, alpha=n)) +
+  geom_errorbar(aes(ymin=mean-sem, ymax=mean+sem)) +
+  geom_line() +
+  coord_cartesian(xlim=c(-100, 150)) +
+  labs(x=&#39;time after switch (min)&#39;, y=&#39;scaled residuals average&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/residuals%20around%20the%20lag-1.svg" width="672" /></p>
+</div>
+<div id="comparison-of-lag-types" class="section level2">
+<h2>Comparison of lag types</h2>
+<pre class="r"><code>ggplot(data=mycells_switching, aes(lag_200/60, gfp_lag/60)) +
+  # facet_grid(switch_idx~condition, scales=&#39;free&#39;, margins=TRUE) +
+  facet_wrap(~condition+switch_idx, scales=&#39;free&#39;) +
+  geom_abline(col=&#39;red&#39;, alpha=0.5) +
+  geom_point(alpha=.2, size=.2) +
+  labs(x=&#39;induction lag (+200 GFP molecules; min)&#39;, y=&#39;GFP lag (min)&#39;) +
+  expand_limits(x=0, y=0)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/scatter%20plots-1.svg" width="672" /></p>
+<pre class="r"><code>ggplot(data=mycells_switching, aes(growth_lag/60, gfp_lag/60)) +
+  # facet_grid(switch_idx~condition, scales=&#39;free&#39;) + #, margins=TRUE) +
+  facet_wrap(~condition+switch_idx, scales=&#39;free&#39;) +
+  geom_abline(col=&#39;red&#39;, alpha=0.5) +
+  geom_point(alpha=.2, size=.2) +
+  labs(x=&#39;growth lag (min)&#39;, y=&#39;GFP lag (min)&#39;) +
+  expand_limits(x=0, y=0) </code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/scatter%20plots-2.svg" width="672" /></p>
+<pre class="r"><code>ggplot(data=mycells_switching, aes(growth_lag/60, lag_200/60)) +
+  # facet_grid(switch_idx~condition, scales=&#39;free&#39;, margins=TRUE) +
+  facet_wrap(~condition+switch_idx, scales=&#39;free&#39;) +
+  geom_abline(col=&#39;red&#39;, alpha=0.5) +
+  geom_point(alpha=.2, size=.2) +
+  expand_limits(x=0, y=0) </code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/scatter%20plots-3.svg" width="672" /></p>
+<p>NB: the lower bound of the GFP lags probably comes from GFP maturation time.</p>
+<pre class="r"><code>(myplots[[&#39;lags_types_correl&#39;]] &lt;- function(.min_psize=.5, .max_psize=3)
+  mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+   filter(switch_idx==1) %&gt;%
+   mutate(growth_lag=ifelse(growth_lag&gt;240*60, Inf, growth_lag) ) %&gt;% 
+   group_by(growth_lag, lag_200) %&gt;% 
+   summarise(n=n()) %&gt;% ungroup %&gt;% 
+   mutate(infinite=ifelse(is.infinite(growth_lag) | is.infinite(lag_200), TRUE, FALSE),
+          growth_lag=ifelse(is.infinite(growth_lag), 240*60, growth_lag),
+          lag_200=ifelse(is.infinite(lag_200), 240*60, lag_200)) %&gt;% 
+   ( function(.df)
+     ggplot(.df, aes(lag_200/60, growth_lag/60, size=n)) +
+       geom_abline(alpha=0.9, size=.25) +
+       geom_point(stroke=0) +
+       labs(x=lac_lags_label, y=&#39;growth lag (min)&#39;) +
+       scale_size_continuous(name=&#39;nb of obs.&#39;, range=c(.min_psize, .max_psize), breaks=c(5, 20, 80)) +
+       # scale_shape_manual(breaks=c(TRUE, FALSE), values=c(2, 1)) +
+       expand_limits(x=0, y=0) +
+       scale_x_continuous(breaks=seq(0, 200, 50)) + scale_y_continuous(breaks=seq(0, 200, 50)) +
+       theme(legend.position=c(1, .01), legend.justification=c(0.99, 0), legend.direction=&#39;horizontal&#39;) +
+       NULL
+   )
+)()</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/BZSposter-1.svg" width="672" /></p>
+<pre class="r"><code> # ggsave(&#39;plots/BZSposter2017/gfp_growth_lags.pdf&#39;, width=180/25.4/2, height=100/25.4/2)
+
+mycells_switching %&gt;% ungroup() %&gt;%
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1) %&gt;%
+  mutate(growth_lag=ifelse(growth_lag&gt;240*60, Inf, growth_lag) ) %&gt;%
+  # group_by(growth_lag, lag_200) %&gt;%
+  # summarise(n=n()) %&gt;% ungroup %&gt;%
+  
+  # filter(is.infinite(growth_lag) &amp; is.finite(lag_200)) %&gt;% 
+  # pull(lag_200) %&gt;% (function(.x) .x/60) %&gt;% table()
+  
+  summarise(n=n(), n_na=sum(is.na(growth_lag)), n_inf=sum(is.infinite(growth_lag)),
+            n_induce_arrested = sum( is.infinite(growth_lag) &amp; is.finite(lag_200) ),
+  )</code></pre>
+<pre><code>## # A tibble: 1 x 4
+##       n  n_na n_inf n_induce_arrested
+##   &lt;int&gt; &lt;int&gt; &lt;int&gt;             &lt;int&gt;
+## 1  1633   152    97                45</code></pre>
+<pre class="r"><code>    # with(sum( is.infinite(growth_lag) &amp; is.finite(lag_200) ) /
+    #      sum( !is.na(growth_lag) &amp; !is.na(lag_200)) ) 
+
+  # filter(is.finite(growth_lag), is.finite(lag_200)) %&gt;%
+  # with(cor(growth_lag, lag_200)^2)</code></pre>
+</div>
+<div id="overview-of-lag-distributions" class="section level2">
+<h2>Overview of lag distributions</h2>
+<pre class="r"><code>mycells_switching %&gt;% ungroup %&gt;% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %&gt;% 
+  ggplot(aes(lag/60)) +
+  facet_grid(condition~switch_idx, labeller=as_labeller(rename_conds)) +
+  stat_ecdf(aes(y=1-..y.., col=variable)) +
+  coord_cartesian(xlim=c(0, 240)) +
+  labs(x=&#39;lag after the switch (min)&#39;, y=&#39;rev. cumulative proba.&#39;) +
+  theme(legend.position=&quot;top&quot;)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/unnamed-chunk-4-1.svg" width="672" /></p>
+<pre class="r"><code>mycells_switching %&gt;% ungroup %&gt;% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %&gt;% 
+  ggplot(aes(lag/60)) +
+  facet_grid(condition~variable, labeller=as_labeller(rename_conds)) +
+  stat_ecdf(aes(y=1-..y.., col=factor(switch_idx))) +
+  coord_cartesian(xlim=c(0, 240)) +
+  scale_y_continuous(breaks=seq(0, 1, by=0.5)) +
+  labs(x=&#39;lag after the switch (min)&#39;, y=&#39;rev. cumulative proba.&#39;, col=&#39;switch&#39;) +
+  theme(legend.position=&quot;top&quot;)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/unnamed-chunk-4-2.svg" width="672" /></p>
+<pre class="r"><code># ggsave(&#39;Rplot.pdf&#39;, width=7.5, height=4.5)
+
+
+# mycells_switching %&gt;% ungroup %&gt;% 
+#   # filter(!condition %in% c(&#39;switch_08h&#39;)) %&gt;% 
+#   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+#   mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+#          lag=ifelse(is.na(lag), -1, lag)) %&gt;% 
+#   ggplot(aes(lag/60)) +
+#   facet_grid(variable~switch_idx, labeller=as_labeller(rename_conds)) +
+#   stat_ecdf(aes(y=1-..y.., col=condition, group=date)) +
+#   coord_cartesian(xlim=c(0, 240)) +
+#   scale_y_continuous(breaks=seq(0, 1, by=0.5)) +
+#   ggplot2::scale_color_discrete() +
+#   labs(x=&#39;lag after the switch (min)&#39;, y=&#39;rev. cumulative proba.&#39;) +
+#   theme(legend.position=&quot;top&quot;)</code></pre>
+<p>Focus on the first switch:</p>
+<pre class="r"><code>mycells_switching %&gt;% 
+  ungroup() %&gt;% 
+  mutate(type=as.character(lag_200),
+         type=ifelse(is.finite(lag_200) &amp; lag_200&lt;48*60, &#39;short&#39;, type),
+         type=ifelse(is.finite(lag_200) &amp; lag_200&gt;=48*60, &#39;long&#39;, type)) %&gt;% 
+  group_by(condition, date, switch_idx) %&gt;%
+  do((function(.df){
+    # if (first(.df$date)==&quot;20170926&quot;) 
+    # browser()
+    # print(first(.df$date))
+    table(.df$type, exclude=NULL, useNA=&quot;ifany&quot;) %&gt;% data.frame() %&gt;% setNames(c(&quot;var&quot;, &quot;value&quot;)) %&gt;% 
+      mutate(var=as.character(var), value=value/sum(value)) %&gt;%
+      bind_rows(tibble(var=&quot;n&quot;, value=nrow(.df)))
+    })(.)) %&gt;% 
+  spread(&quot;var&quot;, &quot;value&quot;, fill=0) %&gt;% 
+  select(condition, date, switch_idx, n, short, long, &quot;Inf&quot;, everything()) %&gt;% 
+  knitr::kable(digits = 3) %&gt;%
+  kableExtra::kable_styling() %&gt;% 
+  identity()</code></pre>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+condition
+</th>
+<th style="text-align:right;">
+date
+</th>
+<th style="text-align:right;">
+switch_idx
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+short
+</th>
+<th style="text-align:right;">
+long
+</th>
+<th style="text-align:right;">
+Inf
+</th>
+<th style="text-align:right;">
+&lt;NA&gt;
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+switch_04h
+</td>
+<td style="text-align:right;">
+20150703
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+155
+</td>
+<td style="text-align:right;">
+0.271
+</td>
+<td style="text-align:right;">
+0.645
+</td>
+<td style="text-align:right;">
+0.013
+</td>
+<td style="text-align:right;">
+0.071
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_04h
+</td>
+<td style="text-align:right;">
+20150703
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+155
+</td>
+<td style="text-align:right;">
+0.961
+</td>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.032
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_04h
+</td>
+<td style="text-align:right;">
+20150703
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+152
+</td>
+<td style="text-align:right;">
+0.993
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.007
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_04h
+</td>
+<td style="text-align:right;">
+20150708
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+171
+</td>
+<td style="text-align:right;">
+0.205
+</td>
+<td style="text-align:right;">
+0.655
+</td>
+<td style="text-align:right;">
+0.064
+</td>
+<td style="text-align:right;">
+0.076
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_04h
+</td>
+<td style="text-align:right;">
+20150708
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+172
+</td>
+<td style="text-align:right;">
+0.878
+</td>
+<td style="text-align:right;">
+0.076
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.047
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_04h
+</td>
+<td style="text-align:right;">
+20150708
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+193
+</td>
+<td style="text-align:right;">
+0.964
+</td>
+<td style="text-align:right;">
+0.005
+</td>
+<td style="text-align:right;">
+0.010
+</td>
+<td style="text-align:right;">
+0.021
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_06h
+</td>
+<td style="text-align:right;">
+20151204
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+191
+</td>
+<td style="text-align:right;">
+0.251
+</td>
+<td style="text-align:right;">
+0.618
+</td>
+<td style="text-align:right;">
+0.063
+</td>
+<td style="text-align:right;">
+0.068
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_06h
+</td>
+<td style="text-align:right;">
+20151204
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+187
+</td>
+<td style="text-align:right;">
+0.936
+</td>
+<td style="text-align:right;">
+0.027
+</td>
+<td style="text-align:right;">
+0.016
+</td>
+<td style="text-align:right;">
+0.021
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_06h
+</td>
+<td style="text-align:right;">
+20151204
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+170
+</td>
+<td style="text-align:right;">
+0.959
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.041
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_08h
+</td>
+<td style="text-align:right;">
+20151218
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+196
+</td>
+<td style="text-align:right;">
+0.265
+</td>
+<td style="text-align:right;">
+0.638
+</td>
+<td style="text-align:right;">
+0.020
+</td>
+<td style="text-align:right;">
+0.077
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_08h
+</td>
+<td style="text-align:right;">
+20151218
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+181
+</td>
+<td style="text-align:right;">
+0.956
+</td>
+<td style="text-align:right;">
+0.028
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.017
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_08h
+</td>
+<td style="text-align:right;">
+20151218
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+176
+</td>
+<td style="text-align:right;">
+0.977
+</td>
+<td style="text-align:right;">
+0.011
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.011
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_08h
+</td>
+<td style="text-align:right;">
+20180206
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+170
+</td>
+<td style="text-align:right;">
+0.306
+</td>
+<td style="text-align:right;">
+0.624
+</td>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.065
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_08h
+</td>
+<td style="text-align:right;">
+20180206
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+162
+</td>
+<td style="text-align:right;">
+0.938
+</td>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.056
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_12h
+</td>
+<td style="text-align:right;">
+20180207
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+175
+</td>
+<td style="text-align:right;">
+0.166
+</td>
+<td style="text-align:right;">
+0.794
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.040
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_12h
+</td>
+<td style="text-align:right;">
+20180207
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+178
+</td>
+<td style="text-align:right;">
+0.860
+</td>
+<td style="text-align:right;">
+0.107
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.034
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_12h
+</td>
+<td style="text-align:right;">
+20180216
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+170
+</td>
+<td style="text-align:right;">
+0.235
+</td>
+<td style="text-align:right;">
+0.694
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.071
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_12h
+</td>
+<td style="text-align:right;">
+20180216
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+174
+</td>
+<td style="text-align:right;">
+0.879
+</td>
+<td style="text-align:right;">
+0.092
+</td>
+<td style="text-align:right;">
+0.011
+</td>
+<td style="text-align:right;">
+0.017
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_12h_old
+</td>
+<td style="text-align:right;">
+20160526
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+164
+</td>
+<td style="text-align:right;">
+0.189
+</td>
+<td style="text-align:right;">
+0.726
+</td>
+<td style="text-align:right;">
+0.043
+</td>
+<td style="text-align:right;">
+0.043
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_12h_old
+</td>
+<td style="text-align:right;">
+20160526
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+171
+</td>
+<td style="text-align:right;">
+0.731
+</td>
+<td style="text-align:right;">
+0.222
+</td>
+<td style="text-align:right;">
+0.018
+</td>
+<td style="text-align:right;">
+0.029
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_16h
+</td>
+<td style="text-align:right;">
+20160912
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+225
+</td>
+<td style="text-align:right;">
+0.258
+</td>
+<td style="text-align:right;">
+0.667
+</td>
+<td style="text-align:right;">
+0.009
+</td>
+<td style="text-align:right;">
+0.067
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_16h
+</td>
+<td style="text-align:right;">
+20160912
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+219
+</td>
+<td style="text-align:right;">
+0.694
+</td>
+<td style="text-align:right;">
+0.251
+</td>
+<td style="text-align:right;">
+0.009
+</td>
+<td style="text-align:right;">
+0.046
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_20h
+</td>
+<td style="text-align:right;">
+20161014
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+193
+</td>
+<td style="text-align:right;">
+0.171
+</td>
+<td style="text-align:right;">
+0.653
+</td>
+<td style="text-align:right;">
+0.093
+</td>
+<td style="text-align:right;">
+0.083
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_20h
+</td>
+<td style="text-align:right;">
+20161014
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+189
+</td>
+<td style="text-align:right;">
+0.302
+</td>
+<td style="text-align:right;">
+0.635
+</td>
+<td style="text-align:right;">
+0.005
+</td>
+<td style="text-align:right;">
+0.058
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_24h
+</td>
+<td style="text-align:right;">
+20161007
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+183
+</td>
+<td style="text-align:right;">
+0.262
+</td>
+<td style="text-align:right;">
+0.661
+</td>
+<td style="text-align:right;">
+0.033
+</td>
+<td style="text-align:right;">
+0.044
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_24h
+</td>
+<td style="text-align:right;">
+20161007
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+167
+</td>
+<td style="text-align:right;">
+0.323
+</td>
+<td style="text-align:right;">
+0.629
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.048
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_24h
+</td>
+<td style="text-align:right;">
+20180313
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+59
+</td>
+<td style="text-align:right;">
+0.203
+</td>
+<td style="text-align:right;">
+0.593
+</td>
+<td style="text-align:right;">
+0.136
+</td>
+<td style="text-align:right;">
+0.068
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_glcLac_lac
+</td>
+<td style="text-align:right;">
+20171114
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+180
+</td>
+<td style="text-align:right;">
+0.400
+</td>
+<td style="text-align:right;">
+0.550
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.050
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_glcLac_lac
+</td>
+<td style="text-align:right;">
+20180108
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+174
+</td>
+<td style="text-align:right;">
+0.448
+</td>
+<td style="text-align:right;">
+0.517
+</td>
+<td style="text-align:right;">
+0.011
+</td>
+<td style="text-align:right;">
+0.023
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_glcLac_lac
+</td>
+<td style="text-align:right;">
+20180606
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+53
+</td>
+<td style="text-align:right;">
+0.604
+</td>
+<td style="text-align:right;">
+0.396
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_gly_lac
+</td>
+<td style="text-align:right;">
+20170919
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+137
+</td>
+<td style="text-align:right;">
+0.518
+</td>
+<td style="text-align:right;">
+0.358
+</td>
+<td style="text-align:right;">
+0.022
+</td>
+<td style="text-align:right;">
+0.102
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_gly_lac
+</td>
+<td style="text-align:right;">
+20170920
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+142
+</td>
+<td style="text-align:right;">
+0.458
+</td>
+<td style="text-align:right;">
+0.437
+</td>
+<td style="text-align:right;">
+0.035
+</td>
+<td style="text-align:right;">
+0.070
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lacIoe
+</td>
+<td style="text-align:right;">
+20180116
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+177
+</td>
+<td style="text-align:right;">
+0.040
+</td>
+<td style="text-align:right;">
+0.853
+</td>
+<td style="text-align:right;">
+0.017
+</td>
+<td style="text-align:right;">
+0.090
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lacIoe
+</td>
+<td style="text-align:right;">
+20180123
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+163
+</td>
+<td style="text-align:right;">
+0.025
+</td>
+<td style="text-align:right;">
+0.902
+</td>
+<td style="text-align:right;">
+0.018
+</td>
+<td style="text-align:right;">
+0.055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lacIoe
+</td>
+<td style="text-align:right;">
+20180214
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+157
+</td>
+<td style="text-align:right;">
+0.045
+</td>
+<td style="text-align:right;">
+0.860
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.096
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lacIoe_preIPTG10uM
+</td>
+<td style="text-align:right;">
+20180604
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+174
+</td>
+<td style="text-align:right;">
+0.454
+</td>
+<td style="text-align:right;">
+0.466
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.080
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lacIoe_withIPTG10uM
+</td>
+<td style="text-align:right;">
+20180119
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+162
+</td>
+<td style="text-align:right;">
+0.296
+</td>
+<td style="text-align:right;">
+0.679
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.025
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lacIPTG5uM
+</td>
+<td style="text-align:right;">
+20180316
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+182
+</td>
+<td style="text-align:right;">
+0.489
+</td>
+<td style="text-align:right;">
+0.456
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.055
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_lactose_priming
+</td>
+<td style="text-align:right;">
+20161212
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+230
+</td>
+<td style="text-align:right;">
+0.222
+</td>
+<td style="text-align:right;">
+0.709
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.070
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_late
+</td>
+<td style="text-align:right;">
+20161021
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+130
+</td>
+<td style="text-align:right;">
+0.177
+</td>
+<td style="text-align:right;">
+0.492
+</td>
+<td style="text-align:right;">
+0.231
+</td>
+<td style="text-align:right;">
+0.100
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_late
+</td>
+<td style="text-align:right;">
+20170108
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+158
+</td>
+<td style="text-align:right;">
+0.285
+</td>
+<td style="text-align:right;">
+0.652
+</td>
+<td style="text-align:right;">
+0.019
+</td>
+<td style="text-align:right;">
+0.044
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_late
+</td>
+<td style="text-align:right;">
+20180516
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+166
+</td>
+<td style="text-align:right;">
+0.211
+</td>
+<td style="text-align:right;">
+0.723
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.066
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_late
+</td>
+<td style="text-align:right;">
+20180615
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+55
+</td>
+<td style="text-align:right;">
+0.836
+</td>
+<td style="text-align:right;">
+0.091
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.073
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_pre_lac001_10h
+</td>
+<td style="text-align:right;">
+20190614
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+115
+</td>
+<td style="text-align:right;">
+0.357
+</td>
+<td style="text-align:right;">
+0.530
+</td>
+<td style="text-align:right;">
+0.026
+</td>
+<td style="text-align:right;">
+0.087
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_pre_lac001_6h
+</td>
+<td style="text-align:right;">
+20190605
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+193
+</td>
+<td style="text-align:right;">
+0.435
+</td>
+<td style="text-align:right;">
+0.394
+</td>
+<td style="text-align:right;">
+0.093
+</td>
+<td style="text-align:right;">
+0.078
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_preIPTG5uM
+</td>
+<td style="text-align:right;">
+20180514
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+178
+</td>
+<td style="text-align:right;">
+0.601
+</td>
+<td style="text-align:right;">
+0.337
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.062
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_preIPTG5uM
+</td>
+<td style="text-align:right;">
+20180531
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+170
+</td>
+<td style="text-align:right;">
+0.529
+</td>
+<td style="text-align:right;">
+0.406
+</td>
+<td style="text-align:right;">
+0.012
+</td>
+<td style="text-align:right;">
+0.053
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_ramp15min
+</td>
+<td style="text-align:right;">
+20170901
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+139
+</td>
+<td style="text-align:right;">
+0.540
+</td>
+<td style="text-align:right;">
+0.367
+</td>
+<td style="text-align:right;">
+0.050
+</td>
+<td style="text-align:right;">
+0.043
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_ramp40min
+</td>
+<td style="text-align:right;">
+20171121
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+164
+</td>
+<td style="text-align:right;">
+0.244
+</td>
+<td style="text-align:right;">
+0.695
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.061
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_ramp40min
+</td>
+<td style="text-align:right;">
+20180319
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+195
+</td>
+<td style="text-align:right;">
+0.277
+</td>
+<td style="text-align:right;">
+0.672
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.051
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_withIPTG1uM
+</td>
+<td style="text-align:right;">
+20161130
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+225
+</td>
+<td style="text-align:right;">
+0.382
+</td>
+<td style="text-align:right;">
+0.560
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.058
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_withIPTG5uM
+</td>
+<td style="text-align:right;">
+20161207
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+178
+</td>
+<td style="text-align:right;">
+0.646
+</td>
+<td style="text-align:right;">
+0.331
+</td>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.017
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+switch_withIPTG5uM
+</td>
+<td style="text-align:right;">
+20180122
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+173
+</td>
+<td style="text-align:right;">
+0.913
+</td>
+<td style="text-align:right;">
+0.058
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.029
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>mycells_switching %&gt;% ungroup %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h&#39;) | condition==&#39;switch_long_lac&#39; ) %&gt;%
+  filter(switch_idx==1) %&gt;% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %&gt;% 
+  ggplot(aes(lag/60)) +
+  facet_grid(condition~variable, scales=&#39;free_y&#39;, labeller=as_labeller(rename_conds)) +
+  geom_histogram(aes(fill=factor(date)), alpha=.2, position=&#39;identity&#39;, binwidth=6) +
+  geom_step_hist(aes(col=factor(date)), position=&#39;identity&#39;, binwidth=6) +
+  xlim(0, 240) +
+  ggplot2::scale_color_discrete() + ggplot2::scale_fill_discrete() +
+  labs(x=&#39;lag after the switch (min)&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/histo%20control%20condn-1.svg" width="672" /></p>
+<pre class="r"><code>mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h&#39;) | condition==&#39;switch_long_lac&#39; | str_detect(condition, &#39;IPTG&#39;) ) %&gt;%
+  mutate(condition=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_long_lac&#39;,
+                          &#39;switch&#39;, condition)) %&gt;%
+  filter(switch_idx==1) %&gt;% 
+  gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+  mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(is.na(lag), -1, lag)) %&gt;% 
+  ggplot(aes(lag/60)) +
+  facet_grid(condition~variable, scales=&#39;free_y&#39;, labeller=as_labeller(rename_conds)) +
+  geom_histogram(aes(fill=factor(date), group=date), alpha=.2, position=&#39;identity&#39;, binwidth=6) +
+  geom_step_hist(aes(col=factor(date), group=date), position=&#39;identity&#39;, binwidth=6) +
+  xlim(0, 240) +
+  ggplot2::scale_color_discrete() + ggplot2::scale_fill_discrete() +
+  labs(x=&#39;lag after the switch (min)&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Lags_Estimation_files/figure-html/histo%20perturbations-1.svg" width="672" /></p>
+<pre class="r"><code># mycells_switching %&gt;% ungroup %&gt;%
+#   # filter(!condition %in% c(&#39;switch_08h&#39;)) %&gt;%
+#   filter(switch_idx==1) %&gt;%
+#   mutate(condition=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_long_lac&#39;,
+#                           &#39;switch&#39;, condition)) %&gt;%
+#   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;%
+#   mutate(lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+#          lag=ifelse(is.na(lag), -1, lag)) %&gt;%
+#   ggplot(aes(lag/60)) +
+#   facet_grid(variable~., scales=&#39;free_y&#39;, labeller=as_labeller(rename_conds)) +
+#   stat_ecdf(aes(y=1-..y.., col=condition), alpha=.8) + # , group=date
+#   xlim(0, 240) +
+#   ggplot2::scale_color_discrete() +
+#   labs(x=&#39;lag after the switch (min)&#39;)</code></pre>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

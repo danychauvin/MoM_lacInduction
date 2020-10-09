@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Thomas Julou" />
+
+
+<title>Diauxic lag in population growth curves</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Single-cell analysis of the glucose/lactose diauxic shift</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Mother machine experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_Lags_Estimation.html">Lags estimation</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_Controls.html">Controls</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_Native.html">Induction and memory of the native lac operon</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_PerturbRepressed.html">Perturbations of the repressed lac operon expression</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_lowLactose.html">lac induction at lower lactose concentrations</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_PopLagSimul.html">Simulation of population lags from distribution of single-cell lags</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Additional experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_FLIM.html">Fluorescence lifetime experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_diauxieGrowthCurves.html">Population lags in diauxie experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_QMS.html">Identification of SMT candidates in MS data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://github.com/julou/MoM_lacInduction">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Diauxic lag in population growth curves</h1>
+<h4 class="author">Thomas Julou</h4>
+<h4 class="date">09 October, 2020</h4>
+
+</div>
+
+
+<p>In order to study the diauxie at th epopulation level, we measured growth curves for several strains in different mixture of glucose + lactose. Since we want to monitor the lag when cells are far from stationary phase (to avoid interfering with the lag itself), we keep the glucose concentration low (0.05%).</p>
+<p>Let’s plot the growth curves for all strains (columns) in all conditions (rows):</p>
+<pre class="r"><code>read_csv(here(&#39;./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz&#39;)) %&gt;% as_tibble() %&gt;% 
+  filter(!discard) %&gt;% 
+  filter(time&gt;time_blank) %&gt;%
+  group_by(date, well) %&gt;% 
+  mutate(time_expt=time, time=time-min(time[od&gt;1e-2]),
+         # fit=row_number()&lt;which.max(od),
+         # fit=ifelse(glucose&gt;=0.05 &amp; lactose==0.02, fit&amp;time&lt;10*3600, fit),
+  ) %&gt;%
+  filter(od &gt; 6e-3) %&gt;% 
+  ggplot(aes(time/3600, od)) +
+  facet_grid(lactose+iptg~strain, labeller = labeller(.rows = label_both, .cols = label_value)) +
+  geom_point(stroke = 0, size = 0.5, alpha=.25) +
+  xlim(NA, 10) +
+  scale_y_log10() +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-1-1.svg" width="672" /></p>
+<div id="diauxic-lag-estimation" class="section level2">
+<h2>Diauxic lag estimation</h2>
+<p>In order to measure the lag, a precise reference growth curve can be obtained for a given glucose + lactose mixture by using the same nutrient concentration and supplementing cells with IPTG so that the <em>lac</em> operon is expressed at all time. The rationale is that the diauxic lag comes mostly from the triggering of the positive feedback and the expression of the first Lac proteins while the kinetics of lactose import, conversion to allolactose and binding to LacI are comparatively fast.</p>
+<p>In order to measure the lag, we compute the delay relative to the growth curve with IPTG induction.</p>
+<pre class="r"><code>(myplots[[&#39;diauxie_gcs&#39;]] &lt;- 
+   read_csv(here(&#39;./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz&#39;)) %&gt;% as_tibble() %&gt;% 
+   filter(!discard) %&gt;% 
+   filter(strain %in% c(&quot;ASC662&quot;), lactose==0.02) %&gt;% 
+   filter(time&gt;time_blank) %&gt;%
+   group_by(date, well) %&gt;% 
+   mutate(time_expt=time, time=time-min(time[od&gt;1e-2]),
+          fit=row_number()&lt;which.max(od),
+          fit=ifelse(glucose&gt;=0.05 &amp; lactose==0.02, fit&amp;time&lt;10*3600, fit),
+   ) %&gt;%   filter(od &gt; 6e-3) %&gt;% 
+   ggplot(aes(time/3600, od, group=interaction(date, well))) +
+   geom_line(aes(alpha=fit, col=paste0(iptg, &#39;µM&#39;))) +
+   scale_y_log10() +
+   scale_x_continuous(scales::pretty_breaks(n = 4)) +
+   xlim(NA, 9) +
+   scale_color_manual(values = c(&#39;0µM&#39;=ggCustomTJ::qual_cols[1], &#39;200µM&#39;=&#39;gray60&#39;)) +
+   # scale_color_brewer(palette=&quot;Set1&quot;) +
+   guides(alpha=&#39;none&#39;) + 
+   theme(legend.position = &#39;top&#39;) +
+   labs(x=&quot;time (h)&quot;, y=&quot;optical density (AU)&quot;, col=&#39;[IPTG]&#39;) +
+   NULL)</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-2-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;diauxie_delay&#39;]] &lt;- 
+    # mygcs %&gt;% 
+    # filter(!discard) %&gt;%
+    # filter(strain %in% c(&quot;ASC662&quot;), glucose==0.005, lactose==0.02) %&gt;%
+    # filter(iptg %in% c(0, 200) &amp; lactose %in% c(0.02, 0.2) &amp; glucose&gt;0) %&gt;% 
+    read_csv(here(&#39;./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz&#39;)) %&gt;% as_tibble() %&gt;% 
+    filter(!discard) %&gt;% 
+    filter(strain %in% c(&quot;ASC662&quot;), lactose==0.02) %&gt;% 
+    filter(time&gt;time_blank) %&gt;%
+    group_by(glucose, lactose, iptg, date, well) %&gt;% 
+    mutate(time_expt=time, time=time-min(time[od&gt;1e-2]),
+           fit=row_number()&lt;which.max(od),
+         fit=ifelse(glucose&gt;=0.05 &amp; lactose==0.02, fit&amp;time&lt;10*3600, fit)) %&gt;% 
+  nest() %&gt;% 
+  mutate(
+    approx = map(data, function(.df) filter(.df, fit, od&gt;0) %&gt;% with(approxfun(time, log(od)))),
+    approx_inv = map(approx, ~approxfun(.x(seq(0, 2e5, 1)), seq(0, 2e5, 1), ties=min)),
+    pred_approx = map(approx_inv, ~tibble(od=exp(seq(log(1e-2), log(1), length.out = 1000)) ) %&gt;%
+                        mutate(time=.x(log(od))) ),
+  ) %&gt;% 
+  unnest(pred_approx) %&gt;% 
+  group_by(iptg, od) %&gt;% 
+  summarise(time_n = sum(!is.na(time)), time_m = mean(time, na.rm=TRUE), 
+            time_se= (if (time_n==1) Inf else sd(time, na.rm=TRUE)/sqrt(time_n)) ) %&gt;% 
+  select(-time_n) %&gt;% 
+  pivot_wider(names_from = iptg, values_from = c(time_m, time_se)) %&gt;%
+  mutate(delay_m=time_m_0-time_m_200, delay_se=sqrt(time_se_200^2+time_se_0^2)) %&gt;% 
+  filter(is.finite(delay_se)) %&gt;% 
+  ggplot(aes(od, delay_m/60)) +
+  # geom_hline(aes(yintercept=delay, col=factor(lactose)), lty=&#39;dotted&#39;, data=mylags) +
+  geom_smooth(aes(ymin=(delay_m-delay_se)/60, ymax=(delay_m+delay_se)/60), size=.5, col=&#39;black&#39;, stat=&#39;identity&#39;) +
+  scale_x_log10(limits=c(8e-3, NA)) +
+  labs(x=&#39;OD&#39;, y=&quot;delay (min)&quot;) +
+  NULL) +
+  geom_segment(aes(x=.08, xend=.18, y=-3, yend=-3), data=NULL, lty=&#39;dotted&#39;) +
+  geom_segment(aes(x=.08, xend=.18, y=49, yend=49), data=NULL, lty=&#39;dotted&#39;) +
+  geom_segment(aes(x=.2, xend=.2, y=-3, yend=49), data=NULL, 
+               arrow=arrow(ends=&quot;both&quot;, type=&#39;closed&#39;, length = unit(0.1, &quot;inches&quot;))) +
+  annotate(&#39;text&#39;, .15, 25, label=&#39;lag&#39;, hjust=.5, vjust=0, angle=90) +
+  # scale_x_log10(limits=c(8e-3, .2)) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-2-2.svg" width="672" /></p>
+</div>
+<div id="diauxic-lag-at-lowhigh-glucose" class="section level2">
+<h2>Diauxic lag at low/high glucose</h2>
+<p>We then compare the lags with using two different lactose concentration for different strains spanning <em>E. coli</em> diversity:</p>
+<pre class="r"><code>(myplots[[&#39;diauxie_gcs_all&#39;]] &lt;- 
+   # mygcs %&gt;% 
+   # filter(!discard) %&gt;%
+   # filter(!strain %in% c(&quot;B4&quot;)) %&gt;%
+   # filter(iptg %in% c(0, 200) &amp; lactose %in% c(0.02, 0.2) &amp; glucose==0.005) %&gt;% 
+   # filter(time&gt;time_blank) %&gt;%
+   # group_by(date, well) %&gt;% 
+   # mutate(time_expt=time, time=time-min(time[od&gt;1e-2]),
+   #        fit=row_number()&lt;which.max(od),
+   #        fit=ifelse(glucose&gt;=0.05 &amp; lactose==0.02, fit&amp;time&lt;10*3600, fit),
+   #        fit=ifelse(time&gt;15*3600, FALSE, fit),
+   # ) %&gt;%
+   read_csv(here(&#39;./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz&#39;)) %&gt;% as_tibble() %&gt;% 
+   filter(!discard) %&gt;% 
+   filter(time&gt;time_blank) %&gt;%
+   group_by(date, well) %&gt;% 
+   mutate(time_expt=time, time=time-min(time[od&gt;1e-2]),
+          fit=row_number()&lt;which.max(od),
+          fit=ifelse(glucose&gt;=0.05 &amp; lactose==0.02, fit&amp;time&lt;10*3600, fit),
+          fit=ifelse(time&gt;15*3600, FALSE, fit),
+   ) %&gt;%   
+   filter(od &gt; 6e-3) %&gt;% 
+   ungroup() %&gt;% 
+   mutate(strain=fct_recode(strain, &#39;SC303&#39;=&#39;A1&#39;, &#39;SC305&#39;=&#39;A2&#39;, &#39;SC330&#39;=&#39;B4&#39;,
+                            &#39;SC347&#39;=&#39;C10&#39;, &#39;SC355&#39;=&#39;D6&#39;, &#39;SC366&#39;=&#39;E6&#39;),
+          strain=fct_relevel(strain, &quot;MG1655&quot;, &quot;ASC662&quot;),
+   ) %&gt;%
+   filter(! (lactose == 0.02 &amp; time &gt; 8*3600),
+          ! (lactose == 0.2 &amp; time &gt; 14*3600),) %&gt;% 
+   (function(.df)
+     ggplot(filter(.df, iptg==0), aes(time/3600, od, group=interaction(date, well))) +
+      facet_grid(strain~lactose, scales = &#39;free_x&#39;, space=&#39;free_x&#39;,
+                 labeller = labeller(.cols=function(.l) paste(&#39;[lactose] = &#39;, .l, &#39;%&#39;))) +
+      geom_line(aes(alpha=fit, col=paste0(lactose, &#39; %&#39;))) +
+      geom_line(aes(alpha=fit), col=&#39;gray60&#39;, data=filter(.df, iptg==200)) +
+      scale_x_continuous(breaks=seq(0, 20, 4)) +
+      scale_y_log10() +
+      guides(alpha=&#39;none&#39;) +
+      theme(legend.position = &#39;top&#39;) +
+      labs(x=&quot;time (h)&quot;, y=&quot;optical density (AU)&quot;, col=&#39;[IPTG]&#39;) +
+      NULL) 
+)</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-3-1.svg" width="672" /></p>
+<p>For each strain and condition, we compute the delay relative to the growth curve with IPTG induction in order to measure the lag:</p>
+<pre class="r"><code>read_csv(here(&#39;./data/Julou2020_lacInduction_DiauxieGrowthCurves.csv.gz&#39;)) %&gt;% as_tibble() %&gt;% 
+  filter(!discard) %&gt;% 
+  filter(time&gt;time_blank) %&gt;%
+  group_by(strain, glucose, lactose, iptg, date, well) %&gt;% 
+  mutate(time_expt=time, time=time-min(time[od&gt;1e-2]),
+         fit=row_number()&lt;which.max(od),
+         fit=ifelse(glucose&gt;=0.05 &amp; lactose==0.02, fit&amp;time&lt;10*3600, fit),
+         fit=ifelse(time&gt;15*3600, FALSE, fit),
+         ) %&gt;%
+  nest() %&gt;% 
+  mutate(
+        approx = map(data, function(.df) filter(.df, fit, od&gt;0) %&gt;% with(approxfun(time, log(od)))),
+        approx_inv = map(approx, ~approxfun(.x(seq(0, 2e5, 1)), seq(0, 2e5, 1), ties=min)),
+        pred_approx = map(approx_inv, ~tibble(od=exp(seq(log(1e-2), log(1), length.out = 1000)) ) %&gt;%
+                            mutate(time=.x(log(od))) ),
+  ) %&gt;% 
+  unnest(pred_approx) %&gt;% 
+  group_by(strain, glucose, lactose, iptg, od) %&gt;% 
+  summarise(time_n = sum(!is.na(time)), time_m = mean(time, na.rm=TRUE), 
+            time_se= (if (time_n==1) Inf else sd(time, na.rm=TRUE)/sqrt(time_n)) ) %&gt;% 
+  select(-time_n) %&gt;% 
+    # ggplot(aes(od, time_m/3600)) +
+    # facet_grid(lactose~glucose) +
+    # geom_smooth(aes(ymin=(time_m-time_se)/3600, ymax=(time_m+time_se)/3600, col=factor(iptg)), size=.5, stat=&#39;identity&#39;) +
+    # scale_x_log10(limits=c(8e-3, NA)) +
+    # scale_color_brewer(palette=&quot;Set1&quot;) +
+    # labs(y=&quot;time (h)&quot;)
+  pivot_wider(names_from = iptg, values_from = c(time_m, time_se)) %&gt;%
+  mutate(delay_m=time_m_0-time_m_200, delay_se=sqrt(time_se_200^2+time_se_0^2)) %&gt;%
+  ungroup() %&gt;% mutate(strain=factor(strain)) %&gt;% filter(!is.na(glucose)) %&gt;% 
+  ggplot(aes(od, delay_m/60, col=factor(lactose))) +
+  facet_grid(strain~lactose, label=label_both) +
+  # geom_hline(aes(yintercept=delays, col=factor(lactose)), lty=&#39;dotted&#39;, data=mylags2) +
+  geom_smooth(aes(ymin=(delay_m-delay_se)/60, ymax=(delay_m+delay_se)/60), size=.5, stat=&#39;identity&#39;) +
+  scale_x_log10(limits=c(8e-3, 0.5)) +
+  scale_y_continuous(minor_breaks = seq(-200, 500, 10)) +
+  coord_cartesian(ylim=c(-20, 80)) +
+  theme(legend.position = &#39;top&#39;) +
+  labs(y=&quot;delay (min)&quot;, col=&quot;[lactose]&quot;)</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-4-1.svg" width="672" /></p>
+<pre class="r"><code># ggsave(&#39;delays_SC1.pdf&#39;, width=12, height=8.5)</code></pre>
+<p>From delay plots, we measured the lags manually:</p>
+<pre class="r"><code>(myplots[[&#39;diauxie_lags&#39;]] &lt;- 
+   tribble(
+     # `delays` is the delay at the &quot;start&quot; of the lag (i.e. when growth curves with and without IPTG start to separate)
+     # `delayp` is the delay at the &quot;plateau&quot;
+     # errors are measured based on the delay standard errors
+     ~lactose,  ~strain, ~delays, ~delays_err, ~delayp, ~delayp_err,
+     0.02,    &quot;MG1655&quot;, 0,      0,           41,      1,
+     0.2,     &quot;MG1655&quot;, 4,      1,           34,      2,
+     
+     0.02,    &quot;ASC662&quot;, 0,      0,           53,      1,
+     0.2,     &quot;ASC662&quot;, 0,      1,           32,      2,
+     
+     0.02,    &quot;A1&quot;,     5,      2,           49,      2,
+     0.2,     &quot;A1&quot;,     2,      2,           37,        7,
+     
+     0.02,    &quot;A2&quot;,     4,      4,           83,        4,
+     0.2,     &quot;A2&quot;,     5,      3,           53,        3,
+     
+     0.02,    &quot;C10&quot;,    3,      2,           56,        2,
+     0.2,     &quot;C10&quot;,    10,     2,           34,        2,
+     
+     0.02,    &quot;D6&quot;,     1,      1,           37,        2,
+     0.2,     &quot;D6&quot;,     2,      2,           24,        1,
+     
+     0.02,    &quot;E6&quot;,     0,      2,           42,        3,
+     0.2,     &quot;E6&quot;,     0,      0,           21,        1,
+   ) %&gt;% 
+   mutate(glucose=0.005,
+          lag=delayp-delays, lag_err=sqrt(delayp_err^2+delays_err^2),
+          strain=fct_relevel(factor(strain), &quot;MG1655&quot;, &quot;ASC662&quot;),
+          strain=fct_recode(strain, &#39;SC303&#39;=&#39;A1&#39;, &#39;SC305&#39;=&#39;A2&#39;, &#39;SC330&#39;=&#39;B4&#39;, 
+                            &#39;SC347&#39;=&#39;C10&#39;, &#39;SC355&#39;=&#39;D6&#39;, &#39;SC366&#39;=&#39;E6&#39;)) %&gt;%  
+   ggplot(aes(strain, lag, col=paste0(lactose, &quot;%&quot;))) +
+   # geom_point() +
+   geom_pointrange(aes(ymin=lag-lag_err, ymax=lag+lag_err), 
+                   position=position_dodge(width = .25)) +
+   # scale_color_brewer(palette=&quot;Set1&quot;) +
+   expand_limits(x=0, y=0) +
+   labs(y=&quot;lag (min)&quot;, col=&quot;[lactose]&quot;) +
+   theme(legend.position = &#39;top&#39;) +
+   NULL )</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-5-1.svg" width="672" /></p>
+</div>
+<div id="controls" class="section level2">
+<h2>Controls</h2>
+<p>For lab strains only, we performed additional control experiments to disentangle the effect of lactose before and after glucose exhaustion (aka the “switch”), by taking cells from a given mixture of glucose + lactose and transfering them to another one:</p>
+<p>As a proxy for the population lag, we can measure the time taken to increase by 0.001 in OD (approx. 10% increase) after the start. NB: this is the smallest OD increment for which the estimation is stable; with smaller increment it is messed up by the fact that OD decreases at the start in most cases.</p>
+<p>The lag decrease in each panel corresponds to the effect of the lactose availability before the switch i.e. the fraction of cells with long lags decrease; the decrease from the left to the right panel corresponds to the effect of lactose concentration after the switch i.e. how the import gets faster for higher lactose concentrations. These two effetcs seem to be of similar magnitude.</p>
+<pre class="r"><code>(myplots[[&#39;diauxie_wash_ctrl&#39;]] &lt;- 
+   read_csv(here(&#39;./data/Julou2020_lacInduction_DiauxieGrowthCurves_WashCtrl.csv.gz&#39;)) %&gt;% as_tibble() %&gt;% 
+   group_by(date, row, col, lac_before, lac_after) %&gt;% 
+   nest() %&gt;% ungroup() %&gt;% 
+   mutate(date=as.character(date),
+          od_min = map_dbl(data, ~mean(.$od[between(.$time, 15*60, 45*60)])),
+          t2 = map2_dbl(data, od_min, ~min(.x$time[.x$od &gt; 2 * .y])),
+          t_min = map2_dbl(data, od_min, ~min(.x$time[.x$time  &gt;15*60 &amp; .x$od &gt; .y + 1e-3])), 
+   ) %&gt;% 
+   filter(t_min &gt; 17*60) %&gt;% # remove one case where estimation failed (before the end of the decrease at the start)
+   ggplot(aes(factor(lac_before), t_min/60)) +
+   facet_grid(~lac_after, scales=&#39;free_y&#39;,
+              labeller=as_labeller(paste0(&quot;[lactose] after the switch: &quot;, c(0.02, 0.2), &quot;%&quot;) %&gt;% set_names(c(0.02, 0.2)))) +
+   geom_jitter(aes(shape=date), col=&#39;gray80&#39;, width=.1) +
+   stat_summary(aes(col=paste0(lac_after, &quot;%&quot;)), fun.data=mean_se) +
+   expand_limits(y=0) +
+   labs(x=&#39;[lactose] before the switch (%)&#39;, y=&#39;population lag (min)&#39;, col=&#39;[lactose] after the switch&#39;) + 
+   guides(shape=&#39;none&#39;) +
+   NULL) +
+  # theme(legend.position = &#39;top&#39;, strip.background = element_blank(), strip.text = element_blank()) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_diauxieGrowthCurves_files/figure-html/unnamed-chunk-6-1.svg" width="672" /></p>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

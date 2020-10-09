@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Thomas Julou" />
+
+
+<title>Induction lags of the native lac operon</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Single-cell analysis of the glucose/lactose diauxic shift</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Mother machine experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_Lags_Estimation.html">Lags estimation</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_Controls.html">Controls</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_Native.html">Induction and memory of the native lac operon</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_PerturbRepressed.html">Perturbations of the repressed lac operon expression</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_lowLactose.html">lac induction at lower lactose concentrations</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+      <a href="MoM_lacInduction_PopLagSimul.html">Simulation of population lags from distribution of single-cell lags</a>
+    </li>
+  </ul>
+</li>
+<li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Additional experiments
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="MoM_lacInduction_FLIM.html">Fluorescence lifetime experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_diauxieGrowthCurves.html">Population lags in diauxie experiments</a>
+    </li>
+    <li>
+      <a href="MoM_lacInduction_QMS.html">Identification of SMT candidates in MS data</a>
+    </li>
+  </ul>
+</li>
+<li>
+  <a href="https://github.com/julou/MoM_lacInduction">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Induction lags of the native <em>lac</em> operon</h1>
+<h4 class="author">Thomas Julou</h4>
+<h4 class="date">09 October, 2020</h4>
+
+</div>
+
+
+<p>From mother machine experiments, we obtain time series of cell length (used as a proxy for biomass) and LacZ-GFP. Here is an example obtained in a given growth channel.</p>
+<pre class="r"><code># gfp_nb offset ≈ 100 to avoid stripping values and to keep background fluctuations visually small xxx
+(myplots[[&#39;raw_traces&#39;]] &lt;- function(.ylabel=1.3)
+  myframes %&gt;% ungroup() %&gt;% 
+  filter(date==20180206) %&gt;% 
+  group_by(date, pos, gl) %&gt;% 
+  ggCustomTJ::slice_groups(c(1)) %&gt;% 
+  filter(!discard_start, !discard_top,
+         time_sec&gt;2*3600) %&gt;%
+  filter(total_cell_in_lane-cell_num_in_lane&lt;5,
+         end_type %in% c(&#39;div&#39;, &#39;lost&#39;)) %&gt;% 
+  # ungroup() %&gt;% mutate(gfp_nb=gfp_nb - 2*min(gfp_nb)) %&gt;% 
+  ungroup() %&gt;% mutate(gfp_nb=gfp_nb + 135) %&gt;% 
+  gather(variable, value, length_um, gfp_nb) %&gt;% 
+  ggplot() +
+  # facet_grid(pos+gl~.) +
+  facet_wrap(~variable, scales=&#39;free_y&#39;, ncol=1, strip.position=&#39;left&#39;,
+             labeller=as_labeller(function(.str) {
+               .str &lt;- str_replace(.str, &quot;gfp_nb&quot;, &quot;LacZ-GFP\nmolecules&quot;)
+               .str &lt;- str_replace(.str, &quot;length_um&quot;, &quot;cell length \n(µm)&quot;)
+               return(.str)
+             }) ) +
+  geom_line(aes(time_sec-2*3600, value, col=ugen)) +
+  scale_colour_periodic(.n=3, guide=&#39;none&#39;) +
+  # show medium bar
+  geom_vline(aes(xintercept=m_start - 2*3600, group=1), alpha=.2, size=.5, 
+            data=condition_acq_times %&gt;% group_by(condition, medium, m_cycle) %&gt;% slice(1) %&gt;% 
+              filter(condition==&#39;switch_08h&#39;, m_cycle&lt;=2)) +
+  geom_rect(aes(xmin=m_start - 2*3600, xmax=m_end - 2*3600, ymin=.ylabel, ymax=1.5, fill=medium, group=1), show.legend=FALSE, #size=0.2,
+            data=condition_acq_times %&gt;% group_by(condition, medium, m_cycle) %&gt;% slice(1) %&gt;%
+              filter(condition==&#39;switch_08h&#39;, m_cycle&lt;=2) %&gt;% mutate(variable=&#39;length_um&#39;)) +
+  geom_text(aes(x=m_start+(m_end-m_start)/2 - 2*3600, y=.ylabel, label=medium, group=1), size=4, col=&#39;white&#39;, hjust=0.5, vjust=-0.5, 
+            data=condition_acq_times %&gt;% group_by(condition, medium, m_cycle) %&gt;% slice(1) %&gt;% 
+              filter(condition==&#39;switch_08h&#39;) %&gt;% mutate(variable=&#39;length_um&#39;, m_start=ifelse(m_start&lt;2*3600, 2*3600, m_start))) +
+  # scale_fill_manual(values=c(&#39;glucose&#39;=.fill[1], &#39;lactose&#39;=.fill[2]), guide=&#39;none&#39;) +
+  coord_cartesian(xlim=c(-3600*.4, 20.2*3600), expand=FALSE) +
+  scale_x_hours(4) +
+  scale_y_continuous(trans=&#39;log10&#39;, breaks=c(2, 3, 4, 100, 500, 2500)) +
+  theme(strip.placement=&#39;outside&#39;, strip.background.y=element_blank(),
+        axis.title.y=element_blank()) +
+  NULL
+ )()</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-1-1.svg" width="672" /></p>
+<div id="lac-induction-lags-in-naive-cells" class="section level2">
+<h2><em>lac</em> induction lags in naive cells</h2>
+<p>We are interested in the time taken by cells to induce the <em>lac</em> operon when exposed to lactose as the only nutrient. This “<em>lac</em> induction lag” is estimated from the LacZ-GFP time series of each cell after the switch. Note that at the first switch, all experiments with variable duration in glucose before the second switch are equivalent and are used together to plot the distribution of lags in “naive” cells (which have not seen lactose before).</p>
+<pre class="r"><code>(myplots[[&#39;naive_lags_hist&#39;]] &lt;- mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1) %&gt;%
+  # mutate(lag=ifelse(lag&lt;240*60, lag, 245*60),
+         # lag=ifelse(is.na(lag), -10, lag)) %&gt;% 
+  ggplot(aes(x=lag_200/60)) +
+   geom_density(stat=&#39;bin&#39;, fill=qual_cols[2], col=&#39;transparent&#39;, alpha=.2, binwidth=3) +
+   geom_freqpoly(col=qual_cols[2], binwidth=3, show.legend=FALSE) +
+   labs(x=lac_lags_label) +
+   coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+   NULL
+) +
+  labs(subtitle=&#39;naive cells (9 independent experiments)&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-2-1.svg" width="672" /></p>
+<pre class="r"><code>mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1) %&gt;%
+  mutate(
+    lag_type=lag_200,
+    lag_type=as.character(lag_type), lag_type=ifelse(is.na(lag_type), &#39;NA&#39;, lag_type),
+    lag_type=ifelse(is.finite(as.numeric(lag_type)) &amp; as.numeric(lag_type)&lt;50*60, &#39;short lags&#39;, lag_type),
+    lag_type=ifelse(is.finite(as.numeric(lag_type)) &amp; as.numeric(lag_type)&gt;=50*60, &#39;long lags&#39;, lag_type) ) %&gt;%
+  group_by(lag_type) %&gt;% 
+  summarise(n=n(), m=mean(lag_200/60), sd=sd(lag_200/60)) %&gt;% 
+  ungroup() %&gt;% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %&gt;% 
+  knitr::kable(digits=3) %&gt;% 
+  kableExtra::kable_styling() %&gt;% 
+  identity()</code></pre>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+lag_type
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+m
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+p
+</th>
+<th style="text-align:right;">
+p_se
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+52
+</td>
+<td style="text-align:right;">
+Inf
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+0.032
+</td>
+<td style="text-align:right;">
+0.024
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+1061
+</td>
+<td style="text-align:right;">
+89.601
+</td>
+<td style="text-align:right;">
+33.097
+</td>
+<td style="text-align:right;">
+0.650
+</td>
+<td style="text-align:right;">
+0.015
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+106
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+0.065
+</td>
+<td style="text-align:right;">
+0.024
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+414
+</td>
+<td style="text-align:right;">
+34.261
+</td>
+<td style="text-align:right;">
+7.056
+</td>
+<td style="text-align:right;">
+0.254
+</td>
+<td style="text-align:right;">
+0.021
+</td>
+</tr>
+</tbody>
+</table>
+<p>Although the distributions vary from day to day, the bimodality is obserevd in all replicates (particularly visible in the panel with overlayed distributions).</p>
+<pre class="r"><code>(myplots[[&#39;naive_lags_per_expt_facet&#39;]] &lt;- function(na.rm=TRUE)
+  mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1) %&gt;%
+  mutate(lag=lag_200,
+         lag=ifelse(is.finite(lag) &amp; lag&gt;240*60, 240*60, lag), 
+         lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+         lag=ifelse(!na.rm &amp; is.na(lag), -1, lag)) %&gt;% 
+  # (function(.df) bind_rows(.df, .df %&gt;% mutate(date=NA, condition=&#39;all&#39;)) ) %&gt;% 
+  (function(.df)
+    ggplot(.df, aes(x=lag/60)) +
+     facet_wrap(~condition+date, ncol=2, dir=&#39;v&#39;,
+                strip.position=&#39;right&#39;, labeller=as_labeller(rename_conds)) +
+     # geom_freqpoly(aes(col=lag/60 &gt; 236), binwidth=6, show.legend=FALSE) +
+     geom_freqpoly(breaks=seq(0, 240, 6)-3, pad=TRUE, show.legend=FALSE) + 
+     geom_freqpoly(aes(col=factor(date_col)), breaks=seq(0, 240, 6)-3, pad=TRUE, show.legend=FALSE,
+                   data=.df %&gt;% mutate(date_col=date, date=NA, condition=&#39;all&#39;)) +
+     labs(x=lac_lags_label) +
+     coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+     scale_colour_periodic() +
+     NULL
+  )
+ )(FALSE) +
+  labs(subtitle=&#39;naive cells&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-6-1.svg" width="672" /></p>
+<p>Noticeably a small fraction of cells don’t induce even after 4h; here we check that this fraction is not higher in bottom cells (otherwise it would indicate that this fraction is overall underestimated since bottom cells don’t have the bias of long lags being more truncated).</p>
+<pre class="r"><code>mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) ) %&gt;%
+  filter(switch_idx==1) %&gt;%
+  (function(.df) bind_rows(
+    .df %&gt;% mutate(sample=&#39;all cells&#39;),
+    .df %&gt;% filter(cell_num_from_bottom==0) %&gt;% mutate(sample=&#39;bottom cells&#39;) )) %&gt;% 
+  mutate(lag_200=as.character(lag_200), lag_200=ifelse(is.na(lag_200), &#39;NA&#39;, lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) &amp; as.numeric(lag_200)&lt;50*60, &#39;short lags&#39;, lag_200),
+         lag_200=ifelse(is.finite(as.numeric(lag_200)) &amp; as.numeric(lag_200)&gt;=50*60, &#39;long lags&#39;, lag_200) ) %&gt;%
+  group_by(sample, lag_200) %&gt;% 
+  summarise(n=n()) %&gt;% 
+  group_by(sample) %&gt;% mutate(p=n/sum(n), p_se=sqrt(p*(1-p)/n)) %&gt;% 
+  rename(&quot;lag type&quot;=lag_200) %&gt;% 
+  knitr::kable(digits=3) %&gt;% 
+  kableExtra::kable_styling() %&gt;% 
+  identity()</code></pre>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+sample
+</th>
+<th style="text-align:left;">
+lag type
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+p
+</th>
+<th style="text-align:right;">
+p_se
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+all cells
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+52
+</td>
+<td style="text-align:right;">
+0.032
+</td>
+<td style="text-align:right;">
+0.024
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+all cells
+</td>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+1061
+</td>
+<td style="text-align:right;">
+0.650
+</td>
+<td style="text-align:right;">
+0.015
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+all cells
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:right;">
+106
+</td>
+<td style="text-align:right;">
+0.065
+</td>
+<td style="text-align:right;">
+0.024
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+all cells
+</td>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+414
+</td>
+<td style="text-align:right;">
+0.254
+</td>
+<td style="text-align:right;">
+0.021
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bottom cells
+</td>
+<td style="text-align:left;">
+Inf
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+0.049
+</td>
+<td style="text-align:right;">
+0.058
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bottom cells
+</td>
+<td style="text-align:left;">
+long lags
+</td>
+<td style="text-align:right;">
+195
+</td>
+<td style="text-align:right;">
+0.689
+</td>
+<td style="text-align:right;">
+0.033
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+bottom cells
+</td>
+<td style="text-align:left;">
+short lags
+</td>
+<td style="text-align:right;">
+74
+</td>
+<td style="text-align:right;">
+0.261
+</td>
+<td style="text-align:right;">
+0.051
+</td>
+</tr>
+</tbody>
+</table>
+<p>Using a gradual transition for glucose to lactose over 40 minutes, we verify that the bimodal distribution of <em>lac</em> induction lags is not a consequence of the abrupt change.<br />
+NB: since the concentration at which cells start to sense the low glucose / lactose is unknown, the lag in the gradual transition experiments are shifted so as to match the value of the step condition.</p>
+<!-- in order to have a not-too-short period with low glucose (> 0) and lactose, cells are switched from 0.002% glucose (≈100µM) to 0.2% lactose. CRP is supposed to kick in around 20-50µM (cf T. Hwa) -->
+<pre class="r"><code>(myplots[[&#39;lags_hist_ramp&#39;]] &lt;- 
+# xxx add n per condition
+   mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(switch_idx==1) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_ramp40min&#39;) %&gt;% 
+  mutate(condition=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;), &#39;step (control)&#39;, &#39;ramp (40 min)&#39;),
+         condition=fct_relevel(condition, &#39;step&#39;) ) %&gt;% 
+  mutate(lag=lag_200, 
+         # lag=ifelse(lag&gt;240*60, Inf, lag),
+         # lag=ifelse(!is.infinite(lag), lag, 241*60),
+         # lag=ifelse(is.na(lag), -200, lag)
+         ) %&gt;% 
+  (function(.df)
+    ggplot(.df, aes(x=lag/60, y=..density..)) +
+     geom_density(stat=&#39;bin&#39;, fill=qual_cols[1], col=&#39;transparent&#39;, alpha=.2, binwidth=6,
+                  data=(filter(.df, condition==&#39;ramp (40 min)&#39;)) ) +
+     geom_freqpoly(aes(col=condition), binwidth=6, position=&#39;identity&#39;) +
+     labs(x=lac_lags_label) +
+     # xlim(0, 240) +
+     # theme(strip.background=element_rect(fill=&#39;gray95&#39;, colour=&#39;transparent&#39;),
+     #       legend.key.size=unit(.8, &quot;lines&quot;) ) +
+     theme(legend.position=c(1, 1), legend.justification=c(1, 1) ) +
+     coord_cartesian(xlim=c(0, 240)) +
+     NULL)
+)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-9-1.svg" width="672" /></p>
+<div id="effect-of-lacz-gfp-fluorescence-at-the-switch" class="section level3">
+<h3>Effect of LacZ-GFP fluorescence at the switch</h3>
+<pre class="r"><code>mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1, !is.na(lag_200)) %&gt;% 
+  mutate(type=ifelse(lag_200/60&lt;50, &#39;short&#39;, &#39;long&#39;)) %&gt;% 
+  ggplot(aes(gfp_ini, ..density..)) + 
+  facet_grid(date~.) +
+  geom_freqpoly(aes(col=type), binwidth=10) +
+  NULL</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-10-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;lags_gfp_scatter&#39;]] &lt;- function(.fit=FALSE)
+  mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1, !is.na(lag_200)) %&gt;% 
+  mutate(type=ifelse(lag_200/60&lt;50, &#39;short&#39;, &#39;long&#39;)) %&gt;% 
+  group_by(date) %&gt;%
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %&gt;%
+  ggplot(aes(gfp_ini, lag_200/60)) + 
+  geom_hline(yintercept = 50, lty=&#39;dashed&#39;) +
+  geom_point(aes(col=type), size=1, alpha=.2, stroke=0) +
+  (if (.fit) stat_smooth(method=MASS::rlm, col=&#39;black&#39;, fullrange = TRUE)) +
+  labs(x=&#39;fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)&#39;, y=lac_lags_label) +
+  guides(col=guide_legend(override.aes = list(size=2, alpha=1))) +
+  coord_cartesian(xlim=c(-60, 120)) +
+  NULL
+ )()</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-12-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;lags_gfp_diff_cdf&#39;]] &lt;- mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1, !is.na(lag_200)) %&gt;% 
+  mutate(type=ifelse(lag_200/60&lt;50, &#39;short&#39;, &#39;long&#39;)) %&gt;% 
+  select(date, type, gfp_ini) %&gt;% 
+  bind_rows(myframes %&gt;% ungroup %&gt;% 
+              filter(condition==&#39;mg1655&#39;) %&gt;%
+              filter(!discard_start, !discard_top) %&gt;% 
+              filter(between(length_um, 2, 3.5)) %&gt;% 
+              select(date, gfp_ini=gfp_nb) %&gt;% mutate(type=&#39;control&#39;), .) %&gt;% 
+  group_by(date) %&gt;% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %&gt;%
+  ggplot(aes(gfp_ini, col=type)) + 
+  # facet_grid(date~.) +
+  stat_ecdf(aes(y=1-..y..)) +
+  # geom_freqpoly(aes(y=..density..), binwidth=10) +
+  scale_color_manual(name=&#39;type of lac\ninduction lag&#39;, breaks=c(&#39;control&#39;, &#39;long&#39;, &#39;short&#39;), values=c(&#39;gray50&#39;, qual_cols[1], qual_cols[2])) +
+  labs(x=&#39;fluorescence at the switch\n(centered per experiment; equivalent GFP molecules)&#39;, y=&#39;reverse cumulative\nprobability&#39;) +
+  coord_cartesian(xlim=c(-60, 120)) +
+  NULL)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-13-1.svg" width="672" /></p>
+<pre class="r"><code>mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1, !is.na(lag_200)) %&gt;% 
+  mutate(type=ifelse(lag_200/60&lt;50, &#39;short&#39;, &#39;long&#39;)) %&gt;% 
+  group_by(date) %&gt;% 
+  mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %&gt;%
+  with(t.test(gfp_ini[type==&#39;short&#39;], gfp_ini[type==&#39;long&#39;], var.equal=TRUE, alternative = &#39;greater&#39;))</code></pre>
+<pre><code>## 
+##  Two Sample t-test
+## 
+## data:  gfp_ini[type == &quot;short&quot;] and gfp_ini[type == &quot;long&quot;]
+## t = 4.4089, df = 1525, p-value = 5.558e-06
+## alternative hypothesis: true difference in means is greater than 0
+## 95 percent confidence interval:
+##  4.170343      Inf
+## sample estimates:
+## mean of x mean of y 
+##  4.850311 -1.804159</code></pre>
+<pre class="r"><code>(myplots[[&#39;naive_lags_correl&#39;]] &lt;- mycells_switching %&gt;% ungroup %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==1, !is.na(lag_200)) %&gt;% 
+  mutate(type=ifelse(lag_200/60&lt;50, &#39;short&#39;, &#39;long&#39;)) %&gt;%
+  left_join(myframes_switching %&gt;% ungroup %&gt;%  #filter(ugen %in% unique(ugen)[1:5]) %&gt;% 
+              filter(time_sec&lt;t_lac_switch) %&gt;% 
+              # ggplot() + geom_line(aes(time_sec-t_lac_switch, length_um, lty=type, col=ugen)) +
+              # scale_colour_periodic_brewer(guide=&#39;none&#39;)
+              group_by(ugen) %&gt;% 
+              filter(time_sec==min(time_sec), time_sec&gt;0) %&gt;% 
+              select(ugen, length_um_birth=length_um) ) %&gt;% 
+  mutate(cc=(t_lac_switch-time_birth) / 
+           # average growth rate in glucose
+           ( mycells_constant %&gt;% filter(condition==&#39;glucose&#39;) %&gt;% 
+           mutate(dt=time_div-time_birth) %&gt;% pull(dt) %&gt;% mean ),
+         dl=length_ini - length_um_birth,
+         growth_rate=logl_time_slope_before/log(2)*3600) %&gt;% 
+  select(date, lag_200, type, length_ini, gfp_ini, growth_rate, cc, dl) %&gt;% 
+  # group_by(date) %&gt;% 
+  # mutate(gfp_ini=(gfp_ini-mean(gfp_ini))) %&gt;%
+  filter(cc &lt; 1.5) %&gt;% 
+  gather(variable, value, -date, -lag_200, -type) %&gt;%
+  group_by(variable) %&gt;% 
+  filter(between(value, quantile(value, 0.01, na.rm=TRUE), quantile(value, 0.99, na.rm=TRUE))) %&gt;% 
+  (function(.df)
+    ggplot(.df, aes(value, lag_200/60)) + 
+     facet_wrap(~variable, nrow=1, scales=&#39;free_x&#39;, strip.position=&#39;bottom&#39;,
+                labeller=as_labeller(function(.str) {
+                  .str &lt;- str_replace(.str, &quot;cc&quot;, &quot;cell cycle&quot;)
+                  .str &lt;- str_replace(.str, &quot;dl&quot;, &quot;added length\n(µm)&quot;)
+                  .str &lt;- str_replace(.str, &quot;gfp_ini&quot;, &quot;LacZ-GFP&quot;)
+                  .str &lt;- str_replace(.str, &quot;growth_rate&quot;, &quot;growth rate\n(dbl/h)&quot;)
+                  return(.str)
+                })) +
+     geom_hline(yintercept = 50, lty=&#39;dashed&#39;) +
+     geom_point(aes(col=type), size=1, alpha=.2, stroke=0) +
+     # stat_smooth(method=MASS::rlm, col=&#39;black&#39;, fullrange = TRUE) + 
+     geom_text(aes(-Inf, 0, label=r2str), size=5, hjust=-0.1, vjust=0, parse=TRUE,
+               data=.df %&gt;% filter(is.finite(lag_200)) %&gt;% group_by(variable) %&gt;% summarise(r2=cor(value, lag_200)^2) %&gt;% mutate(r2str=sprintf(&quot;r^2 == &#39;%.4f&#39;&quot;, round(r2, digits=4)))) +
+     scale_x_continuous(breaks = scales::pretty_breaks(n = 3)) +
+     expand_limits(y=0) +
+     guides(col=guide_legend(override.aes = list(size=2, alpha=1))) +
+     labs(y=lac_lags_label, col=expression(paste(&quot;type of &quot;, italic(&quot;lac&quot;), &quot; induction lag (min)&quot;))) +
+     theme(legend.position = &#39;top&#39;,
+           strip.placement=&#39;outside&#39;, strip.background.x=element_blank(), 
+           axis.title.x=element_blank(), strip.text.x=element_text(size=rel(1.2), vjust = 1)) +
+     NULL )
+)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-16-1.svg" width="672" /></p>
+</div>
+</div>
+<div id="growth-arrest-at-the-switch-to-lactose" class="section level2">
+<h2>Growth arrest at the switch to lactose</h2>
+<p>All naive cells stop growing for at least 9’, 99% for at least 15’.</p>
+<pre class="r"><code>(myplots[[&#39;naive_arrest_cdf&#39;]] &lt;-
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+   filter(switch_idx==1) %&gt;%
+   # mutate(lag=ifelse(lag&lt;240*60, lag, 245*60),
+   # lag=ifelse(is.na(lag), -10, lag)) %&gt;% 
+   ggplot(aes(x=growth_lag/60)) +
+   stat_ecdf(aes(y=1-..y.., col=switch_idx), show.legend=FALSE) +
+   labs(x=&#39;time after the switch (min)&#39;, y=&#39;fraction of growth arrested cells&#39;) +
+   coord_cartesian(xlim=c(0, 240), ylim=c(0, 1.05)) +
+   scale_x_continuous(expand = expand_scale(0, 0)) +
+   scale_y_continuous(expand = expand_scale(0, 0)) +
+   NULL
+) +
+  labs(subtitle=&#39;naive cells (9 independent experiments)&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-17-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;naive_arrest_hist&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+   filter(switch_idx==1) %&gt;%
+   # mutate(lag=ifelse(lag&lt;240*60, lag, 245*60),
+   # lag=ifelse(is.na(lag), -10, lag)) %&gt;% 
+   ggplot(aes(x=growth_lag/60)) +
+   geom_density(stat=&#39;bin&#39;, fill=qual_cols[1], col=&#39;transparent&#39;, alpha=.2, binwidth=3) +
+   geom_freqpoly(aes(col=&#39;growth lag&#39;), binwidth=3) +
+   geom_freqpoly(aes(lag_200/60, col=&#39;induction lag&#39;), alpha=.4, binwidth=3) +
+   labs(x=&#39;growth lag (min)&#39;, col=&#39;lag type&#39;) +
+   # coord_cartesian(xlim=c(-10, 240), expand=FALSE) +
+   theme(legend.position = c(1, 1), legend.justification = c(1,1)) +
+   NULL
+) +
+  labs(subtitle=&#39;naive cells (9 independent experiments)&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-18-1.svg" width="672" /></p>
+</div>
+<div id="memory-of-lag-between-switches" class="section level2">
+<h2>Memory of lag between switches</h2>
+<p>At the second switch, we observe that there is no effect of the lag of the ancestor at the first switch.</p>
+<pre class="r"><code>mypairs_memory &lt;- mycells_switching %&gt;% 
+  group_by(condition, date, pos, gl) %&gt;% 
+  do((function(.df_gl){
+    # browser()
+    # if(.df_gl$ugen[1]==&#39;20150703.4.15.0:BBBBBBB&#39;) browser()
+    .geneals_sw1 &lt;- .df_gl %&gt;% filter(switch_idx==1) %&gt;% with(genealogy)
+    if (nrow(.df_gl %&gt;% filter(switch_idx==2)) == 0) return(data.frame())
+    .df_gl %&gt;% filter(switch_idx==2) %&gt;% 
+      select(genealogy_2=genealogy, lag_2=lag_200, discard_arrested_2=discard_arrested, 
+             logl_time_slope_pre_2=logl_time_slope_pre) %&gt;% group_by(genealogy_2) %&gt;% 
+      # with(which_is_parent_cid(genealogy, .geneals_sw1))
+      mutate(genealogy_1=which_is_parent_cid(genealogy_2, .geneals_sw1),
+             genealogy_1=ifelse(genealogy_1&gt;0, .geneals_sw1[genealogy_1], NA) )
+    })(.)) %&gt;% 
+  left_join(mycells_switching %&gt;% ungroup %&gt;% 
+              select(date, pos, gl, genealogy_1=genealogy, lag_1=lag_200, discard_arrested_1=discard_arrested,
+                     logl_time_slope_pre_1=logl_time_slope_pre) )
+
+(myplots[[&#39;lag_memory&#39;]] &lt;- 
+    mypairs_memory %&gt;% 
+    filter(!date %in% discarded_dates) %&gt;%
+    filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_long_lac&#39;) %&gt;%
+    filter(!discard_arrested_1, !discard_arrested_2) %&gt;% 
+    # filter(logl_time_slope_pre_1 &gt; min_growth_rate, logl_time_slope_pre_2 &gt; min_growth_rate) %&gt;% 
+    ggplot() +
+    facet_wrap(~condition, strip.position=&#39;right&#39;, labeller=as_labeller(rename_conds)) +
+    # geom_abline(lty=&#39;dotted&#39;, alpha=.5) +
+    geom_hline(yintercept = 50, lty=&#39;dotted&#39;, alpha=.5) +
+    geom_point(aes(lag_1/60, lag_2/60), alpha=.2, stroke=0) +
+    expand_limits(x=0, y=0) +
+    labs(x=&quot;ancestor&#39;s lag at first switch (min)&quot;, y=&quot;lag at second switch (min)&quot;) +
+    NULL
+)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-19-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;lag_memory_aggreg&#39;]] &lt;- 
+    mypairs_memory %&gt;% 
+    filter(!date %in% discarded_dates) %&gt;%
+    filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_long_lac&#39;) %&gt;%
+    filter(!discard_arrested_1, !discard_arrested_2) %&gt;% 
+    group_by(condition, lag_1, lag_2) %&gt;% 
+    summarise(n=n()) %&gt;% 
+    (function(.df)
+      ggplot(.df) +
+       facet_wrap(~condition, strip.position=&#39;right&#39;, labeller=as_labeller(rename_conds)) +
+       # geom_abline(lty=&#39;dotted&#39;, alpha=.5) +
+       geom_hline(yintercept = 50, lty=&#39;dotted&#39;, alpha=.5) +
+       geom_point(aes(lag_1/60, lag_2/60, size=n)) +
+       scale_size_continuous(range=c(1.2/max(.df$n), 1.2), breaks=c(2, 5, 8)) +
+       expand_limits(x=0, y=0) +
+       labs(x=&quot;ancestor&#39;s lag at first switch (min)&quot;, y=&quot;lag at second switch (min)&quot;) +
+       NULL
+    )
+)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-19-2.svg" width="672" /></p>
+<p>This is also true when looking only at bottom cells (which are present at both switch, or which might be different in case of molecular deterimnants of the lag would be accumulated at the old cell pole), or when looking at the average in each growth channel (since lags are highly correlated within a lineage) <!-- cite Kaiser2018 --></p>
+<pre class="r"><code>(myplots[[&#39;lag_memory_bottom&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(cell_num_from_bottom==0) %&gt;% # bottom_cell
+   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+   select(condition, date, pos, gl, switch_idx, variable, lag) %&gt;% 
+   mutate(name_col=paste0(&#39;lag_&#39;, switch_idx), switch_idx=NULL) %&gt;% 
+   spread(name_col, lag) %&gt;%
+   filter(variable==&#39;lag_200&#39;) %&gt;% 
+   ggplot() +
+   facet_wrap(~condition+date, labeller=as_labeller(rename_conds), strip.position=&#39;right&#39;) +
+   # geom_abline(lty=&#39;dotted&#39;, alpha=.5) +
+   geom_hline(yintercept = 50, lty=&#39;dotted&#39;, alpha=.5) +
+   geom_point(aes(lag_1/60, lag_2/60), alpha=.5, stroke=0) +
+   scale_x_continuous(breaks=seq(0, 1000, by=100)) +
+   scale_y_continuous(breaks=seq(0, 1000, by=100)) +
+   expand_limits(x=0, y=0) +
+   labs(x=&#39;lag at first switch (min)&#39;, y=&#39;lag at second switch (min)&#39;) +
+   NULL
+) +
+  labs(subtitle=&#39;bottom cells&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-20-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;lag_memory_avg&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+   gather(variable, lag, growth_lag, gfp_lag, lag_200, factor_key=TRUE) %&gt;% 
+   filter(is.finite(lag)) %&gt;% 
+   # compute stats per GL, per switch, per variable
+   group_by(condition, date, pos, gl, variable, switch_idx) %&gt;% 
+   summarise(mean_lag=mean(lag)) %&gt;% 
+   mutate(name_col=paste0(&#39;mean_lag_&#39;, switch_idx), switch_idx=NULL) %&gt;% 
+   spread(name_col, mean_lag) %&gt;%
+   filter(variable==&#39;lag_200&#39;) %&gt;% 
+   ggplot(aes(mean_lag_1/60, mean_lag_2/60)) +
+   facet_wrap(~condition+date, labeller=as_labeller(rename_conds), strip.position=&#39;right&#39;) +
+   # facet_grid(condition~variable, labeller=as_labeller(rename_conds)) +
+   # geom_abline(lty=&#39;dotted&#39;, alpha=.5, stroke=0) +
+   geom_hline(yintercept = 50, lty=&#39;dotted&#39;, alpha=.5) +
+   geom_point(alpha=.4) +
+   scale_x_continuous(breaks=seq(0, 1000, by=100)) +
+   labs(x=&#39;average lag at first switch (min)&#39;, y=&#39;average lag at second switch (min)&#39;) +
+   NULL
+) +
+  labs(subtitle=&#39;average in growth channel&#39;)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-21-1.svg" width="672" /></p>
+</div>
+<div id="effect-of-lac-proteins-inheritance-at-the-second-switch" class="section level2">
+<h2>Effect of Lac proteins inheritance at the second switch</h2>
+<p>In contrastm, we can analyse the impact of LacZ-GFP molecules inherited from the ancestor’s induction during the first switch.</p>
+<p>First, let’s look at the distribution of induction lags at the second switch. The medians are ordered according to the delay between the two lactose exposures (which supports the idea of a molecular memory). It takes surprising long (16 to 20h i.e. 12 to 16 divisions) to relax to the lag distribution observed in naive cells.</p>
+<pre class="r"><code>(myplots[[&#39;memory_cdfs_facets&#39;]] &lt;- 
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;% 
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_late&#39;) %&gt;%
+   mutate(lag=lag_200,
+          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
+          lag=ifelse(is.na(lag), -1, lag)) %&gt;% 
+   filter(switch_idx %in% 1:2) %&gt;% 
+   ggplot(aes(x=lag/60)) +
+   facet_grid(switch_idx~., labeller=as_labeller(function(.str) paste0(&#39;switch: &#39;, .str)) ) +
+   stat_ecdf(aes(y=1-..y.., col=condition, group=date), geom=&#39;line&#39;) +
+   labs(x=lac_lags_label, y=&#39;reverse cumulative probability&#39;, col=&#39;condition&#39;) +
+   scale_color_hue() +
+   scale_color_manual(name=&#39;delay between\nlactose exposure&#39;,
+                      limits=c(sprintf(&#39;switch_%02dh&#39;, seq(4, 24, 4)), &#39;switch_late&#39;),
+                      labels=c(sprintf(&#39;%dh&#39;, seq(4, 24, 4)), &#39;control (late)&#39;),
+                      values=c(scales::viridis_pal()(6), &#39;gray70&#39;) ) +
+   NULL
+)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-22-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;memory_cdfs&#39;]] &lt;-
+   mycells_switching %&gt;% ungroup() %&gt;% 
+   filter(!date %in% discarded_dates) %&gt;%
+   filter(!discard_arrested) %&gt;%
+   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_late&#39;) %&gt;%
+   mutate(lag=lag_200,
+          lag=ifelse(lag&gt;240*60, Inf, lag),
+          # lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+1e6),
+          # lag=ifelse(is.na(lag), -1e6, lag),
+          condition = ifelse(str_detect(condition, &quot;switch_\\d+h&quot;),
+                             str_replace(condition, &quot;switch_0?&quot;, &quot;&quot;), condition),
+          ) %&gt;% 
+   # group_by(condition, switch_idx) %&gt;% summarise(n())
+   (function(.df)
+     ggplot(data=NULL, aes(x=lag/60, y=1-..y.., col=condition, lty=condition)) +
+      stat_ecdf(aes(col=&#39;control&#39;, lty=&#39;control&#39;), geom=&#39;line&#39;, size=rel(0.75), show.legend = FALSE,
+                data=filter(.df, switch_idx==1, condition != &#39;switch_late&#39;)) +
+      stat_ecdf(aes(col=&#39;control (late)&#39;, lty=&#39;control (late)&#39;), geom=&#39;line&#39;, size=rel(0.75), show.legend = FALSE,
+                data=filter(.df, switch_idx==1, condition == &#39;switch_late&#39;)) +
+      stat_ecdf(geom=&#39;line&#39;, #size=.3,
+                data=filter(.df, switch_idx==2)) +
+      # geom_rect(aes(x=NULL), xmin=-Inf, xmax=0, ymin=-Inf, ymax=Inf, fill=&#39;white&#39;, col=&#39;transparent&#39;,
+                # data=data.frame()) +
+      scale_color_manual(
+        name=&#39;delay between\nlactose exposures&#39;,
+        limits=c(sprintf(&#39;%dh&#39;, seq(4, 24, 4)), &#39;control&#39;, &#39;control (late)&#39;),
+        values=c(scales::viridis_pal()(6), &#39;gray40&#39;, &#39;gray70&#39;) ) +
+      scale_linetype_manual(
+        name=&#39;delay between\nlactose exposures&#39;,
+        limits=c(sprintf(&#39;%dh&#39;, seq(4, 24, 4)), &#39;control&#39;, &#39;control (late)&#39;),
+        values=c(&quot;11&quot;, &quot;41&quot;, &quot;4111&quot;, &quot;11&quot;, &quot;41&quot;, &quot;4111&quot;, &quot;solid&quot;, &quot;solid&quot;)) +
+        # values=c(3, 2, 4, 3, 2, 4, 1, 1)) +
+      guides(col=guide_legend(ncol=2), lty=guide_legend(ncol=2)) +
+      coord_cartesian(xlim=c(-10, 240), ylim=c(-.01, 1.01), expand=FALSE) +
+      labs(x=lac_lags_label,  y=&#39;reverse cumulative\nprobability&#39;) +
+      theme_cowplot_legend_inset() +  
+      theme(axis.line.x=element_line(), axis.line.y=element_line(),
+            strip.background=element_rect(fill=&#39;gray95&#39;, colour=&#39;transparent&#39;), 
+            legend.position = c(1, 1), legend.justification = c(1,1),
+            legend.margin=margin(),
+            legend.key.width = unit(1.8, &quot;lines&quot;),
+            # legend.key.height=unit(0.7, &quot;lines&quot;)
+      ) +
+      NULL
+   ))</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-23-1.svg" width="672" /></p>
+<pre class="r"><code># mycells_switching %&gt;% ungroup() %&gt;% 
+#   filter(!date %in% discarded_dates) %&gt;%
+#   filter(discard_arrested) %&gt;% 
+#   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | condition==&#39;switch_late&#39;) %&gt;%
+#   ggplot(aes()) +
+#   geom_freqpoly(</code></pre>
+<p>In order to estimate the inherited LacZ-GFP of a given cell at the second switch, we compute the maximum LacZ-GFP level of its ancestor (at the end of the first lactose exposure) and account for the dilution given the number of division until the second switch (assuming even partitioning at each division).</p>
+<pre class="r"><code>mycells_switching_memory &lt;- mycells_switching %&gt;% ungroup() %&gt;% 
+  filter(!date %in% discarded_dates) %&gt;%
+  filter(!discard_arrested) %&gt;% 
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+  filter(switch_idx==2) %&gt;% 
+  select(date, pos, gl, ugen, genealogy) %&gt;% 
+  group_by(date, pos, gl, ugen, genealogy) %&gt;%
+  # do(parents=get_all_parents_cid(.$genealogy))
+  do(tibble(parent=get_all_parents_cid(.$genealogy))) %&gt;% 
+  inner_join(
+    myframes %&gt;% ungroup %&gt;% 
+      filter(!date %in% discarded_dates) %&gt;%
+      filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+      filter(medium==&#39;lactose&#39;, m_cycle==1) %&gt;%
+      filter(abs(time_sec-(m_end-dt))&lt;1) %&gt;%
+      select(date, pos, gl, parent=genealogy, parent_gfp=gfp_nb) %&gt;%       
+      mutate(parent=str_replace(parent, &quot;:&quot;, &quot;&quot;)),
+    by=c(&quot;date&quot;, &quot;pos&quot;, &quot;gl&quot;, &quot;parent&quot;) ) %&gt;% 
+  mutate(divs_since_par = str_length(genealogy) - str_length(parent)) %&gt;% 
+  left_join(
+    mycells_switching %&gt;% ungroup %&gt;% 
+      filter(!date %in% discarded_dates) %&gt;%
+      filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;% 
+      filter(switch_idx==2),
+    by=c(&quot;date&quot;, &quot;pos&quot;, &quot;gl&quot;, &quot;genealogy&quot;) )</code></pre>
+<pre class="r"><code>(myplots[[&#39;memory_elapsed_divs&#39;]] &lt;- 
+mycells_switching_memory %&gt;% 
+  ggplot(aes(divs_since_par, ..density.., col=condition)) + 
+  geom_freqpoly(binwidth=1) +
+  scale_color_manual(name=&#39;delay between\nlactose exposure&#39;,
+                     limits=c(sprintf(&#39;switch_%02dh&#39;, seq(4, 24, 4))),
+                     labels=c(sprintf(&#39;%dh&#39;, seq(4, 24, 4))),
+                     values=c(scales::viridis_pal()(6)) ) +
+  labs(x=&quot;divisions since fully induced parent&quot;) +
+  NULL
+)</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-25-1.svg" width="672" /></p>
+<pre class="r"><code>(myplots[[&#39;lags_inherited_gfp&#39;]] &lt;- 
+   mycells_switching_memory %&gt;% 
+   ungroup %&gt;% 
+   mutate(gfp_inherit=parent_gfp/2^divs_since_par,
+          gfp_inherit_bin=as.numeric(as.character(Hmisc::cut2(gfp_inherit, cuts=c(-Inf, 10^seq(-1.1, 3.8, .6)), levels.mean=TRUE))) ) %&gt;% 
+   gather(variable, lag, growth_lag, lag_200, factor_key=TRUE) %&gt;% 
+   filter(variable==&#39;lag_200&#39;) %&gt;% 
+   (function(.df) 
+     ggplot(.df, aes(gfp_inherit, lag/60)) + 
+      # facet_grid(.~variable) +
+      geom_violin(aes(group=factor(gfp_inherit_bin)), show.legend = FALSE) +
+      geom_hline(yintercept = 50, lty=&#39;dashed&#39;) +
+      # geom_segment(x=0, xend=2, y=100, yend=100, data=NULL) +
+      geom_segment(aes(x=pmax(0, gfp_inherit-sqrt(gfp_inherit)), xend=gfp_inherit+sqrt(gfp_inherit),
+                       yend=lag/60, col=condition), alpha=.05, show.legend=FALSE) +
+      geom_point(aes(col=condition), pch=20, alpha=.1) +
+      # stat_smooth(aes(group=1), method=&#39;loess&#39;, span=.2, col=&#39;gray60&#39;, alpha=.2) +
+      # geom_pointrange(aes(gfp_inherit_bin, mean, ymin=mean-se, ymax=mean+se, size=n), 
+      #                 data=.df %&gt;% group_by(gfp_inherit_bin, variable) %&gt;% summarise(n=n(), mean=mean(lag/60, na.rm=TRUE), se=sd(lag/60, na.rm=TRUE)/sqrt(n)),
+      #                 show.legend = FALSE) +
+      scale_color_manual(name=&#39;delay between\nlactose exposure&#39;,
+                         limits=c(sprintf(&#39;switch_%02dh&#39;, seq(4, 24, 4))),
+                         labels=c(sprintf(&#39;%dh&#39;, seq(4, 24, 4))),
+                         values=c(scales::viridis_pal()(6)) ) +
+      guides(col=guide_legend(override.aes=list(alpha=1, size=2))) +
+      # scale_size_continuous(range=c(0.1, 1)) +
+      scale_size_continuous(range=c(0.02, 0.2)) +
+      scale_x_log10() +
+      coord_cartesian(xlim=c(0.1, 1.8e3), ylim=c(0, 110)) +
+      labs(x=&#39;inherited LacZ-GFP (molecules)&#39;, y=lac_lags_label) +
+      NULL
+   ))</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-26-1.svg" width="672" /></p>
+<p>Importantly, as long as a cell inherits more than a few molecules from the first exposure to lactose, it is granted to have a short lag at the second switch. This reveals that the threshold of Lac proteins required to be readily sensitive to lactose as an inducer is on the order of 1 molecule.</p>
+<pre class="r"><code>(myplots[[&#39;memory_frac_short&#39;]] &lt;- 
+   mycells_switching_memory %&gt;% ungroup() %&gt;% 
+   mutate(gfp_inherit=parent_gfp/2^divs_since_par,
+          gfp_inherit_bin=as.numeric(as.character(Hmisc::cut2(gfp_inherit, cuts=c(-Inf, 10^seq(-1.1, 3.8, .3)), levels.mean=TRUE))) ) %&gt;% 
+   filter(!is.na(lag_200)) %&gt;% 
+   (function(.df) 
+     ggplot() + 
+      geom_hline(aes(yintercept=prop), lty=&#39;dashed&#39;,
+                 data=mycells_switching %&gt;% ungroup %&gt;%
+                   filter(!date %in% discarded_dates) %&gt;%
+                   filter(!discard_arrested) %&gt;% 
+                   filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+                   filter(switch_idx==1) %&gt;%
+                   filter(!is.na(lag_200)) %&gt;% 
+                   summarise(n=n(), prop=sum(lag_200/60&lt;50)/n)
+      ) +
+      geom_rect(aes(xmin=0, xmax=Inf, ymin=prop-sqrt(prop*(1-prop)/n), ymax=prop+sqrt(prop*(1-prop)/n)),
+                fill=&#39;grey50&#39;, alpha=0.1,
+                data=mycells_switching %&gt;% ungroup %&gt;% 
+                  filter(!date %in% discarded_dates) %&gt;%
+                  filter(logl_time_slope_pre &gt; min_growth_rate) %&gt;% 
+                  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;)) %&gt;%
+                  filter(switch_idx==1) %&gt;% 
+                  filter(!is.na(lag_200)) %&gt;% 
+                  group_by(date) %&gt;% 
+                  summarise(n=n(), prop=sum(lag_200/60&lt;50)/n)
+      ) +
+      geom_pointrange(aes(gfp_inherit_bin, prop, size=n, ymin=prop-se, ymax=prop+se), 
+                      data=.df %&gt;% group_by(gfp_inherit_bin) %&gt;% summarise(n=n(), prop=sum(lag_200/60&lt;50)/n, se=sqrt(prop*(1-prop)/n))) +
+      scale_size_continuous(range=c(0.05, .5), breaks=c(50, 150)) +
+      scale_x_continuous(breaks=10^(0:3),
+                         trans=scales::trans_new(name=&#39;log10_rev&#39;, 
+                                                 transform=function(x) -log(x, 10), 
+                                                 inverse=function(x) 10^(-x))
+      ) +
+      coord_cartesian(xlim=c(0.1, 3e3)) +
+      expand_limits(y=0) +
+      labs(x=&#39;inherited LacZ-GFP molecules&#39;, y=&#39;fraction of short lags&#39;, size=&#39;sample size&#39;) +
+      guides(size=guide_legend(direction=&#39;horizontal&#39;)) +
+      theme_cowplot_legend_inset() +
+      theme(legend.position=c(0, 0), legend.justification=c(-0.1, -0.5), #&#39;top&#39;, 
+      legend.margin=margin(),
+      ) +
+      # theme(legend.position=c(0.99, 0.99), legend.justification=c(1, 1)) +
+      NULL
+   ))</code></pre>
+<p><img src="MoM_lacInduction_Native_files/figure-html/unnamed-chunk-27-1.svg" width="672" /></p>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
