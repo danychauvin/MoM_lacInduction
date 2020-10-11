@@ -7,7 +7,8 @@ output:
     toc: false
 ---
 
-This is a companion website describing the data analysis underlying the article [*Subpopulations of sensorless bacteria drive fitness in fluctuating environments*](https://doi.org/10.1101/2020.01.04.894766).
+This is a companion website describing the data analysis underlying the article [*Subpopulations of sensorless bacteria drive fitness in fluctuating environments*](https://doi.org/10.1101/2020.01.04.894766). 
+<!-- This website simply consists of all Rmarkdown notebooks used for analysis rendered as html; as such it might not always read smoothly. Alternatively all underlying scripts are available on [GitHub](https://github.com/julou/MoM_lacInduction). -->
 
 This project consists for a large part of single-cell experiments done using microfluidics:
 

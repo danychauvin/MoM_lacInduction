@@ -37,7 +37,7 @@ We checked that fluorescence time series don't feature abherent patterns despite
 ```{r eval=FALSE, echo=FALSE}
 # need to correct for autofluo shift??
 myframes %>% 
-  ungroup() %>% filter(str_detect(condition, 'switch_pre_lac001')) %>%
+  ungroup() %>% filter(str_detect(condition, 'switch_lac001')) %>%
   filter(!discard_top) %>% 
   ggplot(aes(time_sec, gfp_nb+100, col=ugen)) +
   facet_wrap(~date, ncol=1) +
@@ -87,9 +87,9 @@ First thing to note is that short lags are spread over a slightly wider window, 
 mycells_switching %>% ungroup %>% 
   filter(!date %in% discarded_dates) %>%
   filter(switch_idx==1) %>% 
-  filter(str_detect(condition, '^switch_[0-9]+h$') | str_detect(condition, 'switch_pre_lac001')) %>% 
-  mutate(date2=date, date2=ifelse(str_detect(condition, '^switch_[0-9]+h$') & !str_detect(condition, 'switch_pre_lac001'), NA, date2)) %>% 
-  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') & !str_detect(condition, 'switch_pre_lac001'), 'switch', as.character(condition)),
+  filter(str_detect(condition, '^switch_[0-9]+h$') | str_detect(condition, 'switch_lac001')) %>% 
+  mutate(date2=date, date2=ifelse(str_detect(condition, '^switch_[0-9]+h$') & !str_detect(condition, 'switch_lac001'), NA, date2)) %>% 
+  mutate(condition=ifelse(str_detect(condition, '^switch_[0-9]+h$') & !str_detect(condition, 'switch_lac001'), 'switch', as.character(condition)),
          condition=fct_rev(condition)) %>% 
   mutate(lag=lag_200,
          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
@@ -97,7 +97,7 @@ mycells_switching %>% ungroup %>%
   ggplot(aes(lag/60)) +
   facet_grid(condition~., scales='free_y', labeller=as_labeller(rename_conds)) +
   geom_vline(aes(xintercept=time), lty="dotted",
-             data=tibble(condition=c("switch_pre_lac001_6h", "switch_pre_lac001_10h", "switch"), time=c(65, 65, 50))) +
+             data=tibble(condition=c("switch_lac001_6h", "switch_lac001_10h", "switch"), time=c(65, 65, 50))) +
   # geom_freqpoly(aes(col=factor(date2), fill=factor(date2), group=date), alpha=.8, binwidth=6) +
   geom_histogram(aes(fill=factor(date2), group=date), alpha=.2, position='identity', binwidth=6) +
   geom_step_hist(aes(col=factor(date2), group=date), position='identity', binwidth=6) +
@@ -114,14 +114,14 @@ Let's extract the ancestry lineage of cells for which a lag can be measured, and
 ```{r}
 # LOOK AT ANCESTORS
 mycells_switchingLow_memory <- mycells_switching %>% ungroup() %>% 
-  filter(str_detect(condition, 'switch_pre_lac001')) %>% 
+  filter(str_detect(condition, 'switch_lac001')) %>% 
   select(date, pos, gl, ugen, genealogy) %>% 
   group_by(date, pos, gl, ugen, genealogy) %>%
   # do(parents=get_all_parents_cid(.$genealogy))
   do(tibble(parent=c(get_all_parents_cid(.$genealogy), .$genealogy))) %>% 
   inner_join(
     myframes %>% ungroup() %>% 
-      filter(str_detect(condition, 'switch_pre_lac001')) %>% 
+      filter(str_detect(condition, 'switch_lac001')) %>% 
       filter(m_cycle==1, medium=='glucose') %>% 
       select(date, pos, gl, parent=genealogy, time_sec, parent_gfp=gfp_nb) %>% 
       mutate(parent=str_replace(parent, ":", "")),
@@ -130,7 +130,7 @@ mycells_switchingLow_memory <- mycells_switching %>% ungroup() %>%
   nest(lineage=c('parent', 'time_sec', 'parent_gfp', 'divs_to_switch')) %>% 
   left_join(
     mycells_switching %>% ungroup() %>% 
-      filter(str_detect(condition, 'switch_pre_lac001')),
+      filter(str_detect(condition, 'switch_lac001')),
     by=c("date", "pos", "gl", "ugen", "genealogy") ) %>% 
   ungroup() %>% 
   mutate(gfp_start = map_dbl(lineage, ~ filter(., time_sec < 10*60) %>% pull(parent_gfp) %>% mean() ),
@@ -293,7 +293,7 @@ Last, we measure the growth rate after the switch in 0.01% lactose in order (1) 
 ```{r eval=FALSE, echo=FALSE}
 # myframes %>% 
 #   ungroup %>% 
-#   filter(str_detect(condition, 'switch_pre_lac001')) %>% 
+#   filter(str_detect(condition, 'switch_lac001')) %>% 
 #   mutate(time_sec=ifelse(date=='20190605', time_sec+4*3600, time_sec)) %>% 
 #   ggplot(aes(time_sec, gfp_nb/length_um, col=factor(date))) +
 #   geom_vline(xintercept = 10 * 3600, col="grey50") +
@@ -304,7 +304,7 @@ Last, we measure the growth rate after the switch in 0.01% lactose in order (1) 
 
 myframes %>% 
   ungroup %>% 
-  filter(str_detect(condition, 'switch_pre_lac001')) %>% 
+  filter(str_detect(condition, 'switch_lac001')) %>% 
   mutate(time_sec=ifelse(date=='20190605', time_sec+4*3600, time_sec)) %>% 
   filter(time_sec > 11*3600) %>% 
   group_by(date, ugen) %>% 

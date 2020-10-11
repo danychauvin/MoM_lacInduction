@@ -1,3 +1,4 @@
+# ZENODO ##########
 (function(export_dir = "/scicore/home/nimwegen/GROUP/MM_Data/Thomas/_lacInductionArticle/Julou_2020_lacInduction_RawImages",
           .force=FALSE) {
 # this anonymous function exports raw data (one dataset per compressed file) after the following scheme:
@@ -217,6 +218,7 @@ EOF", .f, export_dir, .f, .f, .f) %>%
 })()
 
 
+# IDR metadata #######
 (function() {
   # this anonymous function exports IDR metadata after the following scheme:
   # - traverse R data to list all datasets used and corresponding files
@@ -318,7 +320,29 @@ EOF", .f, export_dir, .f, .f, .f) %>%
       'Processed Data File' = preproc, # name of the file with the results in
     ) %>% 
     
-  write_delim('Julou_2020-lacInduction-assays.txt', delim='\t')
+  write_delim('share/Julou_2020-lacInduction-assays.txt', delim='\t')
 
 })()
+
+
+
+# PLoS (lags export) #######
+
+mycells_switching %>% ungroup %>% 
+  filter_article_ds() %>% 
+  filter(! date %in% discarded_dates) %>% 
+  filter(!discard_arrested | condition=='switch_gly_lac') %>%
+  filter(switch_idx == 1 | (str_detect(condition, '^switch_[0-9]+h$') & switch_idx < 3) ) %>% 
+  left_join(
+    mycells_switching_memory %>% 
+      ungroup() %>% 
+      mutate(gfp_inherit=parent_gfp/2^divs_since_par) %>% 
+      select(ugen=ugen.x, gfp_inherit, parent_gfp, divs_since_par)
+  ) %>% 
+  left_join(select(mycells_switchingLow_memory, ugen, gfp_inherit, fluo_focus)) %>% 
+  select(condition, ugen, date, pos, gl, switch_idx, lag_gfp_200=lag_200, growth_lag, 
+         gfp_ini, gr_before=logl_time_slope_before, gfp_inherit, parent_gfp, n_divs_since_parent=divs_since_par, fluo_focus, time_birth, time_div) %>% 
+  write.csv("share/Julou_2020-lacInduction-lags.csv", row.names=FALSE)
+  # identity()
+
 

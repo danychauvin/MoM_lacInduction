@@ -438,7 +438,7 @@ div.tocify {
 
 <h1 class="title toc-ignore"><em>lac</em> induction at low lactose concentrations</h1>
 <h4 class="author">Thomas Julou</h4>
-<h4 class="date">09 October, 2020</h4>
+<h4 class="date">11 October, 2020</h4>
 
 </div>
 
@@ -454,9 +454,9 @@ div.tocify {
 mycells_switching %&gt;% ungroup %&gt;% 
   filter(!date %in% discarded_dates) %&gt;%
   filter(switch_idx==1) %&gt;% 
-  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | str_detect(condition, &#39;switch_pre_lac001&#39;)) %&gt;% 
-  mutate(date2=date, date2=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) &amp; !str_detect(condition, &#39;switch_pre_lac001&#39;), NA, date2)) %&gt;% 
-  mutate(condition=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) &amp; !str_detect(condition, &#39;switch_pre_lac001&#39;), &#39;switch&#39;, as.character(condition)),
+  filter(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) | str_detect(condition, &#39;switch_lac001&#39;)) %&gt;% 
+  mutate(date2=date, date2=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) &amp; !str_detect(condition, &#39;switch_lac001&#39;), NA, date2)) %&gt;% 
+  mutate(condition=ifelse(str_detect(condition, &#39;^switch_[0-9]+h$&#39;) &amp; !str_detect(condition, &#39;switch_lac001&#39;), &#39;switch&#39;, as.character(condition)),
          condition=fct_rev(condition)) %&gt;% 
   mutate(lag=lag_200,
          lag=ifelse(!is.infinite(lag), lag, max(lag[is.finite(lag)])+60),
@@ -464,7 +464,7 @@ mycells_switching %&gt;% ungroup %&gt;%
   ggplot(aes(lag/60)) +
   facet_grid(condition~., scales=&#39;free_y&#39;, labeller=as_labeller(rename_conds)) +
   geom_vline(aes(xintercept=time), lty=&quot;dotted&quot;,
-             data=tibble(condition=c(&quot;switch_pre_lac001_6h&quot;, &quot;switch_pre_lac001_10h&quot;, &quot;switch&quot;), time=c(65, 65, 50))) +
+             data=tibble(condition=c(&quot;switch_lac001_6h&quot;, &quot;switch_lac001_10h&quot;, &quot;switch&quot;), time=c(65, 65, 50))) +
   # geom_freqpoly(aes(col=factor(date2), fill=factor(date2), group=date), alpha=.8, binwidth=6) +
   geom_histogram(aes(fill=factor(date2), group=date), alpha=.2, position=&#39;identity&#39;, binwidth=6) +
   geom_step_hist(aes(col=factor(date2), group=date), position=&#39;identity&#39;, binwidth=6) +
@@ -475,14 +475,14 @@ mycells_switching %&gt;% ungroup %&gt;%
 <p>Let’s extract the ancestry lineage of cells for which a lag can be measured, and compute the inherited LacZ-GFP from the GFP level at the start of the glucose phase.</p>
 <pre class="r"><code># LOOK AT ANCESTORS
 mycells_switchingLow_memory &lt;- mycells_switching %&gt;% ungroup() %&gt;% 
-  filter(str_detect(condition, &#39;switch_pre_lac001&#39;)) %&gt;% 
+  filter(str_detect(condition, &#39;switch_lac001&#39;)) %&gt;% 
   select(date, pos, gl, ugen, genealogy) %&gt;% 
   group_by(date, pos, gl, ugen, genealogy) %&gt;%
   # do(parents=get_all_parents_cid(.$genealogy))
   do(tibble(parent=c(get_all_parents_cid(.$genealogy), .$genealogy))) %&gt;% 
   inner_join(
     myframes %&gt;% ungroup() %&gt;% 
-      filter(str_detect(condition, &#39;switch_pre_lac001&#39;)) %&gt;% 
+      filter(str_detect(condition, &#39;switch_lac001&#39;)) %&gt;% 
       filter(m_cycle==1, medium==&#39;glucose&#39;) %&gt;% 
       select(date, pos, gl, parent=genealogy, time_sec, parent_gfp=gfp_nb) %&gt;% 
       mutate(parent=str_replace(parent, &quot;:&quot;, &quot;&quot;)),
@@ -491,7 +491,7 @@ mycells_switchingLow_memory &lt;- mycells_switching %&gt;% ungroup() %&gt;%
   nest(lineage=c(&#39;parent&#39;, &#39;time_sec&#39;, &#39;parent_gfp&#39;, &#39;divs_to_switch&#39;)) %&gt;% 
   left_join(
     mycells_switching %&gt;% ungroup() %&gt;% 
-      filter(str_detect(condition, &#39;switch_pre_lac001&#39;)),
+      filter(str_detect(condition, &#39;switch_lac001&#39;)),
     by=c(&quot;date&quot;, &quot;pos&quot;, &quot;gl&quot;, &quot;ugen&quot;, &quot;genealogy&quot;) ) %&gt;% 
   ungroup() %&gt;% 
   mutate(gfp_start = map_dbl(lineage, ~ filter(., time_sec &lt; 10*60) %&gt;% pull(parent_gfp) %&gt;% mean() ),

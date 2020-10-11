@@ -26,7 +26,7 @@ mytables[['expts_list']] %>%
      identity()
   ) %>% 
   str_replace(fixed("{tab:}"), "{tab:expts-list}") %>% 
-  str_replace(fixed("\\resizebox{\\linewidth}{!}"), "\\resizebox*{!}{0.9\\textheight}") %>% 
+  # str_replace(fixed("\\resizebox{\\linewidth}{!}"), "\\resizebox*{!}{0.9\\textheight}") %>% 
   write(here('plots', 'SI_figs', 'expts-list.tex'))
 
 

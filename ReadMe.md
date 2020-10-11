@@ -1,6 +1,8 @@
 
 This repository contains the scripts used to analyse data and produce figures for the manuscript "[Subpopulations of sensorless bacteria drive fitness in fluctuating environments](https://doi.org/10.1101/2020.01.04.894766v2)", by Thomas Julou, Ludovit Zweifel, Diana Blank, Athos Fiori, and Erik van Nimwegen.
 
+If you are interested in reading this analysis, please visit the companion website at https://julou.github.io/MoM_lacInduction/ where all scripts and their output are already rendered. Alternatively, you can download, or fork-then-clone this repository.
+
 Data for bacterial growth curves and FLCS experiments are provided along the scripts using git-lfs.
 
 Raw data from mother machine experiments are available form https://doi.org/10.5281/zenodo.3894719.
@@ -15,15 +17,16 @@ Learn more about collaborating with `renv` at https://rstudio.github.io/renv/art
 Run `MoM_lacInduction.R` to load the data and render the analysis files to html.
 Note that calling `render()` or `render_site()` from the command line allows to execute the function in the global env() (hence inheriting existing variables and keeping newly created ones).
 
-These scripts rely heavily on `multidplyr`...
+These scripts rely heavily on [`multidplyr`](https://multidplyr.tidyverse.org)...
 
 
 ## Rmardown rendering
 Designed as a Rmarkdown "site". hence requires rmarkdown ≥ 1.0
 
-`index.Rmd` file is required for site_render() to execute.
+The output is rendered in `/docs` since this directory is supported by Github Pages as website root; a `.nojekyll` empty file ensures that files are served as they are.  
+NB: the `index.Rmd` file is required for site_render() to execute.
 
-in _site.yml, `exclude: ["*"]` is required to prevent all subdirectories to be copies (all the more so as symlinks are followed!)
+In _site.yml, `exclude: ["*"]` is required to prevent all subdirectories to be copied (all the more so as symlinks are followed!)
 
 Here is an example of the minimal YAML header to put in each Rmarkdown file.
 NB: date syntax from http://stackoverflow.com/questions/23449319
