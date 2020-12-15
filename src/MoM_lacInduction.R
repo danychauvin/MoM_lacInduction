@@ -3,7 +3,8 @@ load_from_Rdata <- TRUE
 
 
 # SET ENVIRONMENT ####
-# install.packages(c('remotes', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
+options(repos = c(REPO_NAME = "https://packagemanager.rstudio.com/all/__linux__/centos7/latest"))
+#install.packages(c('remotes', 'here', 'tidyverse', 'RcppArmadillo', 'svglite'))
 # remotes::install_github(c('julou/ggCustomTJ', 'hadley/multidplyr'))
 # remotes::install_github('vanNimwegenLab/vngMoM', auth_token='xxx')
 suppressPackageStartupMessages({
