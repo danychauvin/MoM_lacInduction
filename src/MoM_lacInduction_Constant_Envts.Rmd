@@ -10,8 +10,8 @@ Let's compute stats over the cell cycle for each cell.
 ```{r}
 mycells_constant <- filter(myframes, condition %in% c('glucose', 'lactose'), !discard_top) %>%
   filter(!(date=='20160427' & time_sec>7e4)) %>%  # remove dilution step at the end of expt
-  # group_by(condition, date, pos, gl, id, cell, parent_id, genealogy) %>%
-  partition(condition, date, pos, gl, id, cell, parent_id, genealogy, cluster=mycluster) %>%
+  group_by(condition, date, pos, gl, id, cell, parent_id, genealogy) %>%
+  partition(cluster=mycluster) %>%
   filter(!any(discard_start), end_type=='div') %>% # full cell cycles only
   filter(n()>4) %>% # at least 4 time points
   do((function(.df) {
@@ -54,8 +54,8 @@ mycells_constant <- filter(myframes, condition %in% c('glucose', 'lactose'), !di
 
 ```{r eval=FALSE, echo=FALSE}
 myframes_constant <- semi_join(myframes, mycells_constant) %>% 
-  # group_by(date, pos, gl, id) %>% 
-  partition(date, pos, gl, id, cluster=mycluster) %>%
+  group_by(date, pos, gl, id) %>% 
+  partition(cluster=mycluster) %>%
   do((function(.df){
     .n <- dim(.df)[1]
       .cell_cycle <- ((1:.n)-.5) / .n
@@ -79,9 +79,8 @@ mycells_constant <- mycells_constant %>%
          c_birth=g_first/l_birth, c_div=g_last/l_div)
 
 mypairs_constant <- mycells_constant %>% 
-  # group_by(str_cond, gl_id) %>%
-  partition(condition, date, gl_id, 
-            cluster=mycluster %>% cluster_assign_func(genealogy_relationship, genealogy_ontology) ) %>% 
+  group_by(condition,date, gl_id) %>%
+  partition(cluster=mycluster %>% cluster_assign_func(genealogy_relationship, genealogy_ontology) ) %>% 
   do((function(.df) {
     # browser()
     if (nrow(.df)<2) 
