@@ -133,6 +133,8 @@ myconditions <- list(
 )
 
 
+
+
 # LOAD MoMA DATA ####
 # find raw data files from myconditions and store them in a dataframe
 myfiles <- myconditions %>% 
@@ -145,7 +147,7 @@ myfiles <- myconditions %>%
   group_by(condition, data_path) %>% 
   do((function(.df)
     # list.files(.df$data_path, ".*\\d+\\.csv", recursive=TRUE, full.names=TRUE) %>% 
-    find.files(.df$data_path, "ExportedCellStats_*.csv") %>% 
+    find.files(.df$data_path, "ExportedCellStats_*.csv") %>%
       data.frame(path=., stringsAsFactors=FALSE) )(.))  
 
 #  create condition_acq_times (describing acquisition times and temporal change of each condition) from myconditions
@@ -163,6 +165,14 @@ condition_acq_times <- myconditions %>%
   group_by(condition) %>% 
   mutate(frame=as.numeric(order(time_sec)-1))
 
+#Here one should be able to directly load preproc files available on Zenodo.
+#prepoc_path <- '/scicore/home/nimwegen/rocasu25/MM_Data/Dany/MoM_lacInduction_data/Julou_2020_lacInduction_GL_Preproc/'
+#One easy turn around is to provide a dataframe with the following structure
+#```
+#data.frame(ppath='absolute/path/to/preproc/files','condition')
+#```
+
+
 # load perl scripts output to dataframes (using parallel dplyr)
 nc <- min(nrow(myfiles), length(mycluster)) # this is a dirty hack because multidplyr crashes with less shards than cores
 myframes <- myfiles %>% 
@@ -172,7 +182,9 @@ myframes <- myfiles %>%
                                  .qsub_name="MMex_pl", .force=FALSE, .skip=TRUE) ) %>% 
   filter(!is.na(ppath)) %>% 
   # load perl scripts output to dataframes (in parallel, using multidplyr)
-  partition(condition, path, cluster=mycluster[1:nc] ) %>%
+  group_by(condition,path) %>% 
+  partition(cluster=mycluster) %>%
+  #partition(condition, path, cluster=mycluster[1:nc] ) %>%
   # group_by(condition, path) %>% # non-parallel alternative
   do((function(.df){
     # browser()

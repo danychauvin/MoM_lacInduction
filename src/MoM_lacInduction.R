@@ -1,5 +1,5 @@
 # EVALUATION PARAMETERS ####
-# load_from_Rdata <- TRUE
+load_from_Rdata <- FALSE
 
 
 # SET ENVIRONMENT ####
