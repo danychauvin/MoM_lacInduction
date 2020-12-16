@@ -558,12 +558,12 @@
       "Version": "0.0.0.9000",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteHost": "api.github.com",
+      "RemoteHost": "https://api.github.com",
       "RemoteRepo": "multidplyr",
       "RemoteUsername": "hadley",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "03bf5c470e9dee88ebd00c9f6f89387ad47f3aaf",
-      "Hash": "635b1a768b01600bc1144d7dab03c4df"
+      "RemoteRef": "master",
+      "RemoteSha": "0085ded4048d7fbe5079616c40640dbf5982faf2",
+      "Hash": "28c2426078d7a1aeb52a177a893a099c"
     },
     "munsell": {
       "Package": "munsell",

@@ -28,7 +28,7 @@ theme_cowplot_legend_inset <- function(.rel=0.7) theme(legend.title=element_text
 # set a parallel environment to run multidplyr
 library(multidplyr)
 mycluster <- min(30, parallel::detectCores()-1) %>%  # do not use more than 30 cores
-  default_cluster() %>% cluster_library( # load currently loaded packages on each core
+  new_cluster() %>% cluster_library( # load currently loaded packages on each core
     names(sessionInfo()$otherPkgs)
   )
 
